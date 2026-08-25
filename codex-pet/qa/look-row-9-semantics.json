@@ -1,0 +1,49 @@
+{
+  "ok": true,
+  "row": 9,
+  "registered_source": "qa/look-row-9-registered.png",
+  "edge_check": "pass",
+  "continuity": "pass",
+  "directions": [
+    {
+      "direction": "000",
+      "verdict": "pass",
+      "observed": "Both complete eyes and chin aim upward; paws and torso remain anchored."
+    },
+    {
+      "direction": "022.5",
+      "verdict": "pass",
+      "observed": "Eyes lead slightly toward screen-right while retaining a strong upward axis."
+    },
+    {
+      "direction": "045",
+      "verdict": "pass",
+      "observed": "Eyes and muzzle share a balanced up-right diagonal with restrained head yaw."
+    },
+    {
+      "direction": "067.5",
+      "verdict": "pass",
+      "observed": "Rightward head yaw increases evenly while the upward cue remains visible."
+    },
+    {
+      "direction": "090",
+      "verdict": "pass",
+      "observed": "Nose tip, pupils, and muzzle point unmistakably toward screen-right."
+    },
+    {
+      "direction": "112.5",
+      "verdict": "pass",
+      "observed": "Screen-right direction remains clear as eyes and head begin an even downward pitch."
+    },
+    {
+      "direction": "135",
+      "verdict": "pass",
+      "observed": "Eyes and bowed head form a coherent down-right diagonal without registration shift."
+    },
+    {
+      "direction": "157.5",
+      "verdict": "pass",
+      "observed": "The pose is predominantly down with a remaining rightward cue, one small step before 180."
+    }
+  ]
+}

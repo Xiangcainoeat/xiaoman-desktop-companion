@@ -1,0 +1,104 @@
+import { useState } from "react";
+import {
+  AppWindow,
+  BellRing,
+  Eye,
+  LayoutDashboard,
+  Settings,
+  Utensils,
+} from "lucide-react";
+import { STATE_LABELS } from "../shared/domain";
+import { bridge, useCompanion } from "../useCompanion";
+import { EventsView } from "./EventsView";
+import { OverviewView } from "./OverviewView";
+import { RemindersView } from "./RemindersView";
+import { SettingsView } from "./SettingsView";
+
+type Tab = "overview" | "reminders" | "events" | "settings";
+
+const NAVIGATION: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
+  { id: "overview", label: "概览", icon: <LayoutDashboard size={18} /> },
+  { id: "reminders", label: "提醒计划", icon: <BellRing size={18} /> },
+  { id: "events", label: "应用事件", icon: <AppWindow size={18} /> },
+  { id: "settings", label: "设置", icon: <Settings size={18} /> },
+];
+
+const TAB_TITLES: Record<Tab, string> = {
+  overview: "今天的小满",
+  reminders: "提醒计划",
+  events: "外部应用事件",
+  settings: "偏好设置",
+};
+
+export function ControlCenter() {
+  const snapshot = useCompanion();
+  const [tab, setTab] = useState<Tab>("overview");
+
+  if (!snapshot) {
+    return (
+      <main className="center-loading">
+        <div className="loading-pulse" />
+        <span>小满</span>
+      </main>
+    );
+  }
+
+  return (
+    <main className="center-shell">
+      <aside className="sidebar">
+        <div className="sidebar-drag-region" />
+        <div className="brand-block">
+          <div className="brand-avatar"><img src="./pet/avatar.png" alt="" /></div>
+          <div><strong>小满</strong><span>桌面伴侣</span></div>
+        </div>
+        <nav className="sidebar-nav" aria-label="主导航">
+          {NAVIGATION.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={tab === item.id ? "is-active" : ""}
+              onClick={() => setTab(item.id)}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+              {item.id === "reminders" && snapshot.reminders.filter((reminder) => reminder.enabled).length > 0 && (
+                <em>{snapshot.reminders.filter((reminder) => reminder.enabled).length}</em>
+              )}
+            </button>
+          ))}
+        </nav>
+        <div className="sidebar-footer">
+          <div className="sidebar-state">
+            <span className={`live-dot state-${snapshot.state}`} />
+            <div><strong>{STATE_LABELS[snapshot.state]}</strong><small>{snapshot.monitoring.activeApplication ?? "桌面"}</small></div>
+          </div>
+          <div className="sidebar-totals">
+            <span><Utensils size={14} />{snapshot.stats.meals}</span>
+            <span><Eye size={14} />{snapshot.stats.interactions}</span>
+          </div>
+        </div>
+      </aside>
+
+      <section className="center-content">
+        <header className="topbar">
+          <div><span className="eyebrow">小满桌面伴侣</span><h1>{TAB_TITLES[tab]}</h1></div>
+          <div className="topbar-actions">
+            <span className={`monitor-pill ${snapshot.monitoring.codexBusy ? "is-busy" : ""}`}>
+              <span />{snapshot.monitoring.codexBusy ? "Codex 工作中" : "已就绪"}
+            </span>
+            <button className="secondary-button" type="button" onClick={() => bridge.toggleOverlay()}>
+              <Eye size={16} />
+              {snapshot.settings.overlayVisible ? "隐藏小满" : "显示小满"}
+            </button>
+          </div>
+        </header>
+        <div className="content-scroll">
+          {tab === "overview" && <OverviewView snapshot={snapshot} />}
+          {tab === "reminders" && <RemindersView snapshot={snapshot} />}
+          {tab === "events" && <EventsView snapshot={snapshot} />}
+          {tab === "settings" && <SettingsView snapshot={snapshot} />}
+        </div>
+      </section>
+    </main>
+  );
+}

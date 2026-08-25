@@ -1,0 +1,149 @@
+export const PET_STATES = [
+  "idle",
+  "working",
+  "waiting",
+  "ready",
+  "failed",
+  "hungry",
+  "eating",
+  "happy",
+  "affectionate",
+  "sleepy",
+  "sleeping",
+  "playful",
+  "startled",
+  "celebrating",
+  "focused",
+  "reminder",
+] as const;
+
+export type PetState = (typeof PET_STATES)[number];
+
+export const SOUND_NAMES = ["none", "meow", "purr", "chime", "crunch", "pop", "alert"] as const;
+export type SoundName = (typeof SOUND_NAMES)[number];
+
+export type InteractionAction = "feed" | "pet" | "play" | "sleep" | "wake" | "celebrate";
+export type ReminderRepeat = "once" | "daily" | "weekdays" | "weekly";
+
+export interface PetStats {
+  fullness: number;
+  affection: number;
+  energy: number;
+  lastUpdatedAt: number;
+  lastFedAt: number | null;
+  lastPettedAt: number | null;
+  meals: number;
+  interactions: number;
+}
+
+export interface Reminder {
+  id: string;
+  title: string;
+  message: string;
+  time: string;
+  repeat: ReminderRepeat;
+  date: string | null;
+  days: number[];
+  enabled: boolean;
+  sound: SoundName;
+  lastTriggeredKey: string | null;
+}
+
+export interface AppRule {
+  id: string;
+  name: string;
+  appPattern: string;
+  state: PetState;
+  message: string;
+  sound: SoundName;
+  notify: boolean;
+  enabled: boolean;
+}
+
+export interface CompanionSettings {
+  overlayVisible: boolean;
+  alwaysOnTop: boolean;
+  gazeEnabled: boolean;
+  gazeFrameRate: 30 | 60;
+  gazeSmoothingMs: number;
+  gazeDeadzonePx: number;
+  soundEnabled: boolean;
+  volume: number;
+  systemNotifications: boolean;
+  proactiveNotifications: boolean;
+  codexNotifications: boolean;
+  monitorCodex: boolean;
+  monitorApps: boolean;
+  startAtLogin: boolean;
+}
+
+export interface ActivityItem {
+  id: string;
+  at: number;
+  source: "interaction" | "reminder" | "codex" | "application" | "system";
+  title: string;
+  detail: string;
+  state: PetState;
+}
+
+export interface MonitoringStatus {
+  codex: "watching" | "off" | "unavailable";
+  applications: "watching" | "off" | "unavailable";
+  notifications: "available" | "unavailable" | "off";
+  activeApplication: string | null;
+  codexBusy: boolean;
+  codexStartedAt: number | null;
+}
+
+export interface PersistedData {
+  version: 1;
+  stats: PetStats;
+  reminders: Reminder[];
+  appRules: AppRule[];
+  settings: CompanionSettings;
+  sleeping: boolean;
+  overlayPosition: { x: number; y: number } | null;
+  activity: ActivityItem[];
+  proactive: {
+    lastHungerNoticeAt: number | null;
+    lastEnergyNoticeAt: number | null;
+    lastLongWorkNoticeAt: number | null;
+  };
+}
+
+export interface AppSnapshot extends PersistedData {
+  state: PetState;
+  stateMessage: string;
+  stateSource: string;
+  monitoring: MonitoringStatus;
+}
+
+export interface ReminderInput {
+  id?: string;
+  title: string;
+  message: string;
+  time: string;
+  repeat: ReminderRepeat;
+  date: string | null;
+  days: number[];
+  enabled: boolean;
+  sound: SoundName;
+}
+
+export interface AppRuleInput {
+  id?: string;
+  name: string;
+  appPattern: string;
+  state: PetState;
+  message: string;
+  sound: SoundName;
+  notify: boolean;
+  enabled: boolean;
+}
+
+export interface CursorPayload {
+  x: number;
+  y: number;
+  windowWidth: number;
+  windowHeight: number;
+}

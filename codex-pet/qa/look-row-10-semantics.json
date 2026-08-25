@@ -1,0 +1,49 @@
+{
+  "ok": true,
+  "row": 10,
+  "registered_atlas": "final/spritesheet-extended.webp",
+  "edge_check": "pass",
+  "continuity": "pass",
+  "directions": [
+    {
+      "direction": "180",
+      "verdict": "pass",
+      "observed": "Head bows centrally and both complete eyes aim down, one even step after 157.5."
+    },
+    {
+      "direction": "202.5",
+      "verdict": "pass",
+      "observed": "Downward pitch remains dominant while eyes and muzzle begin moving toward screen-left."
+    },
+    {
+      "direction": "225",
+      "verdict": "pass",
+      "observed": "Eyes and head form a balanced down-left diagonal with anchored paws."
+    },
+    {
+      "direction": "247.5",
+      "verdict": "pass",
+      "observed": "Leftward yaw increases evenly while a clear downward axis remains."
+    },
+    {
+      "direction": "270",
+      "verdict": "pass",
+      "observed": "Nose tip, pupils, muzzle, and head point unmistakably toward screen-left."
+    },
+    {
+      "direction": "292.5",
+      "verdict": "pass",
+      "observed": "Screen-left direction remains clear as the complete eyes and chin begin lifting."
+    },
+    {
+      "direction": "315",
+      "verdict": "pass",
+      "observed": "Eyes and muzzle share a coherent up-left diagonal without scale or registration shift."
+    },
+    {
+      "direction": "337.5",
+      "verdict": "pass",
+      "observed": "The pose is predominantly up with a remaining leftward cue, one small step before 000."
+    }
+  ]
+}

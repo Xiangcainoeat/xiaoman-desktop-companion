@@ -1,0 +1,11 @@
+{
+  "window": "packaged production control center",
+  "state": "working",
+  "sampleIntervalMs": 220,
+  "sampleCount": 10,
+  "foregroundPixelThreshold": 25000,
+  "foregroundPixels": [39991, 32740, 35472, 44635, 44931, 44908, 44738, 44620, 44461, 44672],
+  "minimumForegroundPixels": 32740,
+  "ok": true,
+  "purpose": "Verify that standard animation loops never select transparent tail cells."
+}

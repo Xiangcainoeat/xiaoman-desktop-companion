@@ -1,0 +1,44 @@
+import { contextBridge, ipcRenderer } from "electron";
+import type {
+  AppRuleInput,
+  AppSnapshot,
+  CompanionSettings,
+  CursorPayload,
+  InteractionAction,
+  ReminderInput,
+  SoundName,
+} from "../src/shared/types";
+
+contextBridge.exposeInMainWorld("xiaoman", {
+  getSnapshot: (): Promise<AppSnapshot> => ipcRenderer.invoke("snapshot:get"),
+  interact: (action: InteractionAction): Promise<AppSnapshot> => ipcRenderer.invoke("interaction:perform", action),
+  saveReminder: (input: ReminderInput): Promise<AppSnapshot> => ipcRenderer.invoke("reminder:save", input),
+  removeReminder: (id: string): Promise<AppSnapshot> => ipcRenderer.invoke("reminder:remove", id),
+  toggleReminder: (id: string): Promise<AppSnapshot> => ipcRenderer.invoke("reminder:toggle", id),
+  saveRule: (input: AppRuleInput): Promise<AppSnapshot> => ipcRenderer.invoke("rule:save", input),
+  removeRule: (id: string): Promise<AppSnapshot> => ipcRenderer.invoke("rule:remove", id),
+  toggleRule: (id: string): Promise<AppSnapshot> => ipcRenderer.invoke("rule:toggle", id),
+  updateSettings: (patch: Partial<CompanionSettings>): Promise<AppSnapshot> =>
+    ipcRenderer.invoke("settings:update", patch),
+  testNotification: (): Promise<void> => ipcRenderer.invoke("notification:test"),
+  clearActivity: (): Promise<AppSnapshot> => ipcRenderer.invoke("activity:clear"),
+  showCenter: (): void => ipcRenderer.send("center:show"),
+  toggleOverlay: (): void => ipcRenderer.send("overlay:toggle"),
+  moveOverlayBy: (deltaX: number, deltaY: number): void => ipcRenderer.send("overlay:move-by", deltaX, deltaY),
+  showOverlayMenu: (): void => ipcRenderer.send("overlay:context-menu"),
+  onSnapshot: (callback: (snapshot: AppSnapshot) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, snapshot: AppSnapshot) => callback(snapshot);
+    ipcRenderer.on("snapshot:changed", listener);
+    return () => ipcRenderer.removeListener("snapshot:changed", listener);
+  },
+  onCursor: (callback: (payload: CursorPayload) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, payload: CursorPayload) => callback(payload);
+    ipcRenderer.on("cursor:changed", listener);
+    return () => ipcRenderer.removeListener("cursor:changed", listener);
+  },
+  onSound: (callback: (sound: SoundName) => void): (() => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, sound: SoundName) => callback(sound);
+    ipcRenderer.on("sound:play", listener);
+    return () => ipcRenderer.removeListener("sound:play", listener);
+  },
+});

@@ -1,0 +1,407 @@
+{
+  "ok": true,
+  "source": "work/gaze-32-generated.png",
+  "output": "public/pet/look-32.webp",
+  "dimensions": [
+    1536,
+    832
+  ],
+  "grid": [
+    8,
+    4
+  ],
+  "cell": [
+    192,
+    208
+  ],
+  "frame_count": 32,
+  "source_regions": [
+    [
+      49,
+      36,
+      207,
+      245
+    ],
+    [
+      214,
+      36,
+      374,
+      245
+    ],
+    [
+      385,
+      36,
+      540,
+      245
+    ],
+    [
+      555,
+      36,
+      706,
+      245
+    ],
+    [
+      725,
+      36,
+      871,
+      245
+    ],
+    [
+      896,
+      36,
+      1036,
+      245
+    ],
+    [
+      1062,
+      36,
+      1202,
+      245
+    ],
+    [
+      1227,
+      36,
+      1367,
+      245
+    ],
+    [
+      65,
+      290,
+      205,
+      495
+    ],
+    [
+      240,
+      290,
+      378,
+      495
+    ],
+    [
+      412,
+      290,
+      548,
+      495
+    ],
+    [
+      583,
+      290,
+      721,
+      495
+    ],
+    [
+      751,
+      290,
+      888,
+      495
+    ],
+    [
+      920,
+      290,
+      1056,
+      495
+    ],
+    [
+      1090,
+      290,
+      1226,
+      495
+    ],
+    [
+      1259,
+      290,
+      1395,
+      495
+    ],
+    [
+      51,
+      563,
+      213,
+      738
+    ],
+    [
+      223,
+      563,
+      386,
+      738
+    ],
+    [
+      396,
+      563,
+      553,
+      738
+    ],
+    [
+      566,
+      563,
+      723,
+      738
+    ],
+    [
+      738,
+      563,
+      892,
+      738
+    ],
+    [
+      908,
+      563,
+      1061,
+      738
+    ],
+    [
+      1079,
+      563,
+      1232,
+      738
+    ],
+    [
+      1249,
+      563,
+      1399,
+      738
+    ],
+    [
+      71,
+      781,
+      222,
+      992
+    ],
+    [
+      240,
+      781,
+      391,
+      992
+    ],
+    [
+      409,
+      781,
+      557,
+      992
+    ],
+    [
+      579,
+      781,
+      726,
+      992
+    ],
+    [
+      750,
+      781,
+      896,
+      992
+    ],
+    [
+      921,
+      781,
+      1067,
+      992
+    ],
+    [
+      1093,
+      781,
+      1238,
+      992
+    ],
+    [
+      1264,
+      781,
+      1408,
+      992
+    ]
+  ],
+  "green_residue_pixels": 0,
+  "frames": [
+    {
+      "index": 0,
+      "degrees": 0.0,
+      "opaque_pixels": 13889,
+      "visible_pixels": 14958
+    },
+    {
+      "index": 1,
+      "degrees": 11.25,
+      "opaque_pixels": 13927,
+      "visible_pixels": 14958
+    },
+    {
+      "index": 2,
+      "degrees": 22.5,
+      "opaque_pixels": 13584,
+      "visible_pixels": 14643
+    },
+    {
+      "index": 3,
+      "degrees": 33.75,
+      "opaque_pixels": 13660,
+      "visible_pixels": 14696
+    },
+    {
+      "index": 4,
+      "degrees": 45.0,
+      "opaque_pixels": 13622,
+      "visible_pixels": 14675
+    },
+    {
+      "index": 5,
+      "degrees": 56.25,
+      "opaque_pixels": 13519,
+      "visible_pixels": 14520
+    },
+    {
+      "index": 6,
+      "degrees": 67.5,
+      "opaque_pixels": 13870,
+      "visible_pixels": 14775
+    },
+    {
+      "index": 7,
+      "degrees": 78.75,
+      "opaque_pixels": 14515,
+      "visible_pixels": 14583
+    },
+    {
+      "index": 8,
+      "degrees": 90.0,
+      "opaque_pixels": 14770,
+      "visible_pixels": 14842
+    },
+    {
+      "index": 9,
+      "degrees": 101.25,
+      "opaque_pixels": 14678,
+      "visible_pixels": 14745
+    },
+    {
+      "index": 10,
+      "degrees": 112.5,
+      "opaque_pixels": 14638,
+      "visible_pixels": 14719
+    },
+    {
+      "index": 11,
+      "degrees": 123.75,
+      "opaque_pixels": 13977,
+      "visible_pixels": 14781
+    },
+    {
+      "index": 12,
+      "degrees": 135.0,
+      "opaque_pixels": 14362,
+      "visible_pixels": 15182
+    },
+    {
+      "index": 13,
+      "degrees": 146.25,
+      "opaque_pixels": 14125,
+      "visible_pixels": 14953
+    },
+    {
+      "index": 14,
+      "degrees": 157.5,
+      "opaque_pixels": 14085,
+      "visible_pixels": 14921
+    },
+    {
+      "index": 15,
+      "degrees": 168.75,
+      "opaque_pixels": 14046,
+      "visible_pixels": 15002
+    },
+    {
+      "index": 16,
+      "degrees": 180.0,
+      "opaque_pixels": 17855,
+      "visible_pixels": 19222
+    },
+    {
+      "index": 17,
+      "degrees": 191.25,
+      "opaque_pixels": 17755,
+      "visible_pixels": 19062
+    },
+    {
+      "index": 18,
+      "degrees": 202.5,
+      "opaque_pixels": 18285,
+      "visible_pixels": 19639
+    },
+    {
+      "index": 19,
+      "degrees": 213.75,
+      "opaque_pixels": 18102,
+      "visible_pixels": 19435
+    },
+    {
+      "index": 20,
+      "degrees": 225.0,
+      "opaque_pixels": 18179,
+      "visible_pixels": 19511
+    },
+    {
+      "index": 21,
+      "degrees": 236.25,
+      "opaque_pixels": 17943,
+      "visible_pixels": 19223
+    },
+    {
+      "index": 22,
+      "degrees": 247.5,
+      "opaque_pixels": 18036,
+      "visible_pixels": 19389
+    },
+    {
+      "index": 23,
+      "degrees": 258.75,
+      "opaque_pixels": 18235,
+      "visible_pixels": 19565
+    },
+    {
+      "index": 24,
+      "degrees": 270.0,
+      "opaque_pixels": 13631,
+      "visible_pixels": 14651
+    },
+    {
+      "index": 25,
+      "degrees": 281.25,
+      "opaque_pixels": 13648,
+      "visible_pixels": 14662
+    },
+    {
+      "index": 26,
+      "degrees": 292.5,
+      "opaque_pixels": 13572,
+      "visible_pixels": 14603
+    },
+    {
+      "index": 27,
+      "degrees": 303.75,
+      "opaque_pixels": 13448,
+      "visible_pixels": 14434
+    },
+    {
+      "index": 28,
+      "degrees": 315.0,
+      "opaque_pixels": 13449,
+      "visible_pixels": 14458
+    },
+    {
+      "index": 29,
+      "degrees": 326.25,
+      "opaque_pixels": 13497,
+      "visible_pixels": 14489
+    },
+    {
+      "index": 30,
+      "degrees": 337.5,
+      "opaque_pixels": 13592,
+      "visible_pixels": 14612
+    },
+    {
+      "index": 31,
+      "degrees": 348.75,
+      "opaque_pixels": 13561,
+      "visible_pixels": 14593
+    }
+  ]
+}

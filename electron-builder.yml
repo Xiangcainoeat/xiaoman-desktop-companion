@@ -1,0 +1,22 @@
+appId: com.zk.xiaoman.desktop-companion
+productName: 小满桌面伴侣
+copyright: Copyright © 2026 zk
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - package.json
+asar: true
+afterPack: scripts/after-pack.cjs
+mac:
+  category: public.app-category.productivity
+  target:
+    - dmg
+    - zip
+  artifactName: Xiaoman-Desktop-Companion-${version}-${arch}.${ext}
+  identity: null
+dmg:
+  title: 小满桌面伴侣 ${version}
+  artifactName: Xiaoman-Desktop-Companion-${version}-${arch}.${ext}
