@@ -4,6 +4,7 @@ import type {
   AppRuleInput,
   AppSnapshot,
   CompanionSettings,
+  CodexThreadListResult,
   CursorPayload,
   InteractionAction,
   ReminderInput,
@@ -116,6 +117,10 @@ function createMockApi(): XiaomanApi {
       current.settings = { ...current.settings, ...patch };
       return publish();
     },
+    updateIdlePhrases: async (phrases: string[]) => {
+      current.idlePhrases = phrases;
+      return publish();
+    },
     testNotification: async () => {
       temporaryState("reminder", "系统通知工作正常", "chime");
       publish();
@@ -124,6 +129,41 @@ function createMockApi(): XiaomanApi {
       current.activity = [];
       return publish();
     },
+    listCodexThreads: async (): Promise<CodexThreadListResult> => ({
+      source: "app-server+logs",
+      warnings: [],
+      threads: [
+        {
+          id: "01a03ab3-1111-7111-8111-111111111111",
+          title: "完善小满桌面伴侣",
+          projectName: "xiaoman",
+          status: "active",
+          updatedAt: Date.now(),
+          activeTurnId: "turn-preview",
+          sourceKind: "appServer",
+          canReply: true,
+          waitReason: null,
+        },
+        {
+          id: "01a03ab3-2222-7222-8222-222222222222",
+          title: "整理宠物发布目录",
+          projectName: "release",
+          status: "idle",
+          updatedAt: Date.now() - 720_000,
+          activeTurnId: null,
+          sourceKind: "appServer",
+          canReply: true,
+          waitReason: null,
+        },
+      ],
+    }),
+    openCodexThread: async () => ({ ok: true, message: "已打开对应 Codex 任务" }),
+    replyCodexThread: async (_threadId: string, message: string) => ({
+      ok: true,
+      mode: "queued",
+      message: message.trim() ? "回复已排队；当前回复结束后会自动继续" : "请输入回复内容",
+    }),
+    setOverlayTaskPanel: () => undefined,
     showCenter: () => undefined,
     toggleOverlay: () => undefined,
     moveOverlayBy: () => undefined,

@@ -1,0 +1,12 @@
+Use case: stylized-concept
+Asset type: production sprite grid for Xiaoman desktop companion idle actions
+Primary request: Create three coherent eight-frame idle animation sequences of the exact same Siamese cat from the input spritesheet.
+Input image: identity, exact standing pose, proportions, scale, registration and rendering reference; preserve the cream coat, dark seal-point face, ears, paws and tail, vivid ice-blue eyes, and soft polished 3D mascot illustration style. The cat has no collar or accessories.
+Scene/backdrop: one perfectly uniform pure chroma-green #00FF00 background across the whole canvas.
+Composition/framing: exact 8 columns by 3 rows, 24 equally sized cells, one complete front-facing standing cat per cell, centered and fully inside each cell with equal margins. Match the input's four-paws-on-ground neutral stance. Keep paw baseline, body scale, lighting and registration stable across all cells; do not switch to a seated pose.
+Row 1 action: a subtle lip-lick loop. Frame 1 neutral, tongue gradually appears, sweeps once across the upper lip, then retracts and returns to neutral by frame 8. The tongue is small and pink; mouth changes only as needed.
+Row 2 action: a natural blink loop. Eyes begin open, eyelids lower, fully close in the middle frames, then reopen and return to the same neutral expression by frame 8.
+Row 3 action: a gentle head-scratch loop. The cat keeps the input's standing body registration while one rear paw rises behind one ear, scratches twice with small readable motion, lowers, and returns to the exact neutral pose by frame 8.
+Style/medium: match the input sprite's clean soft 3D mascot rendering, crisp silhouette, readable at 192x208.
+Constraints: exactly 24 separate poses; exactly one standing cat in each cell; identical identity, markings, eye color, scale, lighting, body proportions, paw baseline and registration; no collar and no accessories; full ears, paws and tail visible; no overlap between cells; first and last frame of every row match the input's neutral standing pose and loop cleanly; no labels; no grid lines; no text; no props; no shadows; no floor; no detached effects; no transparency checkerboard.
+Avoid: seated pose, pearl necklace, collar, accessories, extra limbs, detached paws, duplicate cats in a cell, changed eye color or markings, cropped ears/paws/tail, white background, scenery, motion blur, glow, watermark, exaggerated open mouth, large tongue.

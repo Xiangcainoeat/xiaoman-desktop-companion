@@ -1,0 +1,120 @@
+{
+  "ok": true,
+  "source": "public/pet/spritesheet.webp",
+  "output": "public/pet/look-16.webp",
+  "source_rows": [
+    9,
+    10
+  ],
+  "dimensions": [
+    1536,
+    416
+  ],
+  "grid": [
+    8,
+    2
+  ],
+  "cell": [
+    192,
+    208
+  ],
+  "frame_count": 16,
+  "frames": [
+    {
+      "index": 0,
+      "degrees": 0.0,
+      "visible_pixels": 16166,
+      "opaque_pixels": 14314
+    },
+    {
+      "index": 1,
+      "degrees": 22.5,
+      "visible_pixels": 15582,
+      "opaque_pixels": 13885
+    },
+    {
+      "index": 2,
+      "degrees": 45.0,
+      "visible_pixels": 15555,
+      "opaque_pixels": 13800
+    },
+    {
+      "index": 3,
+      "degrees": 67.5,
+      "visible_pixels": 15675,
+      "opaque_pixels": 13810
+    },
+    {
+      "index": 4,
+      "degrees": 90.0,
+      "visible_pixels": 15205,
+      "opaque_pixels": 13401
+    },
+    {
+      "index": 5,
+      "degrees": 112.5,
+      "visible_pixels": 14860,
+      "opaque_pixels": 13039
+    },
+    {
+      "index": 6,
+      "degrees": 135.0,
+      "visible_pixels": 13995,
+      "opaque_pixels": 12325
+    },
+    {
+      "index": 7,
+      "degrees": 157.5,
+      "visible_pixels": 11956,
+      "opaque_pixels": 10683
+    },
+    {
+      "index": 8,
+      "degrees": 180.0,
+      "visible_pixels": 11504,
+      "opaque_pixels": 10208
+    },
+    {
+      "index": 9,
+      "degrees": 202.5,
+      "visible_pixels": 11533,
+      "opaque_pixels": 10192
+    },
+    {
+      "index": 10,
+      "degrees": 225.0,
+      "visible_pixels": 11598,
+      "opaque_pixels": 10325
+    },
+    {
+      "index": 11,
+      "degrees": 247.5,
+      "visible_pixels": 11510,
+      "opaque_pixels": 10124
+    },
+    {
+      "index": 12,
+      "degrees": 270.0,
+      "visible_pixels": 12113,
+      "opaque_pixels": 10757
+    },
+    {
+      "index": 13,
+      "degrees": 292.5,
+      "visible_pixels": 11202,
+      "opaque_pixels": 9809
+    },
+    {
+      "index": 14,
+      "degrees": 315.0,
+      "visible_pixels": 11696,
+      "opaque_pixels": 10229
+    },
+    {
+      "index": 15,
+      "degrees": 337.5,
+      "visible_pixels": 11851,
+      "opaque_pixels": 10373
+    }
+  ]
+}

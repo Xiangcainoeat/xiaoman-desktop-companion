@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { normalizePersistedData } from "../src/shared/domain";
 import type { PersistedData } from "../src/shared/types";
@@ -12,10 +12,17 @@ export class CompanionStore {
   }
 
   load(): PersistedData {
+    if (!existsSync(this.filePath)) return normalizePersistedData(null);
     try {
-      const parsed = JSON.parse(readFileSync(this.filePath, "utf8")) as Partial<PersistedData>;
+      const parsed = JSON.parse(readFileSync(this.filePath, "utf8")) as unknown;
       return normalizePersistedData(parsed);
     } catch {
+      const backupPath = `${this.filePath}.invalid-${Date.now()}.bak`;
+      try {
+        renameSync(this.filePath, backupPath);
+      } catch {
+        // A read-only or concurrently moved file still falls back safely in memory.
+      }
       return normalizePersistedData(null);
     }
   }

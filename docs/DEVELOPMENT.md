@@ -3,13 +3,13 @@
 ## Source layout
 
 ```text
-electron/                 Electron main process, monitors, store and preload
+electron/                 Main process, monitors, Codex service, store and preload
 src/components/           Overlay and control-center React views
-src/shared/               Shared types and pure domain functions
-public/pet/                Runtime pet atlases and tray icon
-scripts/                   Deterministic gaze-atlas assembly
-tests/                     Vitest domain and Codex-event tests
-work/                      Gaze generation prompt and QA intermediates
+src/shared/               Shared types and pure domain/gaze/motion/layout functions
+public/pet/               Runtime atlases and tray icon
+scripts/                  Deterministic atlas assembly and packaging hooks
+tests/                    Renderer/shared Vitest suites
+work/                     Generation prompts, selected images and QA evidence
 ```
 
 ## Commands
@@ -18,37 +18,48 @@ work/                      Gaze generation prompt and QA intermediates
 npm run dev          # Compile Electron and launch Vite + native windows
 npm run dev:web      # Browser-only UI with an in-memory mock bridge
 npm run typecheck    # Renderer and Electron TypeScript checks
-npm test             # Unit tests
-npm run build        # Production renderer and Electron build
+npm test             # Unit tests; build/release output is excluded
+npm run build        # Production renderer and clean Electron build
 npm run pack:mac     # Unpacked arm64 .app
 npm run dist:mac     # Unsigned arm64 DMG and ZIP
 ```
 
-## Rebuilding the 32-direction atlas
+`build:electron` deletes stale `dist-electron/` output before compilation and excludes Electron test files from the packaged main process.
 
-The selected relay result is `work/gaze-32-generated.png`. The deterministic step detects foreground rows and pose columns, removes chroma, suppresses spill, normalizes scale and registration, and validates all 32 cells.
+## Rebuilding the production gaze atlas
+
+The runtime uses the exact accepted native direction cells from rows 9–10:
 
 ```bash
-python3 scripts/build_gaze_atlas.py \
-  --source work/gaze-32-generated.png \
-  --output public/pet/look-32.webp \
-  --contact-sheet work/gaze-32-contact-sheet.png \
-  --report work/gaze-32-validation.json
+python3 scripts/build_native_look_atlas.py \
+  --source public/pet/spritesheet.webp \
+  --output public/pet/look-16.webp \
+  --contact-sheet work/look-16-contact-sheet.png \
+  --report work/look-16-validation.json
 ```
 
-Expected output contract:
+Expected contract: `1536x416`, `8x2`, 16 populated transparent cells of `192x208`.
 
-- dimensions: `1536x832`
-- grid: `8x4`
-- cell: `192x208`
-- directions: 32 clockwise frames at 11.25-degree increments
-- transparent background
-- zero detected green-spill pixels
+## Rebuilding idle actions
+
+The selected ImageGen output is `work/idle-actions-generated-v2.png`. The deterministic build extracts and validates 24 cells:
+
+```bash
+python3 scripts/build_idle_atlas.py \
+  --source work/idle-actions-generated-v2.png \
+  --output public/pet/idle-actions.webp \
+  --contact-sheet work/idle-actions-contact-sheet.png \
+  --report work/idle-actions-validation.json
+```
+
+Expected contract: `1536x624`, `8x3`, 24 populated transparent cells, no detected green residue.
+
+The prior `look-32.webp` pipeline and its prompt remain in `work/` for provenance only; v1.1 does not load that atlas.
 
 ## Testing a local build
 
-The browser-only mock supports all forms and interaction states. Native QA must additionally verify transparent-window alpha, menu-bar creation, persisted data permissions, system notifications and session/app monitors.
+Browser mock QA covers forms, feature toggles, task composition and responsive control-center layouts. Native QA additionally verifies transparent-window alpha, 320x360 and expanded overlay bounds, menu bar creation, persisted data permissions, real cursor tracking, inactivity reset, CLI queue/resume behavior, system notifications and packaged resources.
 
 ## Distribution
 
-The local release is unsigned. Public distribution should add an Apple Developer ID Application certificate, hardened runtime and notarization. No updater is configured.
+The local release is unsigned/not notarized. Public distribution should add a Developer ID Application certificate, hardened runtime and notarization. No updater is configured.

@@ -2,6 +2,9 @@ import type {
   AppRuleInput,
   AppSnapshot,
   CompanionSettings,
+  CodexOpenResult,
+  CodexReplyResult,
+  CodexThreadListResult,
   CursorPayload,
   InteractionAction,
   ReminderInput,
@@ -18,8 +21,13 @@ export interface XiaomanApi {
   removeRule(id: string): Promise<AppSnapshot>;
   toggleRule(id: string): Promise<AppSnapshot>;
   updateSettings(patch: Partial<CompanionSettings>): Promise<AppSnapshot>;
+  updateIdlePhrases(phrases: string[]): Promise<AppSnapshot>;
   testNotification(): Promise<void>;
   clearActivity(): Promise<AppSnapshot>;
+  listCodexThreads(force?: boolean): Promise<CodexThreadListResult>;
+  openCodexThread(threadId: string): Promise<CodexOpenResult>;
+  replyCodexThread(threadId: string, message: string): Promise<CodexReplyResult>;
+  setOverlayTaskPanel(open: boolean): void;
   showCenter(): void;
   toggleOverlay(): void;
   moveOverlayBy(deltaX: number, deltaY: number): void;

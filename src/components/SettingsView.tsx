@@ -56,6 +56,28 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
             <SettingsRow icon={<Eye size={18} />} label="跟随注视">
               <Toggle checked={settings.gazeEnabled} label="跟随注视" onChange={(gazeEnabled) => update({ gazeEnabled })} />
             </SettingsRow>
+            <SettingsRow icon={<Eye size={18} />} label="注视范围" value={settings.gazeRange === "upper-180" ? "不低头" : "包含下方"}>
+              <div className="segmented-control gaze-range-control" role="group" aria-label="注视范围">
+                <button
+                  type="button"
+                  className={settings.gazeRange === "upper-180" ? "is-selected" : ""}
+                  aria-pressed={settings.gazeRange === "upper-180"}
+                  disabled={!settings.gazeEnabled}
+                  onClick={() => update({ gazeRange: "upper-180" })}
+                >
+                  上半区 180°
+                </button>
+                <button
+                  type="button"
+                  className={settings.gazeRange === "full-360" ? "is-selected" : ""}
+                  aria-pressed={settings.gazeRange === "full-360"}
+                  disabled={!settings.gazeEnabled}
+                  onClick={() => update({ gazeRange: "full-360" })}
+                >
+                  全向 360°
+                </button>
+              </div>
+            </SettingsRow>
             <SettingsRow icon={<Gauge size={18} />} label="注视刷新率" value={`${settings.gazeFrameRate} Hz`}>
               <div className="segmented-control" role="group" aria-label="注视刷新率">
                 {[30, 60].map((rate) => (
@@ -96,6 +118,94 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
                 aria-label="中心死区"
                 disabled={!settings.gazeEnabled}
                 onChange={(event) => update({ gazeDeadzonePx: Number(event.target.value) })}
+              />
+            </SettingsRow>
+            <SettingsRow icon={<MousePointer2 size={18} />} label="静止后回正" value={`${(settings.gazeIdleResetMs / 1000).toFixed(1)} 秒`}>
+              <input
+                className="range-control"
+                type="range"
+                min="500"
+                max="5000"
+                step="100"
+                value={settings.gazeIdleResetMs}
+                aria-label="静止后回正时间"
+                disabled={!settings.gazeEnabled}
+                onChange={(event) => update({ gazeIdleResetMs: Number(event.target.value) })}
+              />
+            </SettingsRow>
+            <SettingsRow icon={<Gauge size={18} />} label="小满体型" value={`${settings.petSize} px`}>
+              <input
+                className="range-control"
+                type="range"
+                min="150"
+                max="340"
+                step="10"
+                value={settings.petSize}
+                aria-label="小满体型"
+                onChange={(event) => update({ petSize: Number(event.target.value) })}
+              />
+            </SettingsRow>
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <div className="section-heading">
+            <div><span className="eyebrow">原生反馈</span><h2>移动动作</h2></div>
+          </div>
+          <div className="settings-list">
+            <SettingsRow icon={<MousePointer2 size={18} />} label="拖动时奔跑">
+              <Toggle checked={settings.dragRunEnabled} label="拖动时奔跑" onChange={(dragRunEnabled) => update({ dragRunEnabled })} />
+            </SettingsRow>
+            <SettingsRow icon={<Sparkles size={18} />} label="悬停时跳跃">
+              <Toggle checked={settings.hoverJumpEnabled} label="悬停时跳跃" onChange={(hoverJumpEnabled) => update({ hoverJumpEnabled })} />
+            </SettingsRow>
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <div className="section-heading">
+            <div><span className="eyebrow">空闲时</span><h2>待机动作</h2></div>
+          </div>
+          <div className="settings-list">
+            <SettingsRow icon={<Sparkles size={18} />} label="启用待机动作">
+              <Toggle checked={settings.idleActionsEnabled} label="启用待机动作" onChange={(idleActionsEnabled) => update({ idleActionsEnabled })} />
+            </SettingsRow>
+            <SettingsRow icon={<Sparkles size={18} />} label="舔嘴">
+              <Toggle checked={settings.idleLickEnabled} label="舔嘴" disabled={!settings.idleActionsEnabled} onChange={(idleLickEnabled) => update({ idleLickEnabled })} />
+            </SettingsRow>
+            <SettingsRow icon={<Eye size={18} />} label="眨眼">
+              <Toggle checked={settings.idleBlinkEnabled} label="眨眼" disabled={!settings.idleActionsEnabled} onChange={(idleBlinkEnabled) => update({ idleBlinkEnabled })} />
+            </SettingsRow>
+            <SettingsRow icon={<MousePointer2 size={18} />} label="挠头">
+              <Toggle checked={settings.idleScratchEnabled} label="挠头" disabled={!settings.idleActionsEnabled} onChange={(idleScratchEnabled) => update({ idleScratchEnabled })} />
+            </SettingsRow>
+            <SettingsRow icon={<Gauge size={18} />} label="动作间隔" value={`约 ${settings.idleActionIntervalSec} 秒`}>
+              <input
+                className="range-control"
+                type="range"
+                min="10"
+                max="120"
+                step="2"
+                value={settings.idleActionIntervalSec}
+                aria-label="待机动作间隔"
+                disabled={!settings.idleActionsEnabled}
+                onChange={(event) => update({ idleActionIntervalSec: Number(event.target.value) })}
+              />
+            </SettingsRow>
+            <SettingsRow icon={<Sparkles size={18} />} label="随机说话">
+              <Toggle checked={settings.idleSpeechEnabled} label="随机说话" onChange={(idleSpeechEnabled) => update({ idleSpeechEnabled })} />
+            </SettingsRow>
+            <SettingsRow icon={<Gauge size={18} />} label="说话间隔" value={`约 ${settings.idleSpeechIntervalSec} 秒`}>
+              <input
+                className="range-control"
+                type="range"
+                min="15"
+                max="180"
+                step="5"
+                value={settings.idleSpeechIntervalSec}
+                aria-label="随机说话间隔"
+                disabled={!settings.idleSpeechEnabled}
+                onChange={(event) => update({ idleSpeechIntervalSec: Number(event.target.value) })}
               />
             </SettingsRow>
           </div>
@@ -157,6 +267,13 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
           <div className="settings-list">
             <SettingsRow icon={<Code2 size={18} />} label="Codex 会话状态" value="只读">
               <Toggle checked={settings.monitorCodex} label="Codex 会话状态" onChange={(monitorCodex) => update({ monitorCodex })} />
+            </SettingsRow>
+            <SettingsRow icon={<Code2 size={18} />} label="Codex 任务与回复">
+              <Toggle
+                checked={settings.codexSessionControls}
+                label="Codex 任务与回复"
+                onChange={(codexSessionControls) => update({ codexSessionControls })}
+              />
             </SettingsRow>
             <SettingsRow icon={<Power size={18} />} label="前台应用切换">
               <Toggle checked={settings.monitorApps} label="前台应用切换" onChange={(monitorApps) => update({ monitorApps })} />

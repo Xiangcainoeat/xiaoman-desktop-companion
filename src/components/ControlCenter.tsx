@@ -2,21 +2,27 @@ import { useState } from "react";
 import {
   AppWindow,
   BellRing,
+  Code2,
   Eye,
   LayoutDashboard,
+  ListChecks,
   Settings,
   Utensils,
 } from "lucide-react";
 import { STATE_LABELS } from "../shared/domain";
 import { bridge, useCompanion } from "../useCompanion";
 import { EventsView } from "./EventsView";
+import { CodexTasksView } from "./CodexTasksView";
+import { FeaturesView } from "./FeaturesView";
 import { OverviewView } from "./OverviewView";
 import { RemindersView } from "./RemindersView";
 import { SettingsView } from "./SettingsView";
 
-type Tab = "overview" | "reminders" | "events" | "settings";
+type Tab = "features" | "codex" | "overview" | "reminders" | "events" | "settings";
 
 const NAVIGATION: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
+  { id: "features", label: "功能", icon: <ListChecks size={18} /> },
+  { id: "codex", label: "Codex 任务", icon: <Code2 size={18} /> },
   { id: "overview", label: "概览", icon: <LayoutDashboard size={18} /> },
   { id: "reminders", label: "提醒计划", icon: <BellRing size={18} /> },
   { id: "events", label: "应用事件", icon: <AppWindow size={18} /> },
@@ -24,6 +30,8 @@ const NAVIGATION: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
 ];
 
 const TAB_TITLES: Record<Tab, string> = {
+  features: "小满的功能",
+  codex: "Codex 当前任务",
   overview: "今天的小满",
   reminders: "提醒计划",
   events: "外部应用事件",
@@ -32,7 +40,7 @@ const TAB_TITLES: Record<Tab, string> = {
 
 export function ControlCenter() {
   const snapshot = useCompanion();
-  const [tab, setTab] = useState<Tab>("overview");
+  const [tab, setTab] = useState<Tab>("features");
 
   if (!snapshot) {
     return (
@@ -64,6 +72,7 @@ export function ControlCenter() {
               {item.id === "reminders" && snapshot.reminders.filter((reminder) => reminder.enabled).length > 0 && (
                 <em>{snapshot.reminders.filter((reminder) => reminder.enabled).length}</em>
               )}
+              {item.id === "codex" && snapshot.monitoring.codexBusy && <em>运行中</em>}
             </button>
           ))}
         </nav>
@@ -93,6 +102,8 @@ export function ControlCenter() {
           </div>
         </header>
         <div className="content-scroll">
+          {tab === "features" && <FeaturesView snapshot={snapshot} />}
+          {tab === "codex" && <CodexTasksView enabled={snapshot.settings.codexSessionControls} />}
           {tab === "overview" && <OverviewView snapshot={snapshot} />}
           {tab === "reminders" && <RemindersView snapshot={snapshot} />}
           {tab === "events" && <EventsView snapshot={snapshot} />}

@@ -5,6 +5,8 @@ import {
   decayStats,
   deriveAmbientState,
   isReminderDue,
+  normalizeIdlePhrases,
+  normalizePersistedData,
 } from "../src/shared/domain";
 import type { Reminder } from "../src/shared/types";
 
@@ -57,6 +59,57 @@ describe("standard sprite atlas", () => {
   it("stops each animation before transparent tail cells", () => {
     expect(STANDARD_ATLAS_FRAME_COUNTS).toEqual([7, 8, 8, 4, 5, 8, 6, 6, 6, 8, 8]);
     expect(STANDARD_ATLAS_FRAME_COUNTS.every((count) => count >= 4 && count <= 8)).toBe(true);
+  });
+});
+
+describe("version 2 persistence migration", () => {
+  it("preserves version 1 values and adds new defaults", () => {
+    const old = createDefaultData(100);
+    const migrated = normalizePersistedData({
+      ...old,
+      version: 1,
+      stats: { ...old.stats, affection: 88 },
+      settings: { ...old.settings, gazeEnabled: false } as typeof old.settings,
+      idlePhrases: undefined,
+    });
+    expect(migrated.version).toBe(2);
+    expect(migrated.stats.affection).toBe(88);
+    expect(migrated.settings.gazeEnabled).toBe(false);
+    expect(migrated.settings.gazeRange).toBe("full-360");
+    expect(migrated.idlePhrases.length).toBeGreaterThan(0);
+  });
+
+  it("sanitizes, deduplicates, and bounds idle phrases", () => {
+    expect(normalizeIdlePhrases(["  hello  ", "hello", "", 42, "x".repeat(120)])).toEqual([
+      "hello",
+      "x".repeat(80),
+    ]);
+  });
+
+  it("preserves an intentionally empty idle phrase list", () => {
+    expect(normalizeIdlePhrases([])).toEqual([]);
+    expect(normalizePersistedData({ ...createDefaultData(), idlePhrases: [] }).idlePhrases).toEqual([]);
+  });
+
+  it("normalizes malformed nested values instead of trusting JSON shape", () => {
+    const normalized = normalizePersistedData({
+      ...createDefaultData(),
+      settings: { petSize: "bad", gazeFrameRate: 0, volume: 9 },
+      stats: { fullness: 999 },
+      reminders: [null],
+      appRules: [null],
+      idlePhrases: [],
+    });
+    expect(normalized.settings.petSize).toBe(240);
+    expect(normalized.settings.gazeFrameRate).toBe(60);
+    expect(normalized.settings.volume).toBe(1);
+    expect(normalized.stats.fullness).toBe(100);
+    expect(normalized.reminders).toEqual([]);
+    expect(normalized.appRules).toEqual([]);
+  });
+
+  it("rejects future schema versions instead of silently resetting them", () => {
+    expect(() => normalizePersistedData({ version: 3 })).toThrow("Unsupported companion data version");
   });
 });
 

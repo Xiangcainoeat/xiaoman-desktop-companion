@@ -1,3 +1,4 @@
+import { PET_STATES, SOUND_NAMES } from "./types";
 import type {
   ActivityItem,
   AppRule,
@@ -35,9 +36,23 @@ export const DEFAULT_SETTINGS: CompanionSettings = {
   overlayVisible: true,
   alwaysOnTop: true,
   gazeEnabled: true,
+  gazeRange: "full-360",
   gazeFrameRate: 60,
   gazeSmoothingMs: 320,
   gazeDeadzonePx: 54,
+  gazeIdleResetMs: 1400,
+  petSize: 240,
+  dragRunEnabled: true,
+  hoverJumpEnabled: true,
+  idleActionsEnabled: true,
+  idleLickEnabled: true,
+  idleBlinkEnabled: true,
+  idleScratchEnabled: true,
+  idleActionIntervalSec: 28,
+  idleSpeechEnabled: true,
+  idleSpeechIntervalSec: 46,
+  codexSessionControls: true,
+  remindersEnabled: true,
   soundEnabled: true,
   volume: 0.62,
   systemNotifications: true,
@@ -47,6 +62,13 @@ export const DEFAULT_SETTINGS: CompanionSettings = {
   monitorApps: true,
   startAtLogin: false,
 };
+
+export const DEFAULT_IDLE_PHRASES = [
+  "我在这儿",
+  "忙完记得休息",
+  "今天也陪着你",
+  "要不要摸摸我",
+];
 
 export const DEFAULT_APP_RULES: AppRule[] = [
   {
@@ -87,7 +109,7 @@ export function makeId(prefix: string): string {
 
 export function createDefaultData(now = Date.now()): PersistedData {
   return {
-    version: 1,
+    version: 2,
     stats: {
       fullness: 76,
       affection: 42,
@@ -99,8 +121,9 @@ export function createDefaultData(now = Date.now()): PersistedData {
       interactions: 0,
     },
     reminders: [],
-    appRules: DEFAULT_APP_RULES,
-    settings: DEFAULT_SETTINGS,
+    appRules: DEFAULT_APP_RULES.map((rule) => ({ ...rule })),
+    idlePhrases: [...DEFAULT_IDLE_PHRASES],
+    settings: { ...DEFAULT_SETTINGS },
     sleeping: false,
     overlayPosition: null,
     activity: [],
@@ -174,17 +197,197 @@ export function appendActivity(
   return [next, ...activity].slice(0, 60);
 }
 
-export function normalizePersistedData(value: Partial<PersistedData> | null | undefined): PersistedData {
-  const defaults = createDefaultData();
-  if (!value || value.version !== 1) return defaults;
+export function normalizeIdlePhrases(value: unknown): string[] {
+  if (!Array.isArray(value)) return [...DEFAULT_IDLE_PHRASES];
+  const phrases = [...new Set(
+    value
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim().slice(0, 80))
+      .filter(Boolean),
+  )].slice(0, 40);
+  return phrases;
+}
+
+type UnknownRecord = Record<string, unknown>;
+
+function recordValue(value: unknown): UnknownRecord | null {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as UnknownRecord
+    : null;
+}
+
+function textValue(value: unknown, fallback: string, maxLength: number): string {
+  return typeof value === "string" ? value.trim().slice(0, maxLength) : fallback;
+}
+
+function booleanValue(value: unknown, fallback: boolean): boolean {
+  return typeof value === "boolean" ? value : fallback;
+}
+
+function numberValue(value: unknown, fallback: number, minimum: number, maximum: number): number {
+  return typeof value === "number" && Number.isFinite(value)
+    ? Math.max(minimum, Math.min(maximum, value))
+    : fallback;
+}
+
+function integerValue(value: unknown, fallback: number, minimum: number, maximum: number): number {
+  return Math.round(numberValue(value, fallback, minimum, maximum));
+}
+
+function nullableNumber(value: unknown): number | null {
+  return value === null || value === undefined
+    ? null
+    : typeof value === "number" && Number.isFinite(value)
+      ? value
+      : null;
+}
+
+export function normalizeCompanionSettings(value: unknown): CompanionSettings {
+  const source = recordValue(value) ?? {};
   return {
-    ...defaults,
-    ...value,
-    stats: { ...defaults.stats, ...value.stats },
-    settings: { ...defaults.settings, ...value.settings },
-    proactive: { ...defaults.proactive, ...value.proactive },
-    reminders: Array.isArray(value.reminders) ? value.reminders : [],
-    appRules: Array.isArray(value.appRules) ? value.appRules : defaults.appRules,
-    activity: Array.isArray(value.activity) ? value.activity.slice(0, 60) : [],
+    overlayVisible: booleanValue(source.overlayVisible, DEFAULT_SETTINGS.overlayVisible),
+    alwaysOnTop: booleanValue(source.alwaysOnTop, DEFAULT_SETTINGS.alwaysOnTop),
+    gazeEnabled: booleanValue(source.gazeEnabled, DEFAULT_SETTINGS.gazeEnabled),
+    gazeRange: source.gazeRange === "upper-180" ? "upper-180" : "full-360",
+    gazeFrameRate: source.gazeFrameRate === 30 ? 30 : 60,
+    gazeSmoothingMs: integerValue(source.gazeSmoothingMs, DEFAULT_SETTINGS.gazeSmoothingMs, 120, 900),
+    gazeDeadzonePx: integerValue(source.gazeDeadzonePx, DEFAULT_SETTINGS.gazeDeadzonePx, 20, 140),
+    gazeIdleResetMs: integerValue(source.gazeIdleResetMs, DEFAULT_SETTINGS.gazeIdleResetMs, 500, 5000),
+    petSize: integerValue(source.petSize, DEFAULT_SETTINGS.petSize, 150, 340),
+    dragRunEnabled: booleanValue(source.dragRunEnabled, DEFAULT_SETTINGS.dragRunEnabled),
+    hoverJumpEnabled: booleanValue(source.hoverJumpEnabled, DEFAULT_SETTINGS.hoverJumpEnabled),
+    idleActionsEnabled: booleanValue(source.idleActionsEnabled, DEFAULT_SETTINGS.idleActionsEnabled),
+    idleLickEnabled: booleanValue(source.idleLickEnabled, DEFAULT_SETTINGS.idleLickEnabled),
+    idleBlinkEnabled: booleanValue(source.idleBlinkEnabled, DEFAULT_SETTINGS.idleBlinkEnabled),
+    idleScratchEnabled: booleanValue(source.idleScratchEnabled, DEFAULT_SETTINGS.idleScratchEnabled),
+    idleActionIntervalSec: integerValue(source.idleActionIntervalSec, DEFAULT_SETTINGS.idleActionIntervalSec, 10, 120),
+    idleSpeechEnabled: booleanValue(source.idleSpeechEnabled, DEFAULT_SETTINGS.idleSpeechEnabled),
+    idleSpeechIntervalSec: integerValue(source.idleSpeechIntervalSec, DEFAULT_SETTINGS.idleSpeechIntervalSec, 15, 180),
+    codexSessionControls: booleanValue(source.codexSessionControls, DEFAULT_SETTINGS.codexSessionControls),
+    remindersEnabled: booleanValue(source.remindersEnabled, DEFAULT_SETTINGS.remindersEnabled),
+    soundEnabled: booleanValue(source.soundEnabled, DEFAULT_SETTINGS.soundEnabled),
+    volume: numberValue(source.volume, DEFAULT_SETTINGS.volume, 0, 1),
+    systemNotifications: booleanValue(source.systemNotifications, DEFAULT_SETTINGS.systemNotifications),
+    proactiveNotifications: booleanValue(source.proactiveNotifications, DEFAULT_SETTINGS.proactiveNotifications),
+    codexNotifications: booleanValue(source.codexNotifications, DEFAULT_SETTINGS.codexNotifications),
+    monitorCodex: booleanValue(source.monitorCodex, DEFAULT_SETTINGS.monitorCodex),
+    monitorApps: booleanValue(source.monitorApps, DEFAULT_SETTINGS.monitorApps),
+    startAtLogin: booleanValue(source.startAtLogin, DEFAULT_SETTINGS.startAtLogin),
+  };
+}
+
+function normalizeStats(value: unknown, defaults: PetStats): PetStats {
+  const source = recordValue(value) ?? {};
+  return {
+    fullness: numberValue(source.fullness, defaults.fullness, 0, 100),
+    affection: numberValue(source.affection, defaults.affection, 0, 100),
+    energy: numberValue(source.energy, defaults.energy, 0, 100),
+    lastUpdatedAt: numberValue(source.lastUpdatedAt, defaults.lastUpdatedAt, 0, Number.MAX_SAFE_INTEGER),
+    lastFedAt: nullableNumber(source.lastFedAt),
+    lastPettedAt: nullableNumber(source.lastPettedAt),
+    meals: integerValue(source.meals, defaults.meals, 0, Number.MAX_SAFE_INTEGER),
+    interactions: integerValue(source.interactions, defaults.interactions, 0, Number.MAX_SAFE_INTEGER),
+  };
+}
+
+function normalizeReminder(value: unknown): Reminder | null {
+  const source = recordValue(value);
+  if (!source) return null;
+  const id = textValue(source.id, "", 100);
+  if (!id) return null;
+  const repeat = source.repeat === "once" || source.repeat === "weekdays" || source.repeat === "weekly"
+    ? source.repeat
+    : "daily";
+  const time = typeof source.time === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(source.time)
+    ? source.time
+    : "09:00";
+  return {
+    id,
+    title: textValue(source.title, "小满提醒", 40) || "小满提醒",
+    message: textValue(source.message, "", 120),
+    time,
+    repeat,
+    date: typeof source.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.date) ? source.date : null,
+    days: Array.isArray(source.days)
+      ? [...new Set(source.days.filter((day): day is number => Number.isInteger(day) && day >= 0 && day <= 6))]
+      : [],
+    enabled: booleanValue(source.enabled, true),
+    sound: SOUND_NAMES.includes(source.sound as (typeof SOUND_NAMES)[number])
+      ? source.sound as Reminder["sound"]
+      : "chime",
+    lastTriggeredKey: typeof source.lastTriggeredKey === "string" ? source.lastTriggeredKey.slice(0, 40) : null,
+  };
+}
+
+function normalizeRule(value: unknown): AppRule | null {
+  const source = recordValue(value);
+  if (!source) return null;
+  const id = textValue(source.id, "", 100);
+  if (!id) return null;
+  return {
+    id,
+    name: textValue(source.name, "应用事件", 32) || "应用事件",
+    appPattern: textValue(source.appPattern, "", 160),
+    state: PET_STATES.includes(source.state as PetState) ? source.state as PetState : "focused",
+    message: textValue(source.message, "", 100),
+    sound: SOUND_NAMES.includes(source.sound as (typeof SOUND_NAMES)[number])
+      ? source.sound as AppRule["sound"]
+      : "none",
+    notify: booleanValue(source.notify, false),
+    enabled: booleanValue(source.enabled, true),
+  };
+}
+
+function normalizeActivity(value: unknown): ActivityItem | null {
+  const source = recordValue(value);
+  if (!source) return null;
+  const id = textValue(source.id, "", 100);
+  const activitySources: ActivityItem["source"][] = ["interaction", "reminder", "codex", "application", "system"];
+  if (!id || !activitySources.includes(source.source as ActivityItem["source"])) return null;
+  return {
+    id,
+    at: numberValue(source.at, Date.now(), 0, Number.MAX_SAFE_INTEGER),
+    source: source.source as ActivityItem["source"],
+    title: textValue(source.title, "", 120),
+    detail: textValue(source.detail, "", 240),
+    state: PET_STATES.includes(source.state as PetState) ? source.state as PetState : "idle",
+  };
+}
+
+export function normalizePersistedData(value: unknown): PersistedData {
+  const defaults = createDefaultData();
+  if (value === null || value === undefined) return defaults;
+  const source = recordValue(value);
+  if (!source) throw new TypeError("Persisted companion data must be an object");
+  if (source.version !== 1 && source.version !== 2) {
+    throw new RangeError(`Unsupported companion data version: ${String(source.version)}`);
+  }
+  const position = recordValue(source.overlayPosition);
+  const proactive = recordValue(source.proactive) ?? {};
+  return {
+    version: 2,
+    stats: normalizeStats(source.stats, defaults.stats),
+    reminders: Array.isArray(source.reminders)
+      ? source.reminders.map(normalizeReminder).filter((item): item is Reminder => item !== null)
+      : [],
+    appRules: Array.isArray(source.appRules)
+      ? source.appRules.map(normalizeRule).filter((item): item is AppRule => item !== null)
+      : defaults.appRules,
+    idlePhrases: normalizeIdlePhrases(source.idlePhrases),
+    settings: normalizeCompanionSettings(source.settings),
+    sleeping: booleanValue(source.sleeping, false),
+    overlayPosition: position
+      && typeof position.x === "number" && Number.isFinite(position.x)
+      && typeof position.y === "number" && Number.isFinite(position.y)
+      ? { x: Math.round(position.x), y: Math.round(position.y) }
+      : null,
+    activity: Array.isArray(source.activity)
+      ? source.activity.map(normalizeActivity).filter((item): item is ActivityItem => item !== null).slice(0, 60)
+      : [],
+    proactive: {
+      lastHungerNoticeAt: nullableNumber(proactive.lastHungerNoticeAt),
+      lastEnergyNoticeAt: nullableNumber(proactive.lastEnergyNoticeAt),
+      lastLongWorkNoticeAt: nullableNumber(proactive.lastLongWorkNoticeAt),
+    },
   };
 }

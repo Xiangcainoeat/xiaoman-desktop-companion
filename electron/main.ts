@@ -1,5 +1,4 @@
 import path from "node:path";
-import os from "node:os";
 import {
   app,
   BrowserWindow,
@@ -8,11 +7,18 @@ import {
   nativeImage,
   Notification,
   screen,
+  shell,
   Tray,
+  type IpcMainInvokeEvent,
   type MenuItemConstructorOptions,
 } from "electron";
 import { CompanionStore } from "./store";
 import { CodexSessionMonitor, type CodexMonitorEvent } from "./codex-monitor";
+import {
+  CodexSessionsService,
+  type CodexReplyDispatch,
+  type CodexSessionSummary,
+} from "./codex-sessions";
 import { FrontmostApplicationMonitor } from "./application-monitor";
 import {
   appendActivity,
@@ -21,8 +27,15 @@ import {
   deriveAmbientState,
   isReminderDue,
   makeId,
+  normalizeCompanionSettings,
+  normalizeIdlePhrases,
   STATE_LABELS,
 } from "../src/shared/domain";
+import {
+  overlayDimensions as calculateOverlayDimensions,
+  persistedOverlayPosition,
+} from "../src/shared/overlay-layout";
+import { mapCodexThreadStatus } from "../src/shared/codex-ui";
 import {
   PET_STATES,
   SOUND_NAMES,
@@ -30,6 +43,10 @@ import {
   type AppRuleInput,
   type AppSnapshot,
   type CompanionSettings,
+  type CodexOpenResult,
+  type CodexReplyResult,
+  type CodexThreadListResult,
+  type CodexThreadSummary,
   type InteractionAction,
   type PersistedData,
   type PetState,
@@ -45,8 +62,9 @@ const gotSingleInstanceLock = app.requestSingleInstanceLock();
 if (!gotSingleInstanceLock) app.quit();
 
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
-const OVERLAY_WIDTH = 320;
-const OVERLAY_HEIGHT = 360;
+const DEFAULT_OVERLAY_WIDTH = 320;
+const DEFAULT_OVERLAY_HEIGHT = 360;
+const CODEX_THREAD_CACHE_MS = 7_000;
 
 interface RuntimeState {
   state: PetState;
@@ -62,17 +80,23 @@ let overlayWindow: BrowserWindow | null = null;
 let centerWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let codexMonitor: CodexSessionMonitor | null = null;
+let codexSessionsService: CodexSessionsService;
 let applicationMonitor: FrontmostApplicationMonitor | null = null;
 let schedulerTimer: NodeJS.Timeout | null = null;
 let maintenanceTimer: NodeJS.Timeout | null = null;
 let cursorTimer: NodeJS.Timeout | null = null;
 let stateTimer: NodeJS.Timeout | null = null;
 let overlayPositionSaveTimer: NodeJS.Timeout | null = null;
+let overlayTaskPanelOpen = false;
+let codexThreadCache: { at: number; result: CodexThreadListResult } | null = null;
+let codexThreadListInFlight: Promise<CodexThreadListResult> | null = null;
+const codexReplyStarts = new Set<string>();
 let quitting = false;
 let currentAppRule: AppRule | null = null;
 let stateSequence = 0;
 
 const activeCodexTurns = new Map<string, number>();
+const activeCodexReplyHandles = new Set<CodexReplyDispatch>();
 const monitoring: AppSnapshot["monitoring"] = {
   codex: "off",
   applications: "off",
@@ -276,6 +300,7 @@ function performInteraction(action: InteractionAction): AppSnapshot {
 }
 
 function handleCodexEvent(event: CodexMonitorEvent): void {
+  codexThreadCache = null;
   if (event.kind === "started") {
     activeCodexTurns.set(event.turnId, event.at);
     monitoring.codexBusy = true;
@@ -368,6 +393,7 @@ function handleFrontmostApplication(application: string): void {
 }
 
 function runReminderScheduler(now = new Date()): void {
+  if (!data.settings.remindersEnabled) return;
   let changed = false;
   for (const reminder of data.reminders) {
     const due = isReminderDue(reminder, now);
@@ -451,6 +477,116 @@ function normalizedRule(input: AppRuleInput, existing?: AppRule): AppRule {
   };
 }
 
+function codexThreadSummary(session: CodexSessionSummary): CodexThreadSummary {
+  const approvalBlocked = session.status.activeFlags.some((flag) => flag.toLowerCase().includes("approval"));
+  const resumable = session.status.activity === "idle"
+    || session.status.activity === "error";
+  return {
+    id: session.id,
+    title: session.title,
+    projectName: session.cwd ? path.basename(session.cwd) : "本机任务",
+    status: mapCodexThreadStatus(session.status.activity, session.status.runtimeType),
+    updatedAt: session.updatedAt,
+    activeTurnId: session.status.activeTurnId,
+    sourceKind: session.threadSource ?? session.source,
+    canReply: !approvalBlocked && (session.canAcceptDirectInput || resumable),
+    waitReason: approvalBlocked ? "approval" : null,
+  };
+}
+
+async function listCodexThreads(force = false): Promise<CodexThreadListResult> {
+  if (!data.settings.codexSessionControls) {
+    codexThreadCache = null;
+    return { threads: [], source: "off", warnings: [] };
+  }
+  if (!force && codexThreadCache && Date.now() - codexThreadCache.at < CODEX_THREAD_CACHE_MS) {
+    return codexThreadCache.result;
+  }
+  if (codexThreadListInFlight) return await codexThreadListInFlight;
+  codexThreadListInFlight = (async () => {
+    const result = await codexSessionsService.listSessions({ limit: 20, includeSubagents: false });
+    const mapped: CodexThreadListResult = {
+      threads: result.sessions.map(codexThreadSummary),
+      source: result.source,
+      warnings: result.warnings,
+    };
+    codexThreadCache = { at: Date.now(), result: mapped };
+    return mapped;
+  })();
+  try {
+    return await codexThreadListInFlight;
+  } finally {
+    codexThreadListInFlight = null;
+  }
+}
+
+async function openCodexThread(threadId: string): Promise<CodexOpenResult> {
+  if (!data.settings.codexSessionControls) return { ok: false, message: "Codex 任务功能已关闭" };
+  const target = codexSessionsService.getDesktopTarget(threadId);
+  if (!target.available) return { ok: false, message: "未找到 ChatGPT/Codex 桌面应用" };
+  await shell.openExternal(target.url);
+  return { ok: true, message: "已打开对应 Codex 任务" };
+}
+
+async function replyToCodexThread(threadId: string, message: string): Promise<CodexReplyResult> {
+  if (!data.settings.codexSessionControls) throw new Error("Codex 任务功能已关闭");
+  if (codexReplyStarts.has(threadId)) throw new Error("这项任务正在处理上一条回复");
+  codexReplyStarts.add(threadId);
+  try {
+    const session = await codexSessionsService.readSession(threadId);
+    if (session?.status.activeFlags.some((flag) => flag.toLowerCase().includes("approval"))) {
+      throw new Error("该任务正在等待授权，请在 Codex 中处理");
+    }
+    const resumable = session?.status.activity === "idle"
+      || session?.status.activity === "error";
+    if (session && !session.canAcceptDirectInput && !resumable) {
+      throw new Error("该任务当前状态不支持直接回复，请在 Codex 中查看");
+    }
+    const dispatch = await codexSessionsService.sendReply({
+      threadId,
+      message,
+      activity: session?.status.activity,
+      cwd: session?.cwd,
+    });
+    codexThreadCache = null;
+    const mode = dispatch.transport === "queue" ? "queued" : "started";
+    const sessionTitle = session?.title ?? "本机任务";
+    data.activity = appendActivity(data.activity, {
+      source: "codex",
+      title: mode === "queued" ? "已排队 Codex 回复" : "已启动 Codex 任务",
+      detail: sessionTitle,
+      state: "working",
+    });
+    triggerState("working", mode === "queued" ? "回复已经排队" : "Codex 已开始继续", "codex", 4200, 86);
+    persistAndBroadcast();
+
+    if (dispatch.transport === "exec-resume") {
+      activeCodexReplyHandles.add(dispatch);
+      const recordFailure = () => {
+        data.activity = appendActivity(data.activity, {
+          source: "codex",
+          title: "Codex 任务继续失败",
+          detail: sessionTitle,
+          state: "failed",
+        });
+        triggerState("failed", "继续任务时遇到问题", "codex", 6500, 90);
+        persistAndBroadcast();
+        if (data.settings.codexNotifications) showSystemNotification("Codex 任务未继续", "请打开任务查看详细状态");
+      };
+      void dispatch.completion.then((result) => {
+        if (result.code !== 0) recordFailure();
+      }).catch(recordFailure).finally(() => activeCodexReplyHandles.delete(dispatch));
+    }
+    return {
+      ok: true,
+      mode,
+      message: mode === "queued" ? "回复已排队；当前回复结束后会自动继续" : "任务已启动，正在后台执行",
+    };
+  } finally {
+    codexReplyStarts.delete(threadId);
+  }
+}
+
 function assetPath(fileName: string): string {
   return isDevelopment
     ? path.join(process.cwd(), "public", "pet", fileName)
@@ -467,19 +603,41 @@ async function loadView(window: BrowserWindow, view: "overlay" | "center"): Prom
   }
 }
 
+function hardenRendererWindow(window: BrowserWindow): void {
+  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.on("will-navigate", (event, targetUrl) => {
+    const currentUrl = window.webContents.getURL();
+    if (currentUrl && targetUrl !== currentUrl) event.preventDefault();
+  });
+}
+
+function assertTrustedInvoke(event: IpcMainInvokeEvent): void {
+  const trustedContents = [overlayWindow?.webContents, centerWindow?.webContents]
+    .filter((contents) => contents && !contents.isDestroyed());
+  if (!trustedContents.includes(event.sender) || event.senderFrame !== event.sender.mainFrame) {
+    throw new Error("Rejected IPC call from an untrusted renderer");
+  }
+}
+
+function overlayDimensions(petSize = data.settings.petSize): { width: number; height: number } {
+  return calculateOverlayDimensions(petSize, overlayTaskPanelOpen);
+}
+
 function defaultOverlayPosition(): { x: number; y: number } {
   const display = screen.getPrimaryDisplay();
+  const dimensions = data ? overlayDimensions() : { width: DEFAULT_OVERLAY_WIDTH, height: DEFAULT_OVERLAY_HEIGHT };
   return {
-    x: display.workArea.x + display.workArea.width - OVERLAY_WIDTH - 28,
-    y: display.workArea.y + display.workArea.height - OVERLAY_HEIGHT - 18,
+    x: display.workArea.x + display.workArea.width - dimensions.width - 28,
+    y: display.workArea.y + display.workArea.height - dimensions.height - 18,
   };
 }
 
 function createOverlayWindow(): void {
   const savedPosition = data.overlayPosition ?? defaultOverlayPosition();
+  const dimensions = overlayDimensions();
   overlayWindow = new BrowserWindow({
-    width: OVERLAY_WIDTH,
-    height: OVERLAY_HEIGHT,
+    width: dimensions.width,
+    height: dimensions.height,
     x: savedPosition.x,
     y: savedPosition.y,
     transparent: true,
@@ -500,11 +658,13 @@ function createOverlayWindow(): void {
       sandbox: true,
     },
   });
+  hardenRendererWindow(overlayWindow);
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlayWindow.setHiddenInMissionControl(true);
   overlayWindow.on("close", (event) => {
     if (!quitting) {
       event.preventDefault();
+      setOverlayTaskPanel(false);
       overlayWindow?.hide();
       data.settings.overlayVisible = false;
       persistAndBroadcast();
@@ -534,6 +694,7 @@ function createCenterWindow(): void {
       sandbox: true,
     },
   });
+  hardenRendererWindow(centerWindow);
   centerWindow.on("close", (event) => {
     if (!quitting) {
       event.preventDefault();
@@ -541,7 +702,6 @@ function createCenterWindow(): void {
     }
   });
   centerWindow.on("ready-to-show", () => {
-    centerWindow?.show();
     broadcast();
   });
   void loadView(centerWindow, "center");
@@ -557,7 +717,10 @@ function toggleOverlay(): void {
   if (!overlayWindow) return;
   data.settings.overlayVisible = !overlayWindow.isVisible();
   if (data.settings.overlayVisible) overlayWindow.showInactive();
-  else overlayWindow.hide();
+  else {
+    setOverlayTaskPanel(false);
+    overlayWindow.hide();
+  }
   persistAndBroadcast();
 }
 
@@ -606,8 +769,7 @@ function scheduleOverlayPositionSave(): void {
   if (overlayPositionSaveTimer) clearTimeout(overlayPositionSaveTimer);
   overlayPositionSaveTimer = setTimeout(() => {
     if (!overlayWindow) return;
-    const [x, y] = overlayWindow.getPosition();
-    data.overlayPosition = { x, y };
+    data.overlayPosition = persistedOverlayPosition(overlayWindow.getBounds(), data.settings.petSize);
     persist();
   }, 450);
 }
@@ -628,6 +790,34 @@ function moveOverlayBy(deltaX: number, deltaY: number): void {
   scheduleOverlayPositionSave();
 }
 
+function resizeOverlayForPet(): void {
+  if (!overlayWindow || overlayWindow.isDestroyed()) return;
+  const bounds = overlayWindow.getBounds();
+  const dimensions = overlayDimensions();
+  if (bounds.width === dimensions.width && bounds.height === dimensions.height) return;
+  const target = {
+    x: bounds.x + bounds.width - dimensions.width,
+    y: bounds.y + bounds.height - dimensions.height,
+    ...dimensions,
+  };
+  const workArea = screen.getDisplayMatching(target).workArea;
+  target.x = Math.max(workArea.x - 30, Math.min(target.x, workArea.x + workArea.width - 100));
+  target.y = Math.max(workArea.y, Math.min(target.y, workArea.y + workArea.height - 100));
+  overlayWindow.setBounds(target, false);
+  data.overlayPosition = persistedOverlayPosition(target, data.settings.petSize);
+}
+
+function setOverlayTaskPanel(open: boolean): void {
+  const next = Boolean(open) && data.settings.codexSessionControls;
+  if (overlayTaskPanelOpen === next) return;
+  overlayTaskPanelOpen = next;
+  resizeOverlayForPet();
+  if (next && overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.show();
+    overlayWindow.focus();
+  }
+}
+
 function applySettingsSideEffects(previous: CompanionSettings): void {
   if (overlayWindow) {
     overlayWindow.setAlwaysOnTop(data.settings.alwaysOnTop);
@@ -637,6 +827,8 @@ function applySettingsSideEffects(previous: CompanionSettings): void {
   if (previous.monitorCodex !== data.settings.monitorCodex) void configureCodexMonitor();
   if (previous.monitorApps !== data.settings.monitorApps) configureApplicationMonitor();
   if (previous.gazeFrameRate !== data.settings.gazeFrameRate) configureCursorTimer();
+  if (previous.petSize !== data.settings.petSize) resizeOverlayForPet();
+  if (previous.codexSessionControls && !data.settings.codexSessionControls) setOverlayTaskPanel(false);
   if (previous.startAtLogin !== data.settings.startAtLogin && app.isPackaged) {
     app.setLoginItemSettings({ openAtLogin: data.settings.startAtLogin });
   }
@@ -660,7 +852,7 @@ async function configureCodexMonitor(): Promise<void> {
   }
   monitoring.codex = "watching";
   codexMonitor = new CodexSessionMonitor(
-    path.join(os.homedir(), ".codex", "sessions"),
+    codexSessionsService.sessionsRoot,
     handleCodexEvent,
     (available) => {
       monitoring.codex = available ? "watching" : "unavailable";
@@ -736,12 +928,13 @@ function registerIpcHandlers(): void {
   });
   ipcMain.handle("settings:update", (_event, patch: Partial<CompanionSettings>) => {
     const previous = { ...data.settings };
-    data.settings = { ...data.settings, ...patch };
-    data.settings.volume = Math.max(0, Math.min(1, Number(data.settings.volume) || 0));
-    data.settings.gazeFrameRate = Number(data.settings.gazeFrameRate) === 30 ? 30 : 60;
-    data.settings.gazeSmoothingMs = Math.max(120, Math.min(900, Number(data.settings.gazeSmoothingMs) || 320));
-    data.settings.gazeDeadzonePx = Math.max(20, Math.min(140, Number(data.settings.gazeDeadzonePx) || 54));
+    data.settings = normalizeCompanionSettings({ ...data.settings, ...patch });
     applySettingsSideEffects(previous);
+    persistAndBroadcast();
+    return snapshot();
+  });
+  ipcMain.handle("idle-phrases:update", (_event, phrases: unknown) => {
+    data.idlePhrases = normalizeIdlePhrases(phrases);
     persistAndBroadcast();
     return snapshot();
   });
@@ -754,8 +947,21 @@ function registerIpcHandlers(): void {
     persistAndBroadcast();
     return snapshot();
   });
+  ipcMain.handle("codex:threads:list", (event, force: boolean) => {
+    assertTrustedInvoke(event);
+    return listCodexThreads(Boolean(force));
+  });
+  ipcMain.handle("codex:thread:open", (event, threadId: string) => {
+    assertTrustedInvoke(event);
+    return openCodexThread(threadId);
+  });
+  ipcMain.handle("codex:thread:reply", (event, threadId: string, message: string) => {
+    assertTrustedInvoke(event);
+    return replyToCodexThread(threadId, message);
+  });
   ipcMain.on("center:show", () => showCenter());
   ipcMain.on("overlay:toggle", () => toggleOverlay());
+  ipcMain.on("overlay:task-panel", (_event, open: boolean) => setOverlayTaskPanel(open));
   ipcMain.on("overlay:move-by", (_event, deltaX: number, deltaY: number) => moveOverlayBy(deltaX, deltaY));
   ipcMain.on("overlay:context-menu", () => showOverlayContextMenu());
 }
@@ -786,6 +992,7 @@ app.on("second-instance", () => showCenter());
 app.whenReady().then(async () => {
   store = new CompanionStore(app.getPath("userData"));
   data = store.load();
+  codexSessionsService = new CodexSessionsService();
   data.stats = decayStats(data.stats, data.sleeping);
   monitoring.notifications = !data.settings.systemNotifications
     ? "off"
@@ -819,5 +1026,7 @@ app.on("before-quit", () => {
   if (overlayPositionSaveTimer) clearTimeout(overlayPositionSaveTimer);
   applicationMonitor?.stop();
   void codexMonitor?.stop();
+  for (const handle of activeCodexReplyHandles) handle.cancel();
+  activeCodexReplyHandles.clear();
   if (data && store) persist();
 });

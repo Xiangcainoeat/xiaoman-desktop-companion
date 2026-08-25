@@ -2,21 +2,22 @@
 
 ## Runtime network use
 
-The packaged app makes no network requests and contains no analytics, telemetry, updater, account system or remote storage.
+The desktop host contains no analytics, telemetry, updater, account system, custom backend or remote storage. Ordinary pet animation, interaction, reminders, notifications and application-event features run locally.
+
+When the user explicitly replies to a Codex task, the host invokes the installed Codex CLI. That child process uses the user's existing Codex authentication, network connection and service settings. The host does not intercept or duplicate the response to another service. If an existing local Codex app-server daemon is available, task metadata may be requested through it; otherwise the host uses local session logs and does not start a standalone app-server.
 
 ## Codex sessions
 
-When enabled, the app watches local files under `~/.codex/sessions` and reads appended JSONL bytes. It classifies only lifecycle metadata needed for pet states:
+When status monitoring is enabled, the app watches local files under `~/.codex/sessions` and reads appended JSONL bytes to classify lifecycle state. Task controls also request supported metadata from the local Codex app-server. The UI may display:
 
-- top-level record type
-- payload event type
-- turn id
-- timestamp
-- duration
-- whether an error field is present
-- tool name only when checking for `request_user_input`
+- task title or a short first-message preview supplied by Codex
+- workspace/project label
+- task status and update time
+- thread identifier internally for navigation and reply
 
-Message, prompt, reasoning, tool argument and tool output fields are not retained, displayed, copied into app data or sent elsewhere. Startup recovery examines recent local records only to determine whether a task is currently active.
+Reasoning, tool arguments and tool outputs are not copied into the companion data store or displayed by this app. The bounded recent activity list stores only generic event titles and the selected task title.
+
+An explicit reply is validated, then sent only to the installed Codex CLI. Active replies use the Codex queue; idle replies use the supported resume command. The installed CLI currently requires active queue text in the `--message` argument, so that text can be visible briefly to same-user process inspection tools while the short-lived queue command runs. Idle resume text is sent on stdin. The app never writes session JSONL directly.
 
 ## Foreground applications
 
@@ -24,12 +25,12 @@ The app asks macOS `NSWorkspace` for the localized name of the frontmost applica
 
 ## Stored data
 
-The local JSON store contains pet stats, reminder text, app-name rules, settings, overlay position and a bounded recent activity list. It is written with owner-only file permissions.
+The local JSON store contains pet stats, reminder text, app-name rules, idle phrases, settings, overlay position and a bounded recent activity list. It is written with owner-only file permissions.
 
 ## Build-time image generation
 
-The 32-direction host gaze sheet was produced during development through the user's private ImageGen relay. The relay is not included in the app and is never called at runtime.
+The idle action sheet was produced during development through the user's private OpenAI-compatible ImageGen relay with `gpt-image-2`. The relay endpoint and credentials are not included in the app and are never called at runtime. The production 16-direction gaze atlas is extracted locally from the accepted native spritesheet.
 
 ## Codex independence
 
-The app does not write to Codex configuration, hooks, session files or pet files. Disabling Codex monitoring stops the file watcher immediately.
+The app does not modify Codex configuration, hooks, session files or native pet files. Disabling Codex monitoring stops the lifecycle watcher. Disabling “Codex 任务与回复” removes task listing/reply controls while leaving other companion features available.

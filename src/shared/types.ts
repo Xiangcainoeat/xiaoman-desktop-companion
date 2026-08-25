@@ -24,6 +24,45 @@ export type SoundName = (typeof SOUND_NAMES)[number];
 
 export type InteractionAction = "feed" | "pet" | "play" | "sleep" | "wake" | "celebrate";
 export type ReminderRepeat = "once" | "daily" | "weekdays" | "weekly";
+export type GazeRange = "upper-180" | "full-360";
+export type PetMotion =
+  | "running-left"
+  | "running-right"
+  | "jumping"
+  | "idle-lick"
+  | "idle-blink"
+  | "idle-scratch";
+
+export type CodexThreadStatus = "active" | "waiting" | "idle" | "not-loaded" | "error" | "unknown";
+
+export interface CodexThreadSummary {
+  id: string;
+  title: string;
+  projectName: string;
+  status: CodexThreadStatus;
+  updatedAt: number;
+  activeTurnId: string | null;
+  sourceKind: string | null;
+  canReply: boolean;
+  waitReason: "approval" | null;
+}
+
+export interface CodexReplyResult {
+  ok: boolean;
+  mode: "queued" | "started";
+  message: string;
+}
+
+export interface CodexThreadListResult {
+  threads: CodexThreadSummary[];
+  source: "app-server+logs" | "app-server" | "logs" | "unavailable" | "off";
+  warnings: string[];
+}
+
+export interface CodexOpenResult {
+  ok: boolean;
+  message: string;
+}
 
 export interface PetStats {
   fullness: number;
@@ -64,9 +103,23 @@ export interface CompanionSettings {
   overlayVisible: boolean;
   alwaysOnTop: boolean;
   gazeEnabled: boolean;
+  gazeRange: GazeRange;
   gazeFrameRate: 30 | 60;
   gazeSmoothingMs: number;
   gazeDeadzonePx: number;
+  gazeIdleResetMs: number;
+  petSize: number;
+  dragRunEnabled: boolean;
+  hoverJumpEnabled: boolean;
+  idleActionsEnabled: boolean;
+  idleLickEnabled: boolean;
+  idleBlinkEnabled: boolean;
+  idleScratchEnabled: boolean;
+  idleActionIntervalSec: number;
+  idleSpeechEnabled: boolean;
+  idleSpeechIntervalSec: number;
+  codexSessionControls: boolean;
+  remindersEnabled: boolean;
   soundEnabled: boolean;
   volume: number;
   systemNotifications: boolean;
@@ -96,10 +149,11 @@ export interface MonitoringStatus {
 }
 
 export interface PersistedData {
-  version: 1;
+  version: 2;
   stats: PetStats;
   reminders: Reminder[];
   appRules: AppRule[];
+  idlePhrases: string[];
   settings: CompanionSettings;
   sleeping: boolean;
   overlayPosition: { x: number; y: number } | null;
