@@ -40,6 +40,7 @@ Accepted output:
 
 - `qa-production-overlay.png` verifies the transparent packaged overlay.
 - `qa-production-final.png` verifies the packaged control center.
+- `qa-production-settings.png` verifies the packaged 30/60Hz selector and local settings surface.
 - `qa-animation-01.png` through `qa-animation-10.png` sample a full production working loop.
 - `qa-animation-sampling.json` records the foreground-pixel gate used to catch transparent tail frames.
 
