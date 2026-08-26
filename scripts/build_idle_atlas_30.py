@@ -22,6 +22,9 @@ EDGE_CONTAMINATION_LIMIT = 4
 RED_PINK_EDGE_CONTAMINATION_LIMIT = 4
 COLOR_DRIFT_LIMIT = 22
 ADJACENT_AREA_JUMP_LIMIT = 0.45
+NEUTRAL_TARGET_WIDTH = 124
+NEUTRAL_TARGET_HEIGHT = 178
+BACKGROUND_COLOR_TOLERANCE = 64
 ALPHA_VISIBLE = 10
 ALPHA_OPAQUE = 245
 ALGORITHM_ID = "idle-atlas-30-v2-stable-registration"
@@ -45,11 +48,24 @@ def _shift(array: np.ndarray, dx: int, dy: int, fill: int | float = 0) -> np.nda
     return result
 
 
-def chroma_to_alpha(image: Image.Image) -> Image.Image:
+def chroma_to_alpha(image: Image.Image, return_stats: bool = False) -> Image.Image | tuple[Image.Image, dict[str, int]]:
     """Remove only the connected green matte and retain natural subject colors."""
     rgba = np.asarray(image.convert("RGBA"), dtype=np.float32).copy()
     red, green, blue = rgba[..., 0], rgba[..., 1], rgba[..., 2]
     green_dominance = green - np.maximum(red, blue)
+
+    # Estimate the matte from the source border. This catches holes between
+    # legs even when they are not connected to an image edge.
+    border = np.concatenate((
+        rgba[0, :, :3], rgba[-1, :, :3], rgba[:, 0, :3], rgba[:, -1, :3],
+    ), axis=0)
+    background_color = np.median(border, axis=0)
+    color_distance = np.max(np.abs(rgba[..., :3] - background_color), axis=2)
+    candidate = (
+        (color_distance <= BACKGROUND_COLOR_TOLERANCE)
+        & (green >= 120.0)
+        & (green_dominance >= 45.0)
+    )
 
     # The generated sheets use a bright green matte. A soft key preserves
     # antialiased fur while the later edge pass removes the matte hue.
@@ -61,7 +77,6 @@ def chroma_to_alpha(image: Image.Image) -> Image.Image:
 
     # Green pixels in the matte can be slightly uneven. Flooding from the
     # border prevents a naturally colored interior pixel from being keyed.
-    candidate = (green_dominance > 18.0) & (green > 80.0)
     reachable = np.zeros(candidate.shape, dtype=bool)
     frontier = np.zeros(candidate.shape, dtype=bool)
     frontier[0, :] = candidate[0, :]
@@ -81,13 +96,21 @@ def chroma_to_alpha(image: Image.Image) -> Image.Image:
         )
         frontier = next_frontier & candidate & ~reachable
 
-    # Only the border-connected matte is keyed. An interior green pixel is
-    # part of the subject unless it is connected to the outside background.
-    alpha[reachable] = np.minimum(alpha[reachable], 255.0 * (1.0 - key_strength[reachable]))
+    # Every component matching the sampled matte is background, including
+    # components enclosed by the subject. A clearly different interior green
+    # pixel does not match this mask and remains opaque.
+    alpha[candidate] = np.minimum(alpha[candidate], 255.0 * (1.0 - key_strength[candidate]))
     alpha[alpha < ALPHA_VISIBLE] = 0.0
     rgba[..., 3] = alpha
     rgba[alpha == 0, :3] = 0
-    return Image.fromarray(np.clip(rgba, 0, 255).astype(np.uint8), "RGBA")
+    result = Image.fromarray(np.clip(rgba, 0, 255).astype(np.uint8), "RGBA")
+    if not return_stats:
+        return result
+    stats = {
+        "backgroundPixelsRemoved": int(np.count_nonzero(candidate & (alpha < ALPHA_VISIBLE))),
+        "backgroundHolePixelsRemoved": int(np.count_nonzero(candidate & ~reachable & (alpha < ALPHA_VISIBLE))),
+    }
+    return result, stats
 
 
 def _boundary_mask(alpha: np.ndarray) -> np.ndarray:
@@ -226,30 +249,68 @@ def _union_bounds(bounds: Iterable[tuple[int, int, int, int]]) -> tuple[int, int
     )
 
 
+def _composite_clipped(destination: Image.Image, foreground: Image.Image, xy: tuple[int, int]) -> None:
+    left, top = xy
+    right = left + foreground.width
+    bottom = top + foreground.height
+    clip_left, clip_top = max(0, left), max(0, top)
+    clip_right, clip_bottom = min(destination.width, right), min(destination.height, bottom)
+    if clip_left >= clip_right or clip_top >= clip_bottom:
+        return
+    cropped = foreground.crop((clip_left - left, clip_top - top, clip_right - left, clip_bottom - top))
+    destination.alpha_composite(cropped, (clip_left, clip_top))
+
+
+def _matte_regression() -> dict[str, bool]:
+    image = Image.new("RGB", (64, 64), (18, 238, 28))
+    draw = ImageDraw.Draw(image)
+    draw.rectangle((12, 12, 51, 51), outline=(25, 25, 25), width=5)
+    image.putpixel((32, 32), (28, 126, 44))
+    result = chroma_to_alpha(image)
+    return {
+        "enclosedBackgroundHoleRemoved": result.getpixel((24, 24))[3] == 0,
+        "enclosedGreenPixelPreserved": result.getpixel((32, 32))[3] == 255,
+    }
+
+
 def normalize_action_frames(source_frames: list[Image.Image]) -> tuple[list[Image.Image], dict[str, object]]:
-    """Normalize an action with one shared crop, scale, and registration anchor."""
-    keyed_frames = [despill_edges(chroma_to_alpha(source)) for source in source_frames]
+    """Normalize action motion around a shared neutral subject size."""
+    keyed_frames: list[Image.Image] = []
+    matte_stats: list[dict[str, int]] = []
+    for source in source_frames:
+        keyed, stats = chroma_to_alpha(source, return_stats=True)
+        keyed_frames.append(despill_edges(keyed))
+        matte_stats.append(stats)
     frame_bounds = [_foreground_bbox(frame) for frame in keyed_frames]
-    reference_bounds = _union_bounds(frame_bounds)
-    reference_width = reference_bounds[2] - reference_bounds[0]
-    reference_height = reference_bounds[3] - reference_bounds[1]
-    scale = min(174 / reference_width, 190 / reference_height)
-    target_size = (
-        max(1, round(reference_width * scale)),
-        max(1, round(reference_height * scale)),
+    neutral_indices = list(range(min(4, len(frame_bounds)))) + list(range(max(0, len(frame_bounds) - 4), len(frame_bounds)))
+    neutral_dimensions = np.array([
+        (frame_bounds[index][2] - frame_bounds[index][0], frame_bounds[index][3] - frame_bounds[index][1])
+        for index in neutral_indices
+    ], dtype=np.float32)
+    neutral_width, neutral_height = np.median(neutral_dimensions, axis=0)
+    scale = min(NEUTRAL_TARGET_WIDTH / neutral_width, NEUTRAL_TARGET_HEIGHT / neutral_height)
+    neutral_size = (
+        max(1, round(neutral_width * scale)),
+        max(1, round(neutral_height * scale)),
     )
     normalized: list[Image.Image] = []
-    for keyed in keyed_frames:
-        cropped = keyed.crop(reference_bounds)
+    for keyed, bounds in zip(keyed_frames, frame_bounds):
+        cropped = keyed.crop(bounds)
+        target_size = (
+            max(1, round(cropped.width * scale)),
+            max(1, round(cropped.height * scale)),
+        )
         foreground = cropped.resize(target_size, Image.Resampling.LANCZOS)
         frame = Image.new("RGBA", (CELL_WIDTH, CELL_HEIGHT), (0, 0, 0, 0))
-        frame.alpha_composite(foreground, ((CELL_WIDTH - foreground.width) // 2, 202 - foreground.height))
+        _composite_clipped(frame, foreground, ((CELL_WIDTH - foreground.width) // 2, 202 - foreground.height))
         normalized.append(despill_edges(frame))
     return normalized, {
-        "scale": round(scale, 6),
+        "scale": float(round(float(scale), 6)),
         "sharedScale": True,
-        "referenceBounds": list(reference_bounds),
-        "targetSize": list(target_size),
+        "neutralReferenceSize": [NEUTRAL_TARGET_WIDTH, NEUTRAL_TARGET_HEIGHT],
+        "neutralSubjectSize": list(neutral_size),
+        "backgroundPixelsRemoved": sum(item["backgroundPixelsRemoved"] for item in matte_stats),
+        "backgroundHolePixelsRemoved": sum(item["backgroundHolePixelsRemoved"] for item in matte_stats),
     }
 
 
@@ -330,6 +391,7 @@ def build_atlas(sources: dict[str, Path]) -> tuple[Image.Image, dict[str, object
     atlas = Image.new("RGBA", (CELL_WIDTH * COLUMNS, CELL_HEIGHT * ROWS_PER_ACTION * len(ACTION_ORDER)), (0, 0, 0, 0))
     frame_reports: list[dict[str, int | str]] = []
     action_reports: dict[str, dict[str, object]] = {}
+    total_hole_pixels_removed = 0
 
     for action_index, action in enumerate(ACTION_ORDER):
         source = Image.open(sources[action]).convert("RGB")
@@ -358,7 +420,9 @@ def build_atlas(sources: dict[str, Path]) -> tuple[Image.Image, dict[str, object
                 "maxAdjacentAreaDeltaRatio", "maxAdjacentCenterDelta", "maxAdjacentBottomDelta",
             )}},
             "maxColorDrift": continuity["maxColorDrift"],
+            "backgroundHolePixelsRemoved": registration["backgroundHolePixelsRemoved"],
         }
+        total_hole_pixels_removed += int(registration["backgroundHolePixelsRemoved"])
 
     report: dict[str, object] = {
         "ok": False,
@@ -367,6 +431,8 @@ def build_atlas(sources: dict[str, Path]) -> tuple[Image.Image, dict[str, object
         "columns": COLUMNS,
         "rows": ROWS_PER_ACTION * len(ACTION_ORDER),
         "cell": [CELL_WIDTH, CELL_HEIGHT],
+        "backgroundHolePixelsRemoved": total_hole_pixels_removed,
+        "regressions": _matte_regression(),
         "actions": action_reports,
         "frames": frame_reports,
     }
@@ -409,7 +475,7 @@ def main() -> None:
     report["ok"] = all(
         action_is_clean(summary)
         for summary in action_reports.values()
-    )
+    ) and report["backgroundHolePixelsRemoved"] >= 0 and all(report["regressions"].values())
 
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.contact_sheet.parent.mkdir(parents=True, exist_ok=True)

@@ -11,10 +11,12 @@ const cleanActionMetrics = {
   hiddenRgbPixels: 0,
   contaminatedEdgePixels: 0,
   redPinkEdgePixels: 0,
+  backgroundHolePixelsRemoved: 1,
   maxColorDrift: 8,
   registration: {
     scale: 0.84,
     sharedScale: true,
+    neutralSubjectSize: [124, 178],
     maxAdjacentAreaDeltaRatio: 0.2,
     maxAdjacentCenterDelta: 4,
     maxAdjacentBottomDelta: 4,
@@ -26,6 +28,11 @@ describe("30-frame idle atlas contract", () => {
     expect(validateIdleAtlasReport({
       columns: 10,
       rows: 9,
+      backgroundHolePixelsRemoved: 3,
+      regressions: {
+        enclosedBackgroundHoleRemoved: true,
+        enclosedGreenPixelPreserved: true,
+      },
       actions: {
         "idle-lick": cleanActionMetrics,
         "idle-blink": { ...cleanActionMetrics, contaminatedEdgePixels: 1 },
@@ -37,6 +44,14 @@ describe("30-frame idle atlas contract", () => {
   it("accepts the real generated report using the shared columns/rows schema", () => {
     expect(realReport.grid).toBeUndefined();
     expect(validateIdleAtlasReport(realReport)).toEqual({ ok: true, errors: [] });
+    const actions = Object.values(realReport.actions) as Array<{
+      registration: { neutralSubjectSize: [number, number] };
+    }>;
+    const neutralHeights = actions.map(
+      (action) => action.registration.neutralSubjectSize[1],
+    );
+    expect(Math.max(...neutralHeights) - Math.min(...neutralHeights)).toBeLessThanOrEqual(4);
+    expect(realReport.backgroundHolePixelsRemoved).toBeGreaterThan(0);
   });
 
   it("rejects a legacy grid-only report and missing continuity/color metrics", () => {

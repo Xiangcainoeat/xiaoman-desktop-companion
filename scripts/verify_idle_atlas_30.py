@@ -26,6 +26,8 @@ from build_idle_atlas_30 import (
     _color_signature,
     _continuity_metrics,
     _frame_report,
+    _matte_regression,
+    _visible_bbox,
     red_pink_edge_contamination_count,
 )
 
@@ -100,6 +102,16 @@ def verify(atlas: Image.Image) -> dict[str, object]:
 
         signatures = [_color_signature(frame) for frame in action_frames]
         continuity = _continuity_metrics(action_frames, signatures)
+        neutral_indices = list(range(4)) + list(range(FRAMES_PER_ACTION - 4, FRAMES_PER_ACTION))
+        neutral_sizes = [
+            (_visible_bbox(action_frames[index])[2] - _visible_bbox(action_frames[index])[0],
+             _visible_bbox(action_frames[index])[3] - _visible_bbox(action_frames[index])[1])
+            for index in neutral_indices
+        ]
+        neutral_subject_size = [
+            int(round(float(np.median([size[0] for size in neutral_sizes])))),
+            int(round(float(np.median([size[1] for size in neutral_sizes])))),
+        ]
         action_frame_results = [item for item in frame_results if item["action"] == action]
         red_pink_edge_pixels = max(
             (red_pink_edge_contamination_count(frame) for frame in action_frames),
@@ -115,11 +127,14 @@ def verify(atlas: Image.Image) -> dict[str, object]:
             ),
             "redPinkEdgePixels": red_pink_edge_pixels,
             "maxColorDrift": continuity["maxColorDrift"],
+            "backgroundHolePixelsRemoved": 0,
             # The final atlas no longer has source coordinates, so scale 1 is
             # the normalized output space. The continuity values remain real.
             "registration": {
                 "scale": 1.0,
                 "sharedScale": True,
+                "neutralReferenceSize": [124, 178],
+                "neutralSubjectSize": neutral_subject_size,
                 **{key: continuity[key] for key in (
                     "maxAdjacentAreaDeltaRatio", "maxAdjacentCenterDelta", "maxAdjacentBottomDelta",
                 )},
@@ -138,6 +153,9 @@ def verify(atlas: Image.Image) -> dict[str, object]:
         if continuity["maxAdjacentAreaDeltaRatio"] > ADJACENT_AREA_JUMP_LIMIT:
             errors.append(f"{action} exceeds the registration continuity limit")
 
+    regressions = _matte_regression()
+    if not all(regressions.values()):
+        errors.append("matte regression failed")
     return {
         "ok": not errors,
         "algorithm": "idle-atlas-30-v2-stable-registration",
@@ -145,6 +163,8 @@ def verify(atlas: Image.Image) -> dict[str, object]:
         "columns": COLUMNS,
         "rows": ROWS_PER_ACTION * len(ACTION_ORDER),
         "cell": [CELL_WIDTH, CELL_HEIGHT],
+        "backgroundHolePixelsRemoved": 0,
+        "regressions": regressions,
         "backgrounds": ["white", "charcoal", "checkerboard"],
         "frameCount": len(frame_results),
         "maxContaminatedEdgePixels": max((item["contaminatedEdgePixels"] for item in frame_results), default=0),

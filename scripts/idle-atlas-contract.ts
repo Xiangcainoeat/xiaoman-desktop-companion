@@ -29,6 +29,17 @@ export function validateIdleAtlasReport(report: unknown): { ok: boolean; errors:
   if ("grid" in root) errors.push("legacy grid field is not allowed");
   if (root.columns !== IDLE_ATLAS_COLUMNS) errors.push(`atlas must have ${IDLE_ATLAS_COLUMNS} columns`);
   if (root.rows !== IDLE_ATLAS_ROWS) errors.push(`atlas must have ${IDLE_ATLAS_ROWS} rows`);
+  const backgroundHolePixelsRemoved = finiteNumber(root.backgroundHolePixelsRemoved);
+  if (backgroundHolePixelsRemoved === null || backgroundHolePixelsRemoved < 0) {
+    errors.push("report is missing background hole metrics");
+  }
+  const regressions = record(root.regressions);
+  if (regressions?.enclosedBackgroundHoleRemoved !== true) {
+    errors.push("enclosed background-hole regression did not pass");
+  }
+  if (regressions?.enclosedGreenPixelPreserved !== true) {
+    errors.push("enclosed green-pixel regression did not pass");
+  }
 
   const actions = record(root.actions);
   for (const action of IDLE_ATLAS_ACTIONS) {
@@ -64,15 +75,21 @@ export function validateIdleAtlasReport(report: unknown): { ok: boolean; errors:
     const registration = record(summary.registration);
     const scale = finiteNumber(registration?.scale);
     const sharedScale = registration?.sharedScale;
+    const neutralSubjectSize = registration?.neutralSubjectSize;
     const areaJump = finiteNumber(registration?.maxAdjacentAreaDeltaRatio);
     if (
       scale === null || scale <= 0
       || sharedScale !== true
+      || !Array.isArray(neutralSubjectSize)
+      || neutralSubjectSize.length !== 2
+      || neutralSubjectSize.some((value) => finiteNumber(value) === null || (value as number) <= 0)
       || areaJump === null || areaJump > IDLE_ATLAS_AREA_JUMP_LIMIT
     ) {
       errors.push(`${action} exceeds the registration continuity limit`);
     }
     if (!registration) errors.push(`${action} is missing continuity metrics`);
+    const actionHoles = finiteNumber(summary.backgroundHolePixelsRemoved);
+    if (actionHoles === null || actionHoles < 0) errors.push(`${action} is missing background hole metrics`);
     if (redPinkEdgePixels === null || maxColorDrift === null) {
       errors.push(`${action} is missing color metrics`);
     }
