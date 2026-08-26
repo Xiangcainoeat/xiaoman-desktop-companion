@@ -23,8 +23,8 @@ function jsonl(...records: unknown[]): string {
   return records.map((record) => JSON.stringify(record)).join("\n");
 }
 
-function processResult(code = 0, stderr = ""): CodexProcessResult {
-  return { code, signal: null, stdout: "", stderr };
+function processResult(code = 0, stderr = "", stdout = ""): CodexProcessResult {
+  return { code, signal: null, stdout, stderr };
 }
 
 function recordingSpawner(results: CodexProcessResult[] = [processResult()]): {
@@ -295,8 +295,40 @@ describe("session listing", () => {
         activeTurnId: "turn-1",
         inferredFromLog: true,
       },
-      canAcceptDirectInput: false,
+      canAcceptDirectInput: true,
       desktopUrl: `codex://threads/${THREAD_ID}`,
+    });
+  });
+
+  it("keeps approval waits blocked even when the local log is waiting", async () => {
+    const service = new CodexSessionsService({
+      appServerRequest: async () => ({
+        data: [{
+          id: THREAD_ID,
+          status: { type: "active", activeFlags: ["waitingOnApproval"] },
+          canAcceptDirectInput: false,
+        }],
+      }),
+      localSessionScanner: async () => [localRecord({ activity: "waiting" })],
+    });
+
+    const session = (await service.listSessions()).sessions[0];
+    expect(session.status.activity).toBe("waiting");
+    expect(session.canAcceptDirectInput).toBe(false);
+  });
+
+  it("marks a locally waiting task replyable when app-server says false", async () => {
+    const service = new CodexSessionsService({
+      appServerRequest: async () => ({
+        data: [{ id: THREAD_ID, status: { type: "notLoaded" }, canAcceptDirectInput: false }],
+      }),
+      localSessionScanner: async () => [localRecord({ activity: "waiting" })],
+    });
+
+    const session = (await service.listSessions()).sessions[0];
+    expect(session).toMatchObject({
+      status: { activity: "waiting" },
+      canAcceptDirectInput: true,
     });
   });
 
@@ -373,7 +405,7 @@ describe("safe reply dispatch", () => {
       threadId: THREAD_ID,
       message: "检查失败测试",
       activity: "idle",
-      cwd: "/Users/example/project",
+      cwd: os.tmpdir(),
     });
 
     expect(dispatch.transport).toBe("exec-resume");
@@ -381,9 +413,31 @@ describe("safe reply dispatch", () => {
       executable: "/safe/codex",
       args: ["exec", "resume", "--skip-git-repo-check", THREAD_ID, "-", "--json"],
       stdin: "检查失败测试\n",
-      cwd: "/Users/example/project",
+      cwd: os.tmpdir(),
     });
     await expect(dispatch.completion).resolves.toMatchObject({ code: 0 });
+  });
+
+  it("omits missing, relative, and non-directory cwd values when resuming", async () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "xiaoman-resume-cwd-"));
+    const filePath = path.join(root, "not-a-directory");
+    writeFileSync(filePath, "content");
+    const missingPath = path.join(root, "missing");
+    const recorder = recordingSpawner();
+    const service = new CodexSessionsService({ codexPath: "/safe/codex", processSpawner: recorder.spawner });
+
+    try {
+      await service.sendReply({ threadId: THREAD_ID, message: "缺失目录", activity: "idle", cwd: missingPath });
+      await service.sendReply({ threadId: THREAD_ID, message: "相对目录", activity: "idle", cwd: "relative/project" });
+      await service.sendReply({ threadId: THREAD_ID, message: "文件路径", activity: "idle", cwd: filePath });
+      expect(recorder.invocations.map((invocation) => invocation.cwd)).toEqual([
+        undefined,
+        undefined,
+        undefined,
+      ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 
   it("does not resume an active task when queueing fails", async () => {
@@ -397,6 +451,137 @@ describe("safe reply dispatch", () => {
     })).rejects.toThrow("daemon unavailable");
     expect(recorder.invocations).toHaveLength(1);
     expect(recorder.invocations[0].args[0]).toBe("queue");
+  });
+
+  it("recovers one active-session race after a fresh idle read", async () => {
+    const recorder = recordingSpawner([
+      processResult(1, "No active session found matching thread"),
+      processResult(0),
+    ]);
+    let readCount = 0;
+    const service = new CodexSessionsService({
+      codexPath: "/safe/codex",
+      processSpawner: recorder.spawner,
+      localSessionScanner: async () => {
+        readCount += 1;
+        return [localRecord({ activity: "idle", cwd: os.tmpdir() })];
+      },
+      appServerRequest: async () => { throw new Error("offline"); },
+    });
+
+    const dispatch = await service.sendReply({
+      threadId: THREAD_ID,
+      message: "竞态后继续",
+      activity: "running",
+      cwd: "/definitely/missing/input-cwd",
+    });
+
+    expect(dispatch.transport).toBe("exec-resume");
+    expect(dispatch.fallbackReason).toContain("No active session");
+    expect(recorder.invocations.map((invocation) => invocation.args[0])).toEqual(["queue", "exec"]);
+    expect(recorder.invocations[1].cwd).toBe(os.tmpdir());
+    expect(readCount).toBe(1);
+  });
+
+  it("detects a late active-session marker without expanding the displayed error", async () => {
+    const recorder = recordingSpawner([
+      processResult(1, "stderr context", `${"x".repeat(600)} No active session found matching thread`),
+      processResult(0),
+    ]);
+    const service = new CodexSessionsService({
+      codexPath: "/safe/codex",
+      processSpawner: recorder.spawner,
+      localSessionScanner: async () => [localRecord({ activity: "idle" })],
+      appServerRequest: async () => { throw new Error("offline"); },
+    });
+
+    const dispatch = await service.sendReply({
+      threadId: THREAD_ID,
+      message: "识别长错误中的竞态",
+      activity: "running",
+    });
+
+    expect(dispatch.transport).toBe("exec-resume");
+    expect(dispatch.fallbackReason?.length).toBeLessThanOrEqual(500);
+  });
+
+  it("does not resume when the fresh read still reports an active task", async () => {
+    const recorder = recordingSpawner([processResult(1, "No active session found matching thread")]);
+    let readCount = 0;
+    const service = new CodexSessionsService({
+      codexPath: "/safe/codex",
+      processSpawner: recorder.spawner,
+      localSessionScanner: async () => {
+        readCount += 1;
+        return [localRecord({ activity: "waiting" })];
+      },
+      appServerRequest: async () => { throw new Error("offline"); },
+    });
+
+    await expect(service.sendReply({
+      threadId: THREAD_ID,
+      message: "不要重复恢复",
+      activity: "running",
+    })).rejects.toThrow("No active session");
+    expect(readCount).toBe(1);
+    expect(recorder.invocations).toHaveLength(1);
+  });
+
+  it("does not retry beyond the single resume fallback", async () => {
+    const recorder = recordingSpawner([
+      processResult(1, "No active session found matching thread"),
+      processResult(1, "resume failed"),
+    ]);
+    const service = new CodexSessionsService({
+      codexPath: "/safe/codex",
+      processSpawner: recorder.spawner,
+      localSessionScanner: async () => [localRecord({ activity: "error" })],
+      appServerRequest: async () => { throw new Error("offline"); },
+    });
+
+    await expect(service.sendReply({
+      threadId: THREAD_ID,
+      message: "只恢复一次",
+      activity: "waiting",
+    })).rejects.toThrow("resume failed");
+    expect(recorder.invocations.map((invocation) => invocation.args[0])).toEqual(["queue", "exec"]);
+  });
+
+  it("does not apply the fallback to an explicitly queued reply", async () => {
+    const recorder = recordingSpawner([
+      processResult(1, "No active session found matching thread"),
+      processResult(0),
+    ]);
+    let readCount = 0;
+    const service = new CodexSessionsService({
+      codexPath: "/safe/codex",
+      processSpawner: recorder.spawner,
+      localSessionScanner: async () => {
+        readCount += 1;
+        return [localRecord({ activity: "idle" })];
+      },
+      appServerRequest: async () => { throw new Error("offline"); },
+    });
+
+    await expect(service.sendReply({
+      threadId: THREAD_ID,
+      message: "保持 queue transport",
+      mode: "queue",
+      activity: "running",
+    })).rejects.toThrow("No active session");
+    expect(readCount).toBe(0);
+    expect(recorder.invocations).toHaveLength(1);
+  });
+
+  it("retains bounded summaries from both command output streams", async () => {
+    const recorder = recordingSpawner([processResult(1, "stderr detail", "stdout detail")]);
+    const service = new CodexSessionsService({ codexPath: "/safe/codex", processSpawner: recorder.spawner });
+
+    await expect(service.sendReply({
+      threadId: THREAD_ID,
+      message: "显示错误",
+      activity: "running",
+    })).rejects.toThrow(/stderr detail.*stdout detail/);
   });
 
   it("surfaces an immediate resume failure instead of reporting a false start", async () => {

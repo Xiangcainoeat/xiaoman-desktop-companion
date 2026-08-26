@@ -1,5 +1,26 @@
 import { describe, expect, it } from "vitest";
 import { classifyCodexRecord } from "../electron/codex-monitor";
+import { CodexSessionsService, type CodexLocalSessionRecord } from "../electron/codex-sessions";
+
+const THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9404";
+
+function localRecord(activity: CodexLocalSessionRecord["activity"]): CodexLocalSessionRecord {
+  return {
+    id: THREAD_ID,
+    sessionId: THREAD_ID,
+    cwd: "/tmp",
+    filePath: `/tmp/${THREAD_ID}.jsonl`,
+    createdAt: 1_700_000_000_000,
+    updatedAt: 1_700_000_100_000,
+    preview: "monitor regression",
+    source: "cli",
+    threadSource: "user",
+    isSubagent: false,
+    activity,
+    activeTurnId: activity === "idle" || activity === "error" ? null : "turn-1",
+    lastOutcome: null,
+  };
+}
 
 describe("Codex event classification", () => {
   it("maps task lifecycle records without reading message content", () => {
@@ -32,5 +53,18 @@ describe("Codex event classification", () => {
       type: "event_msg",
       payload: { type: "agent_message", message: "private-content" },
     })).toBeNull();
+  });
+
+  it("keeps a log-derived active task replyable when runtime metadata is stale", async () => {
+    const service = new CodexSessionsService({
+      appServerRequest: async () => ({
+        data: [{ id: THREAD_ID, status: { type: "notLoaded" }, canAcceptDirectInput: false }],
+      }),
+      localSessionScanner: async () => [localRecord("running")],
+    });
+
+    const session = (await service.listSessions()).sessions[0];
+    expect(session.status.activity).toBe("running");
+    expect(session.canAcceptDirectInput).toBe(true);
   });
 });

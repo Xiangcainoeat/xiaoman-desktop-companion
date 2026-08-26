@@ -896,6 +896,23 @@ function localSessionSummary(record: CodexLocalSessionRecord): CodexSessionSumma
   };
 }
 
+function hasApprovalFlag(flags: readonly string[]): boolean {
+  return flags.some((flag) => flag.toLowerCase().includes("approval"));
+}
+
+function isResumableActivity(activity: CodexSessionActivity): boolean {
+  return activity === "idle" || activity === "error";
+}
+
+export function canReplyToCodexSession(
+  session: Pick<CodexSessionSummary, "canAcceptDirectInput" | "status">,
+): boolean {
+  if (hasApprovalFlag(session.status.activeFlags)) return false;
+  const inferredActive = session.status.inferredFromLog
+    && (session.status.activity === "running" || session.status.activity === "waiting");
+  return session.canAcceptDirectInput || inferredActive || isResumableActivity(session.status.activity);
+}
+
 function mergeLocalStatus(
   session: CodexSessionSummary,
   local: CodexLocalSessionRecord | undefined,
@@ -904,6 +921,7 @@ function mergeLocalStatus(
   const localIsActive = local.activity === "running" || local.activity === "waiting";
   const runtimeIsActive = session.status.activity === "running" || session.status.activity === "waiting";
   const shouldUseLocal = localIsActive || !runtimeIsActive && session.status.activity === "unknown";
+  const approvalBlocked = hasApprovalFlag(session.status.activeFlags);
   return {
     ...session,
     sessionId: session.sessionId || local.sessionId,
@@ -916,7 +934,7 @@ function mergeLocalStatus(
     source: session.source ?? local.source,
     threadSource: session.threadSource ?? local.threadSource,
     isSubagent: session.isSubagent || local.isSubagent,
-    canAcceptDirectInput: session.canAcceptDirectInput,
+    canAcceptDirectInput: !approvalBlocked && (session.canAcceptDirectInput || localIsActive),
     status: shouldUseLocal
       ? {
           activity: local.activity,
@@ -929,8 +947,40 @@ function mergeLocalStatus(
   };
 }
 
+export function summarizeCodexProcessResult(result: CodexProcessResult): string {
+  const outputs = [result.stderr, result.stdout].filter((output) => output.trim());
+  let summary = "";
+  if (outputs.length > 1) {
+    const streamLimit = 248;
+    summary = outputs
+      .map((output) => compactText(output, streamLimit))
+      .join(" | ");
+  } else if (outputs.length === 1) {
+    summary = compactText(outputs[0], 500);
+  }
+  return compactText(summary, 500) || `Codex exited with code ${result.code ?? "unknown"}`;
+}
+
 function processFailure(result: CodexProcessResult): string {
-  return compactText(result.stderr || result.stdout, 500) || `Codex exited with code ${result.code ?? "unknown"}`;
+  return summarizeCodexProcessResult(result);
+}
+
+function isActiveSessionNotFoundError(error: unknown): error is CodexSessionCommandError {
+  if (!(error instanceof CodexSessionCommandError) || error.transport !== "queue") return false;
+  const matches = (detail: string): boolean => /no\s+active\s+session/i.test(detail)
+    || /active\s+session.*(?:not\s+found|does\s+not\s+exist|missing)/i.test(detail);
+  if (error.result) return [error.result.stderr, error.result.stdout].some(matches);
+  return matches(error.message);
+}
+
+async function usableWorkingDirectory(cwd: string | null | undefined): Promise<string | undefined> {
+  if (!cwd || !path.isAbsolute(cwd)) return undefined;
+  try {
+    const details = await stat(cwd);
+    return details.isDirectory() ? cwd : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 async function commandExists(executable: string): Promise<boolean> {
@@ -1106,7 +1156,34 @@ export class CodexSessionsService {
       || mode === "auto" && (input.activity === "idle" || input.activity === "error");
     if (shouldResume) return await this.startResume(threadId, message, null, input.cwd);
 
-    return await this.queueReply(threadId, message);
+    if (mode !== "auto" || (input.activity !== "running" && input.activity !== "waiting")) {
+      return await this.queueReply(threadId, message);
+    }
+
+    try {
+      return await this.queueReply(threadId, message);
+    } catch (error) {
+      if (!isActiveSessionNotFoundError(error)) throw error;
+      let freshSession: CodexSessionSummary | null = null;
+      try {
+        freshSession = await this.readSession(threadId);
+      } catch {
+        throw error;
+      }
+      if (
+        !freshSession
+        || !isResumableActivity(freshSession.status.activity)
+        || !canReplyToCodexSession(freshSession)
+      ) {
+        throw error;
+      }
+      return await this.startResume(
+        threadId,
+        message,
+        error.result ? summarizeCodexProcessResult(error.result) : error.message,
+        freshSession.cwd,
+      );
+    }
   }
 
   async queueReply(threadId: string, message: string): Promise<CodexReplyDispatch> {
@@ -1138,11 +1215,12 @@ export class CodexSessionsService {
     fallbackReason: string | null,
     cwd?: string | null,
   ): Promise<CodexReplyDispatch> {
+    const usableCwd = await usableWorkingDirectory(cwd);
     const handle = this.processSpawner({
       executable: this.codexPath,
       args: buildCodexResumeArgs(threadId),
       stdin: `${message}\n`,
-      cwd: cwd && path.isAbsolute(cwd) ? cwd : undefined,
+      cwd: usableCwd,
       env: this.env,
     });
     const dispatch: CodexReplyDispatch = {

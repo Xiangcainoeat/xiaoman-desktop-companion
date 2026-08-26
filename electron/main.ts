@@ -15,7 +15,10 @@ import {
 import { CompanionStore } from "./store";
 import { CodexSessionMonitor, type CodexMonitorEvent } from "./codex-monitor";
 import {
+  canReplyToCodexSession,
+  CodexSessionCommandError,
   CodexSessionsService,
+  summarizeCodexProcessResult,
   type CodexReplyDispatch,
   type CodexSessionSummary,
 } from "./codex-sessions";
@@ -479,8 +482,6 @@ function normalizedRule(input: AppRuleInput, existing?: AppRule): AppRule {
 
 function codexThreadSummary(session: CodexSessionSummary): CodexThreadSummary {
   const approvalBlocked = session.status.activeFlags.some((flag) => flag.toLowerCase().includes("approval"));
-  const resumable = session.status.activity === "idle"
-    || session.status.activity === "error";
   return {
     id: session.id,
     title: session.title,
@@ -489,7 +490,7 @@ function codexThreadSummary(session: CodexSessionSummary): CodexThreadSummary {
     updatedAt: session.updatedAt,
     activeTurnId: session.status.activeTurnId,
     sourceKind: session.threadSource ?? session.source,
-    canReply: !approvalBlocked && (session.canAcceptDirectInput || resumable),
+    canReply: canReplyToCodexSession(session),
     waitReason: approvalBlocked ? "approval" : null,
   };
 }
@@ -534,20 +535,27 @@ async function replyToCodexThread(threadId: string, message: string): Promise<Co
   codexReplyStarts.add(threadId);
   try {
     const session = await codexSessionsService.readSession(threadId);
-    if (session?.status.activeFlags.some((flag) => flag.toLowerCase().includes("approval"))) {
+    const approvalBlocked = session?.status.activeFlags.some((flag) => flag.toLowerCase().includes("approval")) ?? false;
+    if (approvalBlocked) {
       throw new Error("该任务正在等待授权，请在 Codex 中处理");
     }
-    const resumable = session?.status.activity === "idle"
-      || session?.status.activity === "error";
-    if (session && !session.canAcceptDirectInput && !resumable) {
+    if (session && !canReplyToCodexSession(session)) {
       throw new Error("该任务当前状态不支持直接回复，请在 Codex 中查看");
     }
-    const dispatch = await codexSessionsService.sendReply({
-      threadId,
-      message,
-      activity: session?.status.activity,
-      cwd: session?.cwd,
-    });
+    let dispatch: CodexReplyDispatch;
+    try {
+      dispatch = await codexSessionsService.sendReply({
+        threadId,
+        message,
+        activity: session?.status.activity,
+        cwd: session?.cwd,
+      });
+    } catch (error) {
+      if (error instanceof CodexSessionCommandError) {
+        throw new Error(error.result ? summarizeCodexProcessResult(error.result) : error.message);
+      }
+      throw error;
+    }
     codexThreadCache = null;
     const mode = dispatch.transport === "queue" ? "queued" : "started";
     const sessionTitle = session?.title ?? "本机任务";
