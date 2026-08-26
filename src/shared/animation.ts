@@ -51,6 +51,39 @@ export function createLookAtlasMetadata(input: LookAtlasMetadataInput): LookAtla
   };
 }
 
+export function parseLookAtlasMetadata(
+  value: unknown,
+  fallback: LookAtlasMetadata,
+): LookAtlasMetadata {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return fallback;
+  const source = value as Record<string, unknown>;
+  const frameCount = source.frameCount;
+  const columns = source.columns;
+  const frameWidth = source.frameWidth;
+  const frameHeight = source.frameHeight;
+  if (
+    typeof frameCount !== "number"
+    || typeof columns !== "number"
+    || typeof frameWidth !== "number"
+    || typeof frameHeight !== "number"
+    || !Number.isInteger(frameCount)
+    || !Number.isInteger(columns)
+    || !Number.isInteger(frameWidth)
+    || !Number.isInteger(frameHeight)
+    || frameCount <= 0
+    || columns <= 0
+    || frameWidth <= 0
+    || frameHeight <= 0
+  ) {
+    return fallback;
+  }
+  try {
+    return createLookAtlasMetadata({ frameCount, columns, frameWidth, frameHeight });
+  } catch {
+    return fallback;
+  }
+}
+
 export function advanceAnimationClock(
   clock: AnimationClock,
   elapsedMs: number,

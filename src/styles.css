@@ -453,6 +453,35 @@ select:focus-visible {
   color: var(--green);
 }
 
+.overlay-codex-title > span:nth-child(2) {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlay-codex-transport,
+.task-transport {
+  display: inline-flex;
+  align-items: center;
+  min-height: 18px;
+  padding: 0 6px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 750;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.transport-native {
+  color: var(--green);
+}
+
+.transport-cli {
+  color: #8a6b2f;
+}
+
 .overlay-codex-count {
   color: var(--faint);
   font-size: 9px;
@@ -1553,6 +1582,11 @@ select:focus-visible {
   width: 184px;
 }
 
+.profile-control,
+.reply-transport-control {
+  width: 150px;
+}
+
 /* Feature management */
 .features-view {
   padding: 24px 28px 36px;
@@ -1699,6 +1733,10 @@ select:focus-visible {
   gap: 8px;
 }
 
+.task-transport {
+  flex: 0 0 auto;
+}
+
 .task-source {
   color: var(--faint);
   font-size: 10px;
@@ -1706,7 +1744,8 @@ select:focus-visible {
 }
 
 .task-source.source-app-server\+logs,
-.task-source.source-app-server {
+.task-source.source-app-server,
+.task-source.source-state-db {
   color: var(--green);
 }
 

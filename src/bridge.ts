@@ -161,6 +161,7 @@ function createMockApi(): XiaomanApi {
     replyCodexThread: async (_threadId: string, message: string) => ({
       ok: false,
       mode: "queued",
+      transport: "native",
       message: message.trim() ? "浏览器预览仅模拟回复，未调用 Codex；请使用 Electron 应用" : "请输入回复内容",
     }),
     setOverlayTaskPanel: () => undefined,

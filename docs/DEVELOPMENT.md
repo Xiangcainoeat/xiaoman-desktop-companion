@@ -26,9 +26,10 @@ npm run dist:mac     # Unsigned arm64 DMG and ZIP
 
 `build:electron` deletes stale `dist-electron/` output before compilation and excludes Electron test files from the packaged main process.
 
-## Rebuilding the production gaze atlas
+## Rebuilding the gaze atlases
 
-The runtime uses the exact accepted native direction cells from rows 9–10:
+The host has two selectable gaze profiles. The native profile is a deterministic
+extraction of the accepted v2 rows 9–10:
 
 ```bash
 python3 scripts/build_native_look_atlas.py \
@@ -39,6 +40,31 @@ python3 scripts/build_native_look_atlas.py \
 ```
 
 Expected contract: `1536x416`, `8x2`, 16 populated transparent cells of `192x208`.
+
+The enhanced profile is the 90-direction atlas. The source repair and the
+generated transition overrides are recorded under `work/xiaoman-pet-90/`.
+The resampler uses shared scale/baseline registration and premultiplied alpha
+interpolation, then the atlas builder writes a `10x9` sheet:
+
+```bash
+sh scripts/run_image_python.sh scripts/resample_look_directions.py \
+  --input work/xiaoman-pet-90/relay-output/look-32-source-repaired.png \
+  --output-dir work/xiaoman-pet-90/frames-90-v2 \
+  --provenance work/xiaoman-pet-90/resampling-provenance.json \
+  --transition 172=work/xiaoman-pet-90/transition-output/look-172.png \
+  --transition 176=work/xiaoman-pet-90/transition-output/look-176.png \
+  --transition 260=work/xiaoman-pet-90/transition-output-v2/look-260.png \
+  --transition 264=work/xiaoman-pet-90/transition-output-v2/look-264.png \
+  --transition 268=work/xiaoman-pet-90/transition-output-v2/look-268.png \
+  --transition 352=work/xiaoman-pet-90/transition-output/look-352.png \
+  --transition 356=work/xiaoman-pet-90/transition-output/look-356.png
+npm run verify:look-90
+```
+
+Expected enhanced contract: `1920x1872`, `10x9`, 90 populated transparent
+cells, `4°` steps, no empty frames and edge contamination within the report
+limits. The final runtime atlas and metadata are already checked in; the
+command above is a reproducibility path, not a runtime dependency.
 
 ## Rebuilding idle actions
 
@@ -61,11 +87,12 @@ limits. Install the optional tools
 with `python3 -m pip install -r requirements-image.txt` when the bundled Codex
 runtime is not available.
 
-The prior `look-32.webp` pipeline and its prompt remain in `work/` for provenance only; v1.1 does not load that atlas.
+The prior `look-32.webp` pipeline remains in `work/` for provenance only; no
+runtime profile loads it directly.
 
 ## Testing a local build
 
-Browser mock QA covers forms, feature toggles, task composition and responsive control-center layouts. Native QA additionally verifies transparent-window alpha, 320x360 and expanded overlay bounds, menu bar creation, persisted data permissions, real cursor tracking, inactivity reset, CLI queue/resume behavior, system notifications and packaged resources.
+Browser mock QA covers forms, profile toggles, feature controls, task composition and responsive control-center layouts. Native QA additionally verifies transparent-window alpha, 30/60Hz cursor tracking, 90/native profile asset selection, inactivity reset, lower-quadrant continuity, owner-routed native IPC replies, repeated sends, filtered task identity, explicit CLI queue/resume compatibility, system notifications and packaged resources.
 
 ## Distribution
 

@@ -150,7 +150,7 @@ Commit: `git add electron/codex-sessions.ts electron/codex-sessions.test.ts && g
 
 - [ ] **Step 1: 注入 native service 并替换深链打开方式**
 
-`openCodexThread` 使用 `/usr/bin/open -a <resolved appPath> <deepLink>` 激活应用，不再使用可能打开到错误 handler 的 `shell.openExternal`。发送成功后再激活目标线程；打开失败必须返回明确错误。
+`openCodexThread` 使用 `/usr/bin/open -a <resolved appPath> <deepLink>` 激活应用，不再使用可能打开到错误 handler 的 `shell.openExternal`。原生 IPC 发送成功后不再额外激活深链，避免把同一线程交给另一个窗口 handler；只有用户主动执行“打开任务”时才打开深链。打开失败必须返回明确错误。
 
 - [ ] **Step 2: 映射 reply transport 和错误**
 
@@ -275,4 +275,3 @@ Run: `npm run dist:mac`，生成 arm64 DMG/ZIP、源码包和 `SHA256SUMS`。重
 - [ ] **Step 6: 同步外层源码并完成最终审查**
 
 只同步应用源码和发布交付物到 `/Users/zk/Documents/Codex/2026-08-21/hatch-pet-users-zk-codex-skills/xiaoman-desktop-companion` 的对应文件，不覆盖用户无关改动。运行 `git diff --check`、查看 `git status`、检查 release 清单，然后提交最终文档。
-

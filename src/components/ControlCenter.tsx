@@ -103,7 +103,12 @@ export function ControlCenter() {
         </header>
         <div className="content-scroll">
           {tab === "features" && <FeaturesView snapshot={snapshot} />}
-          {tab === "codex" && <CodexTasksView enabled={snapshot.settings.codexSessionControls} />}
+          {tab === "codex" && (
+            <CodexTasksView
+              enabled={snapshot.settings.codexSessionControls}
+              replyTransport={snapshot.settings.codexReplyTransport}
+            />
+          )}
           {tab === "overview" && <OverviewView snapshot={snapshot} />}
           {tab === "reminders" && <RemindersView snapshot={snapshot} />}
           {tab === "events" && <EventsView snapshot={snapshot} />}

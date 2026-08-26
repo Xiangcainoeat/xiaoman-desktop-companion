@@ -11,7 +11,7 @@ The app uses one Electron main process and two sandboxed renderer windows.
 | Main process | State priority, timers, persistence, notifications, tray, cursor sampling and IPC validation |
 | Preload bridge | Explicit typed IPC methods; no general Node or filesystem access |
 | Codex monitor | Append-only, read-only lifecycle classification of local JSONL records |
-| Codex sessions service | Supported app-server metadata plus CLI queue/resume operations |
+| Codex sessions service | Native state-db discovery, native IPC follower replies and explicit CLI compatibility operations |
 | App monitor | Reads only the localized name of the frontmost macOS application |
 
 Both windows run with `contextIsolation: true`, `nodeIntegration: false`, and `sandbox: true`.
@@ -36,10 +36,10 @@ Renderer-only motion does not mutate this business state. Drag running, hover ju
 4. Shortest-path exponential smoothing follows the target without frame-rate dependence.
 5. Upper-180 mode clamps lower targets to the horizon; full-360 mode permits low-head frames.
 6. Lower tracking is capped relative to the inactivity timeout so it reaches the lower quadrant before reset; return-to-neutral uses a separate prompt-but-smooth cap.
-7. The nearest of 16 canonical native direction frames is displayed as one layer, avoiding whole-body double images.
+7. The selected profile chooses either the 90-frame enhanced atlas (4° steps) or the untouched native 16-frame atlas (22.5° steps); each profile renders one direction layer at a time.
 8. After cursor inactivity, the direction eases to zero, the look layer is removed, and the ordinary forward animation is restored.
 
-`look-16.webp` is extracted deterministically from rows 9–10 of the accepted native v2 atlas. `look-32.webp` remains only as a documented v1.0 experiment and is not used by the v1.1 runtime.
+The enhanced `look-90.webp` is assembled deterministically from a repaired 32-anchor source and seven generated transition overrides. Its metadata, source hashes, prompts and contact sheets live under `work/xiaoman-pet-90/`. The native `public/pet/native/` profile is a byte-for-byte copy of the accepted v2 `pet.json`, `spritesheet.webp` and extracted `look-16.webp`; it is never written back to `~/.codex/pets/xiaoman`. The older `look-32.webp` remains provenance only.
 
 ## Motion and idle behavior
 
@@ -52,14 +52,13 @@ Renderer-only motion does not mutate this business state. Drag running, hover ju
 
 ## Codex task controls
 
-Task metadata is requested from an existing installed Codex app-server daemon (`thread/list`) when available and merged with read-only local lifecycle status. Without a daemon, the service falls back to local logs instead of starting a standalone app-server. A bounded cache and one shared in-flight request prevent repeated process launches. The renderer receives only title, project label, status, reply capability and update time.
+In native mode, task identity comes from the newest local Codex `state_*.sqlite` database. The query is read-only, excludes archived rows, `exec`, subagent sources and subagent thread sources, and does not union arbitrary JSONL files. If the state database is unavailable, the service may ask the existing app-server for the same filtered authority; it never falls back to an unrelated log list in native mode. The renderer receives only title, project label, status, reply capability and update time.
 
-Replies never edit JSONL files:
+The append-only monitor reads lifecycle markers only. It maps each JSONL file's `session_meta` ID to a thread and overlays `running`, `waiting`, `idle` or `error` on the matching state-db record. Files identified as `exec` or `subagent` are ignored. This supplies live “执行中” labels without using log contents as task discovery.
 
-- active or waiting task: `codex queue --thread <id> --message <text>`; queue failure is surfaced and never auto-resumed
-- idle or failed task: `codex exec resume --skip-git-repo-check <id> - --json`, with the message on stdin and the task's absolute `cwd`
+Replies never edit JSONL files. In the default native channel, the companion opens a fresh connection to `~/.codex/ipc/ipc.sock`, initializes as a follower, declines router ownership discovery, finds the exact owner with `thread-owner-discovery`, then sends `thread-follower-steer-turn` for an active turn or `thread-follower-start-turn` for an idle turn. The owner client ID is taken from the IPC response envelope, so a reply is delivered to the existing native Codex window rather than a newly opened window. Each send has a unique client message ID and a per-thread lock; sequential sends use independent connections.
 
-Arguments are passed as an array without a shell. Thread IDs and message size are validated. Idle resume waits for the CLI's `turn.started` JSONL acknowledgement; a missing acknowledgement, immediate non-zero exit or process timeout is returned as an error. Later failures are written as durable companion activity. Exact task navigation uses `codex://threads/<id>`.
+The optional CLI compatibility channel retains the older operations: active or waiting tasks use `codex queue --thread <id> --message <text>`, while idle or failed tasks use `codex exec resume --skip-git-repo-check <id> - --json` with the message on stdin. Queue/resume is never a silent fallback for native IPC. Arguments are passed as an array without a shell, IDs and message size are validated, and idle resume requires a `turn.started` acknowledgement. Exact task navigation remains an explicit `codex://threads/<id>` action; native reply success does not invoke that deep link again.
 
 ## Persistence
 
@@ -67,4 +66,4 @@ Arguments are passed as an array without a shell. Thread IDs and message size ar
 
 ## Integration boundary
 
-The host does not patch ChatGPT/Codex application bundles, `config.toml`, hooks, session JSONL or `~/.codex/pets/xiaoman`. Status monitoring is read-only. Only an explicit user reply invokes a supported Codex CLI write operation. Removing the desktop host leaves the native two-file pet intact.
+The host does not patch ChatGPT/Codex application bundles, `config.toml`, hooks, session JSONL or `~/.codex/pets/xiaoman`. State DB and lifecycle monitoring are read-only. Only an explicit reply invokes native IPC or, when explicitly selected, a supported Codex CLI write operation. Removing the desktop host leaves the native two-file pet intact.

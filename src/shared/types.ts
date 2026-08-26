@@ -52,12 +52,13 @@ export interface CodexThreadSummary {
 export interface CodexReplyResult {
   ok: boolean;
   mode: "queued" | "started";
+  transport: CodexReplyTransport;
   message: string;
 }
 
 export interface CodexThreadListResult {
   threads: CodexThreadSummary[];
-  source: "app-server+logs" | "app-server" | "logs" | "unavailable" | "off" | "mock";
+  source: "state-db" | "app-server+logs" | "app-server" | "logs" | "unavailable" | "off" | "mock";
   warnings: string[];
 }
 

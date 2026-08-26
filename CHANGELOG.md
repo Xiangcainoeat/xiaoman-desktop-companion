@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.2.0 - 2026-08-27
+
+- Added switchable `小满增强` and `原生 Codex` pet profiles. The enhanced host profile uses a validated 90-direction, 4° gaze atlas; the native profile keeps the accepted 16-direction Codex assets byte-for-byte.
+- Repaired the lower-half gaze transition with generated intermediate frames, shared registration, premultiplied interpolation, transparent edge cleanup and deterministic atlas verification.
+- Routed default replies through the owning native Codex client over local IPC. Repeated sends use fresh connections and unique message IDs, and native success no longer opens a second `codex://` window.
+- Made native task discovery state-db authoritative, filtered to interactive user threads, and overlaid live lifecycle state only for matching thread IDs; `exec` and subagent sessions are excluded.
+- Kept `codex queue` / `codex exec resume` as an explicit CLI compatibility channel rather than an implicit native fallback.
+- Added profile manifests, native hash records, image-generation concurrency provenance and 1.2.0 release QA documentation.
+
 ## 1.1.1 - 2026-08-26
 
 - Expanded lick, blink, and scratch idle actions to 30-frame generated sequences with a 30/60Hz animation clock and transparent color QA.

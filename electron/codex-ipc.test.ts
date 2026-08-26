@@ -11,18 +11,33 @@ const THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9404";
 
 class FakeConnection implements NativeCodexIpcConnection {
   readonly writes: Buffer[] = [];
-  private dataListener: ((chunk: Buffer) => void) | null = null;
+  protected dataListener: ((chunk: Buffer) => void) | null = null;
   private errorListener: ((error: Error) => void) | null = null;
 
   constructor(
     private readonly onRequest: (request: Record<string, unknown>) => Record<string, unknown>,
     private readonly chunkSize = 0,
     private readonly respond = true,
+    private readonly emitDiscoveryRequest = false,
+    private readonly discoveryResponses: Array<Record<string, unknown>> = [],
   ) {}
 
   write(frame: Buffer): void {
     this.writes.push(frame);
     const request = decodeIpcFrames(frame)[0] as Record<string, unknown>;
+    if (request.type === "client-discovery-response") {
+      this.discoveryResponses.push(request);
+      return;
+    }
+    if (this.emitDiscoveryRequest && request.method === "initialize") {
+      queueMicrotask(() => {
+        this.dataListener?.(encodeIpcFrame({
+          type: "client-discovery-request",
+          requestId: "router-discovery-1",
+          request: { clientType: "ide-context" },
+        }));
+      });
+    }
     const response = this.onRequest(request);
     if (!this.respond) return;
     queueMicrotask(() => {
@@ -55,6 +70,9 @@ class FakeConnection implements NativeCodexIpcConnection {
 function connectorFor(
   requests: Array<Record<string, unknown>>,
   chunkSize = 0,
+  emitDiscoveryRequest = false,
+  discoveryResponses: Array<Record<string, unknown>> = [],
+  ownerAtEnvelope = false,
 ): NativeCodexIpcConnector {
   return async () => new FakeConnection((request) => {
     requests.push(request);
@@ -63,14 +81,17 @@ function connectorFor(
       return { type: "response", requestId: request.requestId, result: { clientId: "xiaoman-client" } };
     }
     if (method === "thread-owner-discovery") {
-      return {
+      const response = {
         type: "response",
         requestId: request.requestId,
         result: { handledByClientId: "native-owner" },
       };
+      return ownerAtEnvelope
+        ? { ...response, handledByClientId: "native-owner", result: {} }
+        : response;
     }
     return { type: "response", requestId: request.requestId, result: { accepted: true } };
-  }, chunkSize);
+  }, chunkSize, true, emitDiscoveryRequest, discoveryResponses);
 }
 
 describe("native Codex IPC framing", () => {
@@ -147,6 +168,63 @@ describe("native Codex follower requests", () => {
         attachments: [],
       },
     });
+  });
+
+  it("declines router client-discovery requests without stealing IDE context", async () => {
+    const requests: Array<Record<string, unknown>> = [];
+    const discoveryResponses: Array<Record<string, unknown>> = [];
+    const client = new NativeCodexIpcClient({
+      codexHome: "/tmp/xiaoman-codex",
+      connector: connectorFor(requests, 0, true, discoveryResponses),
+      idFactory: () => "message-id-discovery",
+    });
+
+    await expect(client.sendReply({ threadId: THREAD_ID, message: "发现握手", mode: "start" }))
+      .resolves.toMatchObject({ transport: "native-start" });
+
+    expect(discoveryResponses).toEqual([
+      expect.objectContaining({
+        type: "client-discovery-response",
+        requestId: "router-discovery-1",
+        response: { canHandle: false },
+      }),
+    ]);
+  });
+
+  it("reads the native owner's client id from the response envelope", async () => {
+    const requests: Array<Record<string, unknown>> = [];
+    const client = new NativeCodexIpcClient({
+      codexHome: "/tmp/xiaoman-codex",
+      connector: async () => connectorFor(requests, 0, false, [], true)("/tmp/socket"),
+      idFactory: () => "message-id-envelope-owner",
+    });
+
+    await expect(client.sendReply({ threadId: THREAD_ID, message: "外层 owner", mode: "start" }))
+      .resolves.toMatchObject({ transport: "native-start" });
+    expect(requests[2]).toMatchObject({ targetClientId: "native-owner" });
+  });
+
+  it("opens a fresh native route for each sequential reply", async () => {
+    const requests: Array<Record<string, unknown>> = [];
+    let messageIndex = 0;
+    const client = new NativeCodexIpcClient({
+      codexHome: "/tmp/xiaoman-codex",
+      connector: connectorFor(requests, 0, true),
+      idFactory: () => `message-id-${++messageIndex}`,
+    });
+
+    await client.sendReply({ threadId: THREAD_ID, message: "第一条", mode: "start" });
+    await client.sendReply({ threadId: THREAD_ID, message: "第二条", mode: "start" });
+
+    const sentMessages = requests
+      .filter((request) => request.method === "thread-follower-start-turn")
+      .map((request) => {
+        const params = request.params as Record<string, unknown>;
+        const turnStart = params.turnStart as Record<string, unknown>;
+        return (turnStart.request as Record<string, unknown>).clientUserMessageId;
+      });
+    expect(sentMessages).toEqual(["message-id-1", "message-id-2"]);
+    expect(requests.filter((request) => request.method === "initialize")).toHaveLength(2);
   });
 
   it("keeps partial response chunks until a complete frame is available", async () => {

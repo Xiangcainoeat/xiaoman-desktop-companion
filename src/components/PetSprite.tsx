@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BellRing, Fish, Heart, Moon, Sparkles, Utensils } from "lucide-react";
-import { advanceAnimationClock, atlasFramePosition } from "../shared/animation";
+import {
+  advanceAnimationClock,
+  atlasFramePosition,
+  parseLookAtlasMetadata,
+  type LookAtlasMetadata,
+} from "../shared/animation";
 import { STANDARD_ATLAS_FRAME_COUNTS } from "../shared/domain";
 import {
   interpolateLookDirection,
@@ -12,7 +17,7 @@ import {
 } from "../shared/gaze";
 import { bridge } from "../useCompanion";
 import type { AnimationClock } from "../shared/animation";
-import type { CompanionSettings, PetMotion, PetState } from "../shared/types";
+import type { CompanionSettings, PetMotion, PetProfile, PetState } from "../shared/types";
 
 interface PetSpriteProps {
   state: PetState;
@@ -82,6 +87,25 @@ const MOTION_SPEC: Record<PetMotion, AnimationSpec> = {
 
 const LOOK_STATES = new Set<PetState>(["idle", "working", "happy", "celebrating", "sleepy"]);
 
+const LOOK_ATLAS_FALLBACKS: Record<PetProfile, LookAtlasMetadata> = {
+  enhanced: {
+    frameCount: 90,
+    columns: 10,
+    rows: 9,
+    frameWidth: 192,
+    frameHeight: 208,
+    stepDegrees: 4,
+  },
+  native: {
+    frameCount: 16,
+    columns: 8,
+    rows: 2,
+    frameWidth: 192,
+    frameHeight: 208,
+    stepDegrees: 22.5,
+  },
+};
+
 function MoodGlyph({ state }: { state: PetState }) {
   if (state === "hungry") return <Fish aria-hidden="true" />;
   if (state === "eating") return <Utensils aria-hidden="true" />;
@@ -104,13 +128,20 @@ export function PetSprite({
   const [frame, setFrame] = useState(0);
   const [settled, setSettled] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [lookIndex, setLookIndex] = useState<number | null>(null);
+  const [lookSelection, setLookSelection] = useState<{
+    first: number;
+    second: number;
+    blend: number;
+  } | null>(null);
+  const [lookMetadata, setLookMetadata] = useState<LookAtlasMetadata>(
+    () => LOOK_ATLAS_FALLBACKS[settings.petProfile],
+  );
   const animationClockRef = useRef<AnimationClock>({ frame: 0, remainderMs: 0 });
   const frameRef = useRef(0);
   const loopsRef = useRef(0);
   const settledRef = useRef(false);
   const animationRef = useRef<AnimationSpec | null>(null);
-  const lookIndexRef = useRef<number | null>(null);
+  const lookSelectionRef = useRef<typeof lookSelection>(null);
   const targetAngleRef = useRef(0);
   const currentAngleRef = useRef(0);
   const targetDistanceRef = useRef(0);
@@ -127,6 +158,24 @@ export function PetSprite({
   }, []);
 
   useEffect(() => {
+    const profile = settings.petProfile;
+    const fallback = LOOK_ATLAS_FALLBACKS[profile];
+    const root = profile === "native" ? "./pet/native" : "./pet";
+    const metadataName = profile === "native" ? "look-16.json" : "look-90.json";
+    let cancelled = false;
+    setLookMetadata(fallback);
+    void fetch(`${root}/${metadataName}`)
+      .then((response) => response.ok ? response.json() as Promise<unknown> : null)
+      .then((value) => {
+        if (!cancelled && value) setLookMetadata(parseLookAtlasMetadata(value, fallback));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.petProfile]);
+
+  useEffect(() => {
     animationClockRef.current = { frame: 0, remainderMs: 0 };
     frameRef.current = 0;
     loopsRef.current = 0;
@@ -136,7 +185,9 @@ export function PetSprite({
   }, [motion, state]);
 
   const animation = useMemo<AnimationSpec>(() => {
-    if (motion) return MOTION_SPEC[motion];
+    if (motion && !(settings.petProfile === "native" && motion.startsWith("idle-"))) {
+      return MOTION_SPEC[motion];
+    }
     if (settled) {
       return {
         atlas: "standard",
@@ -156,7 +207,7 @@ export function PetSprite({
       columns: 8,
       atlasRows: 11,
     };
-  }, [motion, settled, state]);
+  }, [motion, settled, settings.petProfile, state]);
 
   animationRef.current = animation;
   settledRef.current = settled;
@@ -208,7 +259,10 @@ export function PetSprite({
     return () => cancelAnimationFrame(animationFrame);
   }, [motion, reducedMotion, settings.animationFrameRate, state]);
 
-  const dimensions = useMemo(() => ({ width: size, height: Math.round((size * 208) / 192) }), [size]);
+  const dimensions = useMemo(
+    () => ({ width: size, height: Math.round((size * lookMetadata.frameHeight) / lookMetadata.frameWidth) }),
+    [lookMetadata.frameHeight, lookMetadata.frameWidth, size],
+  );
   const displayFrame = Math.max(0, Math.min(frame, animation.frames - 1));
   const framePosition = useMemo(
     () => atlasFramePosition(animation, displayFrame),
@@ -216,17 +270,18 @@ export function PetSprite({
   );
 
   const baseSprite = useMemo(() => {
+    const root = settings.petProfile === "native" ? "./pet/native" : "./pet";
     return {
       width: dimensions.width,
       height: dimensions.height,
       backgroundImage: animation.atlas === "idle"
         ? "url('./pet/idle-actions-30.webp')"
-        : "url('./pet/spritesheet.webp')",
+        : `url('${root}/spritesheet.webp')`,
       backgroundSize: `${size * animation.columns}px ${dimensions.height * animation.atlasRows}px`,
       backgroundPosition: `${-framePosition.column * size}px ${-framePosition.row * dimensions.height}px`,
-      opacity: lookIndex === null ? 1 : 0,
+      opacity: lookSelection === null ? 1 : 0,
     };
-  }, [animation, dimensions.height, dimensions.width, framePosition, lookIndex, size]);
+  }, [animation, dimensions.height, dimensions.width, framePosition, lookSelection, settings.petProfile, size]);
 
   useEffect(() => {
     const canLook = settings.gazeEnabled && !gazeSuppressed && !motion && !reducedMotion && LOOK_STATES.has(state);
@@ -234,19 +289,24 @@ export function PetSprite({
     const setLooking = (active: boolean) => {
       const changed = lookingRef.current !== active;
       lookingRef.current = active;
-      if (!active && lookIndexRef.current !== null) {
-        lookIndexRef.current = null;
-        setLookIndex(null);
+      if (!active && lookSelectionRef.current !== null) {
+        lookSelectionRef.current = null;
+        setLookSelection(null);
       }
       if (changed) onGazeActivityChange?.(active);
     };
 
     const renderLook = (angle: number) => {
-      const { first: firstIndex, second: secondIndex, blend } = interpolateLookDirection(angle, 16);
-      const index = blend < 0.5 ? firstIndex : secondIndex;
-      if (lookIndexRef.current !== index) {
-        lookIndexRef.current = index;
-        setLookIndex(index);
+      const selection = interpolateLookDirection(angle, lookMetadata.frameCount);
+      const previous = lookSelectionRef.current;
+      if (
+        !previous
+        || previous.first !== selection.first
+        || previous.second !== selection.second
+        || Math.abs(previous.blend - selection.blend) > 0.001
+      ) {
+        lookSelectionRef.current = selection;
+        setLookSelection(selection);
       }
       setLooking(true);
     };
@@ -344,20 +404,24 @@ export function PetSprite({
     settings.gazeIdleResetMs,
     settings.gazeRange,
     settings.gazeSmoothingMs,
+    lookMetadata.frameCount,
     size,
     state,
   ]);
 
-  const lookLayerStyle = useMemo(() => ({
+  const lookAssetRoot = settings.petProfile === "native" ? "./pet/native" : "./pet";
+  const lookAssetName = settings.petProfile === "native" ? "look-16.webp" : "look-90.webp";
+  const lookLayerStyle = (index: number, opacity: number) => ({
     width: dimensions.width,
     height: dimensions.height,
-    backgroundImage: "url('./pet/look-16.webp')",
-    backgroundSize: `${size * 8}px ${dimensions.height * 2}px`,
-    backgroundPosition: lookIndex === null
-      ? "0px 0px"
-      : `${-(lookIndex % 8) * size}px ${-Math.floor(lookIndex / 8) * dimensions.height}px`,
-    opacity: lookIndex === null ? 0 : 1,
-  }), [dimensions.height, dimensions.width, lookIndex, size]);
+    backgroundImage: `url('${lookAssetRoot}/${lookAssetName}')`,
+    backgroundSize: `${size * lookMetadata.columns}px ${dimensions.height * lookMetadata.rows}px`,
+    backgroundPosition: `${-(index % lookMetadata.columns) * size}px ${-Math.floor(index / lookMetadata.columns) * dimensions.height}px`,
+    opacity,
+  });
+  const firstLookIndex = lookSelection?.first ?? 0;
+  const secondLookIndex = lookSelection?.second ?? 0;
+  const lookBlend = lookSelection?.blend ?? 0;
 
   const decorated = ["hungry", "eating", "happy", "affectionate", "sleepy", "sleeping", "playful", "celebrating", "reminder"].includes(state);
 
@@ -369,7 +433,16 @@ export function PetSprite({
       aria-label={`小满：${state}`}
     >
       <div className="pet-sprite pet-sprite-base" style={baseSprite} aria-hidden="true" />
-      <div className="pet-sprite pet-look-layer" style={lookLayerStyle} aria-hidden="true" />
+      <div
+        className="pet-sprite pet-look-layer"
+        style={lookLayerStyle(firstLookIndex, lookSelection ? 1 - lookBlend : 0)}
+        aria-hidden="true"
+      />
+      <div
+        className="pet-sprite pet-look-layer"
+        style={lookLayerStyle(secondLookIndex, lookSelection ? lookBlend : 0)}
+        aria-hidden="true"
+      />
       {decorated && (
         <span className="pet-mood-glyph">
           <MoodGlyph state={state} />

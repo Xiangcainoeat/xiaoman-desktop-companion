@@ -1,0 +1,13 @@
+{
+  "policy": "shared-total-concurrency",
+  "maxConcurrentWorkUnits": 6,
+  "counts": [
+    "image-generation-cli-jobs",
+    "parallel-development-agents"
+  ],
+  "initialTransitionBatch": 6,
+  "correctiveTransitionBatchMaximum": 2,
+  "agentsActiveDuringImageGeneration": 0,
+  "limitExceeded": false,
+  "notes": "The 268-degree prompt was missing on the first local invocation, so that invocation failed before an image request and was retried after the prompt was added. The final 260-degree v3 replacement ran as one additional image job; no development agents were active during image generation."
+}

@@ -7,7 +7,6 @@ import {
   nativeImage,
   Notification,
   screen,
-  shell,
   Tray,
   type IpcMainInvokeEvent,
   type MenuItemConstructorOptions,
@@ -20,6 +19,7 @@ import {
   CodexSessionsService,
   summarizeCodexProcessResult,
   type CodexReplyDispatch,
+  type CodexSessionActivity,
   type CodexSessionSummary,
 } from "./codex-sessions";
 import { FrontmostApplicationMonitor } from "./application-monitor";
@@ -68,6 +68,7 @@ const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
 const DEFAULT_OVERLAY_WIDTH = 320;
 const DEFAULT_OVERLAY_HEIGHT = 360;
 const CODEX_THREAD_CACHE_MS = 7_000;
+const NATIVE_REPLY_ASSUMED_ACTIVE_MS = 45_000;
 
 interface RuntimeState {
   state: PetState;
@@ -100,6 +101,13 @@ let stateSequence = 0;
 
 const activeCodexTurns = new Map<string, number>();
 const activeCodexReplyHandles = new Set<CodexReplyDispatch>();
+const liveCodexThreadStatuses = new Map<string, {
+  activity: CodexSessionActivity;
+  activeTurnId: string | null;
+  updatedAt: number;
+  expiresAt: number | null;
+}>();
+const LIVE_TERMINAL_STATUS_MS = 45_000;
 const monitoring: AppSnapshot["monitoring"] = {
   codex: "off",
   applications: "off",
@@ -302,7 +310,72 @@ function performInteraction(action: InteractionAction): AppSnapshot {
   return snapshot();
 }
 
+function updateLiveCodexThreadStatus(event: CodexMonitorEvent): void {
+  if (!event.threadId || event.threadId === "unknown") return;
+  if (event.kind === "started") {
+    liveCodexThreadStatuses.set(event.threadId, {
+      activity: "running",
+      activeTurnId: event.turnId,
+      updatedAt: event.at,
+      expiresAt: null,
+    });
+    return;
+  }
+  if (event.kind === "waiting") {
+    liveCodexThreadStatuses.set(event.threadId, {
+      activity: "waiting",
+      activeTurnId: event.turnId,
+      updatedAt: event.at,
+      expiresAt: null,
+    });
+    return;
+  }
+  liveCodexThreadStatuses.set(event.threadId, {
+    activity: event.kind === "completed" ? "idle" : "error",
+    activeTurnId: null,
+    updatedAt: event.at,
+    expiresAt: Date.now() + LIVE_TERMINAL_STATUS_MS,
+  });
+}
+
+function markNativeReplyActive(threadId: string): void {
+  const now = Date.now();
+  liveCodexThreadStatuses.set(threadId, {
+    activity: "running",
+    activeTurnId: null,
+    updatedAt: now,
+    // The state DB can lag the native acknowledgement. Monitor events replace
+    // this optimistic marker; otherwise it expires instead of becoming stale.
+    expiresAt: now + NATIVE_REPLY_ASSUMED_ACTIVE_MS,
+  });
+}
+
+function withLiveCodexThreadStatus(session: CodexSessionSummary | null): CodexSessionSummary | null {
+  if (!session) return null;
+  const live = liveCodexThreadStatuses.get(session.id);
+  if (!live) return session;
+  if (live.expiresAt !== null && live.expiresAt <= Date.now()) {
+    liveCodexThreadStatuses.delete(session.id);
+    return session;
+  }
+  return {
+    ...session,
+    updatedAt: Math.max(session.updatedAt, live.updatedAt),
+    canAcceptDirectInput: session.canAcceptDirectInput
+      || live.activity === "running"
+      || live.activity === "waiting",
+    status: {
+      ...session.status,
+      activity: live.activity,
+      runtimeType: "monitor",
+      activeTurnId: live.activeTurnId,
+      inferredFromLog: true,
+    },
+  };
+}
+
 function handleCodexEvent(event: CodexMonitorEvent): void {
+  updateLiveCodexThreadStatus(event);
   codexThreadCache = null;
   if (event.kind === "started") {
     activeCodexTurns.set(event.turnId, event.at);
@@ -480,17 +553,30 @@ function normalizedRule(input: AppRuleInput, existing?: AppRule): AppRule {
   };
 }
 
-function codexThreadSummary(session: CodexSessionSummary): CodexThreadSummary {
-  const approvalBlocked = session.status.activeFlags.some((flag) => flag.toLowerCase().includes("approval"));
+function canReplyInNativeCodex(session: CodexSessionSummary): boolean {
+  if (session.status.activeFlags.some((flag) => flag.toLowerCase().includes("approval"))) return false;
+  return session.status.activity === "running"
+    || session.status.activity === "waiting"
+    || session.status.activity === "idle"
+    || session.status.activity === "error"
+    || canReplyToCodexSession(session);
+}
+
+function codexThreadSummary(
+  session: CodexSessionSummary,
+  transport: CompanionSettings["codexReplyTransport"],
+): CodexThreadSummary {
+  const currentSession = withLiveCodexThreadStatus(session)!;
+  const approvalBlocked = currentSession.status.activeFlags.some((flag) => flag.toLowerCase().includes("approval"));
   return {
-    id: session.id,
-    title: session.title,
-    projectName: session.cwd ? path.basename(session.cwd) : "本机任务",
-    status: mapCodexThreadStatus(session.status.activity, session.status.runtimeType),
-    updatedAt: session.updatedAt,
-    activeTurnId: session.status.activeTurnId,
-    sourceKind: session.threadSource ?? session.source,
-    canReply: canReplyToCodexSession(session),
+    id: currentSession.id,
+    title: currentSession.title,
+    projectName: currentSession.cwd ? path.basename(currentSession.cwd) : "本机任务",
+    status: mapCodexThreadStatus(currentSession.status.activity, currentSession.status.runtimeType),
+    updatedAt: currentSession.updatedAt,
+    activeTurnId: currentSession.status.activeTurnId,
+    sourceKind: currentSession.threadSource ?? currentSession.source,
+    canReply: transport === "native" ? canReplyInNativeCodex(currentSession) : canReplyToCodexSession(currentSession),
     waitReason: approvalBlocked ? "approval" : null,
   };
 }
@@ -505,9 +591,14 @@ async function listCodexThreads(force = false): Promise<CodexThreadListResult> {
   }
   if (codexThreadListInFlight) return await codexThreadListInFlight;
   codexThreadListInFlight = (async () => {
-    const result = await codexSessionsService.listSessions({ limit: 20, includeSubagents: false });
+    const transport = data.settings.codexReplyTransport;
+    const result = await codexSessionsService.listSessions({
+      limit: 20,
+      includeSubagents: false,
+      sourceMode: transport,
+    });
     const mapped: CodexThreadListResult = {
-      threads: result.sessions.map(codexThreadSummary),
+      threads: result.sessions.map((session) => codexThreadSummary(session, transport)),
       source: result.source,
       warnings: result.warnings,
     };
@@ -524,8 +615,7 @@ async function listCodexThreads(force = false): Promise<CodexThreadListResult> {
 async function openCodexThread(threadId: string): Promise<CodexOpenResult> {
   if (!data.settings.codexSessionControls) return { ok: false, message: "Codex 任务功能已关闭" };
   try {
-    const target = codexSessionsService.getDesktopTarget(threadId);
-    await shell.openExternal(target.url);
+    await codexSessionsService.openDesktopTarget(threadId);
     return { ok: true, message: "已打开对应 Codex 任务" };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
@@ -538,12 +628,15 @@ async function replyToCodexThread(threadId: string, message: string): Promise<Co
   if (codexReplyStarts.has(threadId)) throw new Error("这项任务正在处理上一条回复");
   codexReplyStarts.add(threadId);
   try {
-    const session = await codexSessionsService.readSession(threadId);
+    const transport = data.settings.codexReplyTransport;
+    const session = withLiveCodexThreadStatus(
+      await codexSessionsService.readSession(threadId, { sourceMode: transport }),
+    );
     const approvalBlocked = session?.status.activeFlags.some((flag) => flag.toLowerCase().includes("approval")) ?? false;
     if (approvalBlocked) {
       throw new Error("该任务正在等待授权，请在 Codex 中处理");
     }
-    if (session && !canReplyToCodexSession(session)) {
+    if (session && (transport === "native" ? !canReplyInNativeCodex(session) : !canReplyToCodexSession(session))) {
       throw new Error("该任务当前状态不支持直接回复，请在 Codex 中查看");
     }
     let dispatch: CodexReplyDispatch;
@@ -551,6 +644,7 @@ async function replyToCodexThread(threadId: string, message: string): Promise<Co
       dispatch = await codexSessionsService.sendReply({
         threadId,
         message,
+        transport,
         activity: session?.status.activity,
         cwd: session?.cwd,
       });
@@ -561,6 +655,7 @@ async function replyToCodexThread(threadId: string, message: string): Promise<Co
       throw error;
     }
     codexThreadCache = null;
+    if (transport === "native") markNativeReplyActive(threadId);
     const mode = dispatch.transport === "queue" ? "queued" : "started";
     const sessionTitle = session?.title ?? "本机任务";
     data.activity = appendActivity(data.activity, {
@@ -592,7 +687,12 @@ async function replyToCodexThread(threadId: string, message: string): Promise<Co
     return {
       ok: true,
       mode,
-      message: mode === "queued" ? "回复已排队；当前回复结束后会自动继续" : "任务已启动，正在后台执行",
+      transport,
+      message: transport === "native"
+        ? "已发送到原生 Codex 窗口，正在继续执行"
+        : mode === "queued"
+          ? "CLI 兼容回复已排队；当前回复结束后会自动继续"
+          : "CLI 兼容任务已启动，正在后台执行",
     };
   } finally {
     codexReplyStarts.delete(threadId);
@@ -844,6 +944,7 @@ function applySettingsSideEffects(previous: CompanionSettings): void {
   if (previous.startAtLogin !== data.settings.startAtLogin && app.isPackaged) {
     app.setLoginItemSettings({ openAtLogin: data.settings.startAtLogin });
   }
+  if (previous.codexReplyTransport !== data.settings.codexReplyTransport) codexThreadCache = null;
   monitoring.notifications = !data.settings.systemNotifications
     ? "off"
     : Notification.isSupported()
@@ -854,9 +955,11 @@ function applySettingsSideEffects(previous: CompanionSettings): void {
 async function configureCodexMonitor(): Promise<void> {
   await codexMonitor?.stop();
   codexMonitor = null;
+  liveCodexThreadStatuses.clear();
   if (!data.settings.monitorCodex) {
     monitoring.codex = "off";
     activeCodexTurns.clear();
+    liveCodexThreadStatuses.clear();
     monitoring.codexBusy = false;
     monitoring.codexStartedAt = null;
     recomputeState(true);

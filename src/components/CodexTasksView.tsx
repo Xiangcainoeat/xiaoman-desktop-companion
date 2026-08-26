@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, Code2, RefreshCw, Send, TerminalSquare } from "lucide-react";
 import { CODEX_STATUS_LABEL, formatRelativeTime, preferredCodexThreadId, sortCodexThreads } from "../shared/codex-ui";
-import type { CodexThreadListResult } from "../shared/types";
+import type { CodexReplyTransport, CodexThreadListResult } from "../shared/types";
 import { bridge } from "../useCompanion";
 import { EmptyState } from "./Controls";
 
-export function CodexTasksView({ enabled }: { enabled: boolean }) {
+export function CodexTasksView({
+  enabled,
+  replyTransport = "native",
+}: {
+  enabled: boolean;
+  replyTransport?: CodexReplyTransport;
+}) {
   const [result, setResult] = useState<CodexThreadListResult>({ threads: [], source: enabled ? "unavailable" : "off", warnings: [] });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
@@ -42,7 +48,7 @@ export function CodexTasksView({ enabled }: { enabled: boolean }) {
       refreshGenerationRef.current += 1;
       window.clearInterval(interval);
     };
-  }, [enabled]);
+  }, [enabled, replyTransport]);
 
   const threads = useMemo(() => sortCodexThreads(result.threads), [result.threads]);
   const selected = threads.find((thread) => thread.id === selectedId) ?? null;
@@ -92,8 +98,11 @@ export function CodexTasksView({ enabled }: { enabled: boolean }) {
     <div className="view codex-tasks-view">
       <section className="task-list-panel">
         <div className="section-heading task-section-heading">
-          <div><span className="eyebrow">本机 Codex</span><h2>最近任务</h2></div>
+          <div><span className="eyebrow">{replyTransport === "native" ? "原生窗口回复" : "CLI 兼容回复"}</span><h2>最近任务</h2></div>
           <div className="task-heading-actions">
+            <span className={`task-transport transport-${replyTransport}`}>
+              {replyTransport === "native" ? "原生" : "兼容"}
+            </span>
             <span className={`task-source source-${result.source}`}>{activeCount > 0 ? `${activeCount} 个进行中` : "暂无进行中"}</span>
             <button className="icon-button" type="button" title="刷新任务" aria-label="刷新任务" disabled={loading} onClick={() => void refresh()}>
               <RefreshCw size={16} className={loading ? "is-spinning" : ""} />
@@ -153,6 +162,8 @@ export function CodexTasksView({ enabled }: { enabled: boolean }) {
             <Send size={16} />
             {sending
               ? "发送中"
+              : replyTransport === "native"
+                ? "发送到原生窗口"
               : selected?.status === "active"
                 ? "排队回复"
                 : selected?.status === "waiting"

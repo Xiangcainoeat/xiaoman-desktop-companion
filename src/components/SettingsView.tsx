@@ -44,6 +44,54 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
       <div className="settings-columns">
         <section className="settings-section">
           <div className="section-heading">
+            <div><span className="eyebrow">运行配置</span><h2>工作方式</h2></div>
+          </div>
+          <div className="settings-list">
+            <SettingsRow icon={<Sparkles size={18} />} label="宠物配置" value={settings.petProfile === "native" ? "原生 Codex" : "小满增强"}>
+              <div className="segmented-control profile-control" role="group" aria-label="宠物配置">
+                <button
+                  type="button"
+                  className={settings.petProfile === "enhanced" ? "is-selected" : ""}
+                  aria-pressed={settings.petProfile === "enhanced"}
+                  onClick={() => update({ petProfile: "enhanced" })}
+                >
+                  小满增强
+                </button>
+                <button
+                  type="button"
+                  className={settings.petProfile === "native" ? "is-selected" : ""}
+                  aria-pressed={settings.petProfile === "native"}
+                  onClick={() => update({ petProfile: "native" })}
+                >
+                  原生 Codex
+                </button>
+              </div>
+            </SettingsRow>
+            <SettingsRow icon={<Code2 size={18} />} label="Codex 回复通道" value={settings.codexReplyTransport === "native" ? "回到原生窗口" : "兼容模式"}>
+              <div className="segmented-control reply-transport-control" role="group" aria-label="Codex 回复通道">
+                <button
+                  type="button"
+                  className={settings.codexReplyTransport === "native" ? "is-selected" : ""}
+                  aria-pressed={settings.codexReplyTransport === "native"}
+                  onClick={() => update({ codexReplyTransport: "native" })}
+                >
+                  原生窗口
+                </button>
+                <button
+                  type="button"
+                  className={settings.codexReplyTransport === "cli" ? "is-selected" : ""}
+                  aria-pressed={settings.codexReplyTransport === "cli"}
+                  onClick={() => update({ codexReplyTransport: "cli" })}
+                >
+                  CLI 兼容
+                </button>
+              </div>
+            </SettingsRow>
+          </div>
+        </section>
+
+        <section className="settings-section">
+          <div className="section-heading">
             <div><span className="eyebrow">悬浮小满</span><h2>显示与注视</h2></div>
           </div>
           <div className="settings-list">
@@ -183,17 +231,17 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
             <div><span className="eyebrow">空闲时</span><h2>待机动作</h2></div>
           </div>
           <div className="settings-list">
-            <SettingsRow icon={<Sparkles size={18} />} label="启用待机动作">
-              <Toggle checked={settings.idleActionsEnabled} label="启用待机动作" onChange={(idleActionsEnabled) => update({ idleActionsEnabled })} />
+            <SettingsRow icon={<Sparkles size={18} />} label="启用待机动作" value={settings.petProfile === "native" ? "增强配置可用" : undefined}>
+              <Toggle checked={settings.idleActionsEnabled} label="启用待机动作" disabled={settings.petProfile !== "enhanced"} onChange={(idleActionsEnabled) => update({ idleActionsEnabled })} />
             </SettingsRow>
             <SettingsRow icon={<Sparkles size={18} />} label="舔嘴">
-              <Toggle checked={settings.idleLickEnabled} label="舔嘴" disabled={!settings.idleActionsEnabled} onChange={(idleLickEnabled) => update({ idleLickEnabled })} />
+              <Toggle checked={settings.idleLickEnabled} label="舔嘴" disabled={!settings.idleActionsEnabled || settings.petProfile !== "enhanced"} onChange={(idleLickEnabled) => update({ idleLickEnabled })} />
             </SettingsRow>
             <SettingsRow icon={<Eye size={18} />} label="眨眼">
-              <Toggle checked={settings.idleBlinkEnabled} label="眨眼" disabled={!settings.idleActionsEnabled} onChange={(idleBlinkEnabled) => update({ idleBlinkEnabled })} />
+              <Toggle checked={settings.idleBlinkEnabled} label="眨眼" disabled={!settings.idleActionsEnabled || settings.petProfile !== "enhanced"} onChange={(idleBlinkEnabled) => update({ idleBlinkEnabled })} />
             </SettingsRow>
             <SettingsRow icon={<MousePointer2 size={18} />} label="挠头">
-              <Toggle checked={settings.idleScratchEnabled} label="挠头" disabled={!settings.idleActionsEnabled} onChange={(idleScratchEnabled) => update({ idleScratchEnabled })} />
+              <Toggle checked={settings.idleScratchEnabled} label="挠头" disabled={!settings.idleActionsEnabled || settings.petProfile !== "enhanced"} onChange={(idleScratchEnabled) => update({ idleScratchEnabled })} />
             </SettingsRow>
             <SettingsRow icon={<Gauge size={18} />} label="动作间隔" value={`约 ${settings.idleActionIntervalSec} 秒`}>
               <input
@@ -204,7 +252,7 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
                 step="2"
                 value={settings.idleActionIntervalSec}
                 aria-label="待机动作间隔"
-                disabled={!settings.idleActionsEnabled}
+                disabled={!settings.idleActionsEnabled || settings.petProfile !== "enhanced"}
                 onChange={(event) => update({ idleActionIntervalSec: Number(event.target.value) })}
               />
             </SettingsRow>

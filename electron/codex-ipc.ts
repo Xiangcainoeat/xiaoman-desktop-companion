@@ -1,19 +1,18 @@
 import { randomUUID } from "node:crypto";
-import { connect as connectSocket, type Socket } from "node:net";
+import * as net from "node:net";
 import os from "node:os";
 import path from "node:path";
 
-type JsonObject = Record<string, unknown>;
+export const NATIVE_CODEX_IPC_MAX_FRAME_BYTES = 8 * 1024 * 1024;
+export const NATIVE_CODEX_IPC_DEFAULT_TIMEOUT_MS = 8_000;
 
-const IPC_FRAME_HEADER_BYTES = 4;
-const MAX_IPC_FRAME_BYTES = 64 * 1024 * 1024;
-const DEFAULT_IPC_TIMEOUT_MS = 8_000;
-const IPC_VERSION = {
-  initialize: 0,
+export const NATIVE_CODEX_IPC_METHOD_VERSIONS = {
   "thread-owner-discovery": 1,
   "thread-follower-start-turn": 2,
   "thread-follower-steer-turn": 1,
 } as const;
+
+export type NativeCodexIpcMethod = keyof typeof NATIVE_CODEX_IPC_METHOD_VERSIONS;
 
 export interface NativeCodexIpcConnection {
   write(frame: Buffer): void;
@@ -23,336 +22,32 @@ export interface NativeCodexIpcConnection {
   close(): void;
 }
 
-export type NativeCodexIpcConnector = (
-  socketPath: string,
-) => NativeCodexIpcConnection | Promise<NativeCodexIpcConnection>;
+export type NativeCodexIpcConnector = (socketPath: string) => Promise<NativeCodexIpcConnection>;
 
-export function encodeIpcFrame(message: unknown): Buffer {
-  const payload = Buffer.from(JSON.stringify(message), "utf8");
-  if (payload.length > 0xffffffff) {
-    throw new Error("IPC message is too large");
-  }
-  const frame = Buffer.allocUnsafe(IPC_FRAME_HEADER_BYTES + payload.length);
-  frame.writeUInt32LE(payload.length, 0);
-  payload.copy(frame, IPC_FRAME_HEADER_BYTES);
-  return frame;
+export interface NativeCodexIpcReplyInput {
+  threadId: string;
+  message: string;
+  mode: "start" | "steer";
+  cwd?: string | null;
 }
 
-export function decodeIpcFrames(chunk: Buffer): unknown[] {
-  const messages: unknown[] = [];
-  let offset = 0;
-
-  while (chunk.length - offset >= IPC_FRAME_HEADER_BYTES) {
-    const payloadLength = chunk.readUInt32LE(offset);
-    if (payloadLength > MAX_IPC_FRAME_BYTES) {
-      throw new Error(`IPC frame exceeds ${MAX_IPC_FRAME_BYTES} bytes`);
-    }
-    const frameLength = IPC_FRAME_HEADER_BYTES + payloadLength;
-    if (chunk.length - offset < frameLength) break;
-
-    const payload = chunk.subarray(offset + IPC_FRAME_HEADER_BYTES, offset + frameLength).toString("utf8");
-    try {
-      messages.push(JSON.parse(payload));
-    } catch (error) {
-      throw new Error(`Invalid IPC JSON frame: ${error instanceof Error ? error.message : String(error)}`);
-    }
-    offset += frameLength;
-  }
-
-  return messages;
-}
-
-class NodeSocketConnection implements NativeCodexIpcConnection {
-  constructor(private readonly socket: Socket) {}
-
-  write(frame: Buffer): void {
-    this.socket.write(frame);
-  }
-
-  onData(listener: (chunk: Buffer) => void): void {
-    this.socket.on("data", listener);
-  }
-
-  onError(listener: (error: Error) => void): void {
-    this.socket.on("error", listener);
-  }
-
-  onClose(listener: () => void): void {
-    this.socket.on("close", listener);
-  }
-
-  close(): void {
-    this.socket.destroy();
-  }
-}
-
-function defaultConnector(socketPath: string): Promise<NativeCodexIpcConnection> {
-  return new Promise((resolve, reject) => {
-    const socket = connectSocket(socketPath);
-    const onError = (error: Error) => {
-      socket.removeListener("connect", onConnect);
-      reject(error);
-    };
-    const onConnect = () => {
-      socket.removeListener("error", onError);
-      resolve(new NodeSocketConnection(socket));
-    };
-    socket.once("error", onError);
-    socket.once("connect", onConnect);
-  });
-}
-
-interface PendingRequest {
-  resolve: (value: unknown) => void;
-  reject: (error: Error) => void;
-  timer: ReturnType<typeof setTimeout>;
-}
-
-interface NativeIpcRequest extends JsonObject {
-  type: "request";
-  requestId: string;
-  version: number;
-  method: string;
-  params?: JsonObject;
-  sourceClientId?: string;
-  targetClientId?: string;
-  timeoutMs?: number;
+export interface NativeCodexIpcReplyResult {
+  transport: "native-start" | "native-steer";
+  clientUserMessageId: string;
 }
 
 export interface NativeCodexIpcClientOptions {
   codexHome?: string;
-  connector?: NativeCodexIpcConnector;
+  socketPath?: string;
+  platform?: NodeJS.Platform;
   timeoutMs?: number;
+  connector?: NativeCodexIpcConnector;
   idFactory?: () => string;
+  requestIdFactory?: () => string;
+  clientType?: string;
 }
 
-export interface NativeCodexReplyInput {
-  threadId: string;
-  message: string;
-  mode: "start" | "steer";
-}
-
-export interface NativeCodexReplyResult {
-  transport: "native-start" | "native-steer";
-  clientUserMessageId: string;
-  result: unknown;
-}
-
-export class NativeCodexIpcClient {
-  private readonly socketPath: string;
-  private readonly connector: NativeCodexIpcConnector;
-  private readonly timeoutMs: number;
-  private readonly idFactory: () => string;
-  private connectionPromise: Promise<NativeCodexIpcConnection> | null = null;
-  private initializationPromise: Promise<void> | null = null;
-  private connection: NativeCodexIpcConnection | null = null;
-  private clientId: string | null = null;
-  private pending = new Map<string, PendingRequest>();
-  private receiveBuffer = Buffer.alloc(0);
-
-  constructor(options: NativeCodexIpcClientOptions = {}) {
-    const codexHome = options.codexHome ?? path.join(os.homedir(), ".codex");
-    this.socketPath = path.join(codexHome, "ipc", "ipc.sock");
-    this.connector = options.connector ?? defaultConnector;
-    this.timeoutMs = options.timeoutMs ?? DEFAULT_IPC_TIMEOUT_MS;
-    this.idFactory = options.idFactory ?? randomUUID;
-  }
-
-  async sendReply(input: NativeCodexReplyInput): Promise<NativeCodexReplyResult> {
-    await this.ensureInitialized();
-    const owner = await this.discoverOwner(input.threadId);
-    const clientUserMessageId = this.idFactory();
-    const textInput = [{ type: "text", text: input.message }];
-
-    if (input.mode === "start") {
-      const result = await this.request(
-        "thread-follower-start-turn",
-        {
-          conversationId: input.threadId,
-          turnStart: {
-            request: {
-              threadId: input.threadId,
-              clientUserMessageId,
-              input: textInput,
-            },
-            context: {
-              attachments: [],
-              commentAttachments: [],
-            },
-          },
-        },
-        owner,
-      );
-      return { transport: "native-start", clientUserMessageId, result };
-    }
-
-    const result = await this.request(
-      "thread-follower-steer-turn",
-      {
-        conversationId: input.threadId,
-        clientUserMessageId,
-        input: textInput,
-        attachments: [],
-      },
-      owner,
-    );
-    return { transport: "native-steer", clientUserMessageId, result };
-  }
-
-  close(): void {
-    this.rejectPending(new Error("Codex IPC connection closed"));
-    this.connection?.close();
-    this.connection = null;
-    this.connectionPromise = null;
-    this.initializationPromise = null;
-    this.clientId = null;
-    this.receiveBuffer = Buffer.alloc(0);
-  }
-
-  private async discoverOwner(threadId: string): Promise<string> {
-    const result = await this.request("thread-owner-discovery", {
-      hostId: "local",
-      conversationId: threadId,
-    });
-    const owner = asObject(result)?.handledByClientId;
-    if (typeof owner !== "string" || owner.length === 0) {
-      throw new Error(`No native Codex window owns thread ${threadId}`);
-    }
-    return owner;
-  }
-
-  private async getConnection(): Promise<NativeCodexIpcConnection> {
-    if (this.connection) return this.connection;
-    if (!this.connectionPromise) {
-      this.connectionPromise = Promise.resolve(this.connector(this.socketPath))
-        .then((connection) => {
-          this.connection = connection;
-          this.receiveBuffer = Buffer.alloc(0);
-          connection.onData((chunk) => this.handleData(chunk));
-          connection.onError((error) => this.handleConnectionFailure(error));
-          connection.onClose(() => this.handleConnectionFailure(new Error("Codex IPC connection closed")));
-          return connection;
-        })
-        .catch((error) => {
-          this.connectionPromise = null;
-          throw asError(error, "Unable to connect to Codex IPC");
-        });
-    }
-    return this.connectionPromise;
-  }
-
-  private async ensureInitialized(): Promise<void> {
-    if (this.clientId) return;
-    if (!this.initializationPromise) {
-      this.initializationPromise = this.request("initialize", { clientType: "xiaoman_desktop_companion" })
-        .then((result) => {
-          const clientId = asObject(result)?.clientId;
-          if (typeof clientId !== "string" || clientId.length === 0) {
-            throw new Error("Codex IPC initialize response did not include clientId");
-          }
-          this.clientId = clientId;
-        })
-        .catch((error) => {
-          this.initializationPromise = null;
-          throw error;
-        });
-    }
-    await this.initializationPromise;
-  }
-
-  private async request(method: keyof typeof IPC_VERSION, params?: JsonObject, targetClientId?: string): Promise<unknown> {
-    const connection = await this.getConnection();
-    const requestId = this.idFactory();
-    const request: NativeIpcRequest = {
-      type: "request",
-      requestId,
-      version: IPC_VERSION[method],
-      method,
-      ...(this.clientId ? { sourceClientId: this.clientId } : {}),
-      ...(targetClientId ? { targetClientId } : {}),
-      ...(params ? { params } : {}),
-    };
-
-    const response = new Promise<unknown>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(requestId);
-        reject(new Error(`Codex IPC request timed out: ${method}`));
-      }, this.timeoutMs);
-      this.pending.set(requestId, { resolve, reject, timer });
-    });
-
-    try {
-      connection.write(encodeIpcFrame(request));
-    } catch (error) {
-      this.pending.delete(requestId);
-      throw asError(error, `Unable to write Codex IPC request: ${method}`);
-    }
-
-    const result = await response;
-    if (method === "initialize") {
-      const clientId = asObject(result)?.clientId;
-      if (typeof clientId === "string" && clientId.length > 0) this.clientId = clientId;
-    }
-    return result;
-  }
-
-  private handleData(chunk: Buffer): void {
-    this.receiveBuffer = Buffer.concat([this.receiveBuffer, chunk]);
-    let offset = 0;
-    while (this.receiveBuffer.length - offset >= IPC_FRAME_HEADER_BYTES) {
-      const payloadLength = this.receiveBuffer.readUInt32LE(offset);
-      if (payloadLength > MAX_IPC_FRAME_BYTES) {
-        this.handleConnectionFailure(new Error(`IPC frame exceeds ${MAX_IPC_FRAME_BYTES} bytes`));
-        return;
-      }
-      const frameLength = IPC_FRAME_HEADER_BYTES + payloadLength;
-      if (this.receiveBuffer.length - offset < frameLength) break;
-      const payload = this.receiveBuffer.subarray(offset + IPC_FRAME_HEADER_BYTES, offset + frameLength).toString("utf8");
-      offset += frameLength;
-      let message: unknown;
-      try {
-        message = JSON.parse(payload);
-      } catch (error) {
-        this.handleConnectionFailure(asError(error, "Invalid IPC JSON frame"));
-        return;
-      }
-      this.handleMessage(message);
-    }
-    this.receiveBuffer = this.receiveBuffer.subarray(offset);
-  }
-
-  private handleMessage(message: unknown): void {
-    const object = asObject(message);
-    if (!object || object.type !== "response" || typeof object.requestId !== "string") return;
-    const pending = this.pending.get(object.requestId);
-    if (!pending) return;
-    this.pending.delete(object.requestId);
-    clearTimeout(pending.timer);
-    const error = asObject(object.error);
-    if (error) {
-      pending.reject(new Error(stringValue(error.message) ?? "Codex IPC request failed"));
-      return;
-    }
-    pending.resolve(object.result);
-  }
-
-  private handleConnectionFailure(error: Error): void {
-    this.rejectPending(error);
-    this.connection = null;
-    this.connectionPromise = null;
-    this.initializationPromise = null;
-    this.clientId = null;
-    this.receiveBuffer = Buffer.alloc(0);
-  }
-
-  private rejectPending(error: Error): void {
-    for (const [requestId, pending] of this.pending) {
-      clearTimeout(pending.timer);
-      pending.reject(error);
-      this.pending.delete(requestId);
-    }
-  }
-}
+type JsonObject = Record<string, unknown>;
 
 function asObject(value: unknown): JsonObject | null {
   return value !== null && typeof value === "object" && !Array.isArray(value)
@@ -360,10 +55,332 @@ function asObject(value: unknown): JsonObject | null {
     : null;
 }
 
-function stringValue(value: unknown): string | null {
+function textValue(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
-function asError(value: unknown, fallback: string): Error {
-  return value instanceof Error ? value : new Error(`${fallback}: ${String(value)}`);
+function errorText(value: unknown): string {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  const object = asObject(value);
+  return textValue(object?.message) ?? textValue(object?.error) ?? "Codex IPC request failed";
+}
+
+export class NativeCodexIpcError extends Error {
+  constructor(
+    message: string,
+    readonly code:
+      | "unsupported-platform"
+      | "connect-failed"
+      | "timeout"
+      | "protocol"
+      | "owner-not-found"
+      | "request-failed" = "request-failed",
+  ) {
+    super(message);
+    this.name = "NativeCodexIpcError";
+  }
+}
+
+export function encodeIpcFrame(message: unknown): Buffer {
+  const body = Buffer.from(JSON.stringify(message), "utf8");
+  if (body.length > NATIVE_CODEX_IPC_MAX_FRAME_BYTES) {
+    throw new NativeCodexIpcError("Codex IPC request exceeds the frame limit", "protocol");
+  }
+  const frame = Buffer.allocUnsafe(4 + body.length);
+  frame.writeUInt32LE(body.length, 0);
+  body.copy(frame, 4);
+  return frame;
+}
+
+export class IpcFrameDecoder {
+  private remainder = Buffer.alloc(0);
+
+  push(chunk: Buffer): unknown[] {
+    if (!Buffer.isBuffer(chunk) || chunk.length === 0) return [];
+    this.remainder = this.remainder.length === 0
+      ? Buffer.from(chunk)
+      : Buffer.concat([this.remainder, chunk]);
+    const messages: unknown[] = [];
+
+    while (this.remainder.length >= 4) {
+      const length = this.remainder.readUInt32LE(0);
+      if (length > NATIVE_CODEX_IPC_MAX_FRAME_BYTES) {
+        throw new NativeCodexIpcError("Codex IPC response exceeds the frame limit", "protocol");
+      }
+      if (this.remainder.length < length + 4) break;
+      const body = this.remainder.subarray(4, length + 4).toString("utf8");
+      this.remainder = this.remainder.subarray(length + 4);
+      try {
+        messages.push(JSON.parse(body) as unknown);
+      } catch {
+        throw new NativeCodexIpcError("Codex IPC returned invalid JSON", "protocol");
+      }
+    }
+    return messages;
+  }
+}
+
+export function decodeIpcFrames(chunk: Buffer): unknown[] {
+  return new IpcFrameDecoder().push(chunk);
+}
+
+function connectNativeSocket(socketPath: string): Promise<NativeCodexIpcConnection> {
+  return new Promise((resolve, reject) => {
+    const socket = net.createConnection(socketPath);
+    let connected = false;
+    const handleSocketError = (error: Error): void => {
+      if (!connected) reject(error);
+    };
+    // Keep an error listener installed for the whole socket lifetime. The
+    // wrapper attaches its request-level listener after the connect event.
+    socket.on("error", handleSocketError);
+    socket.once("connect", () => {
+      connected = true;
+      resolve({
+        write: (frame) => {
+          socket.write(frame);
+        },
+        onData: (listener) => {
+          socket.on("data", listener);
+        },
+        onError: (listener) => {
+          socket.on("error", listener);
+        },
+        onClose: (listener) => {
+          socket.on("close", listener);
+        },
+        close: () => socket.destroy(),
+      });
+    });
+  });
+}
+
+function unwrapResult(value: unknown): unknown {
+  const object = asObject(value);
+  if (!object) return value;
+  if (object.result !== undefined && (object.method !== undefined || object.type === "result")) {
+    return unwrapResult(object.result);
+  }
+  return value;
+}
+
+function extractClientId(value: unknown): string | null {
+  const unwrapped = unwrapResult(value);
+  const object = asObject(unwrapped);
+  if (typeof unwrapped === "string") return textValue(unwrapped);
+  if (!object) return null;
+  return textValue(object.clientId)
+    ?? textValue(object.sourceClientId)
+    ?? textValue(object.id)
+    ?? (object.result !== undefined ? extractClientId(object.result) : null);
+}
+
+function extractOwnerId(value: unknown): string | null {
+  const unwrapped = unwrapResult(value);
+  const object = asObject(unwrapped);
+  if (!object) return null;
+  return textValue(object.handledByClientId)
+    ?? textValue(object.ownerClientId)
+    ?? textValue(object.clientId)
+    ?? (object.result !== undefined ? extractOwnerId(object.result) : null);
+}
+
+interface PendingRequest {
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+  timer: NodeJS.Timeout;
+}
+
+class NativeIpcSession {
+  private readonly decoder = new IpcFrameDecoder();
+  private readonly pending = new Map<string, PendingRequest>();
+  private sourceClientId: string | null = null;
+  private closed = false;
+
+  constructor(
+    private readonly connection: NativeCodexIpcConnection,
+    private readonly timeoutMs: number,
+    private readonly requestIdFactory: () => string,
+  ) {
+    connection.onData((chunk) => {
+      try {
+        for (const message of this.decoder.push(chunk)) this.handleMessage(message);
+      } catch (error) {
+        this.failAll(error instanceof Error ? error : new Error(String(error)));
+        this.close();
+      }
+    });
+    connection.onError((error) => this.failAll(error));
+    connection.onClose(() => this.failAll(new NativeCodexIpcError("Codex IPC connection closed", "connect-failed")));
+  }
+
+  setSourceClientId(clientId: string | null): void {
+    this.sourceClientId = clientId;
+  }
+
+  request(
+    method: "initialize" | NativeCodexIpcMethod,
+    params: JsonObject,
+    targetClientId?: string,
+  ): Promise<unknown> {
+    if (this.closed) return Promise.reject(new NativeCodexIpcError("Codex IPC connection is closed", "connect-failed"));
+    const requestId = this.requestIdFactory();
+    const message: JsonObject = {
+      type: "request",
+      requestId,
+      version: method === "initialize" ? 0 : NATIVE_CODEX_IPC_METHOD_VERSIONS[method],
+      method,
+      params,
+    };
+    if (this.sourceClientId) message.sourceClientId = this.sourceClientId;
+    if (targetClientId) message.targetClientId = targetClientId;
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(requestId);
+        reject(new NativeCodexIpcError(`Codex IPC request timed out: ${method}`, "timeout"));
+      }, this.timeoutMs);
+      timer.unref?.();
+      this.pending.set(requestId, { resolve, reject, timer });
+      try {
+        this.connection.write(encodeIpcFrame(message));
+      } catch (error) {
+        clearTimeout(timer);
+        this.pending.delete(requestId);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      }
+    });
+  }
+
+  close(): void {
+    if (this.closed) return;
+    this.closed = true;
+    for (const pending of this.pending.values()) clearTimeout(pending.timer);
+    this.pending.clear();
+    this.connection.close();
+  }
+
+  private handleMessage(value: unknown): void {
+    const message = asObject(value);
+    if (!message) return;
+    if (message.type === "client-discovery-request") {
+      const requestId = textValue(message.requestId);
+      if (!requestId) return;
+      // The companion follows threads but does not own IDE context. Explicitly
+      // decline this router handshake so the native Codex client stays owner.
+      this.connection.write(encodeIpcFrame({
+        type: "client-discovery-response",
+        requestId,
+        response: { canHandle: false },
+      }));
+      return;
+    }
+    const requestId = textValue(message.requestId) ?? textValue(message.id);
+    if (!requestId) return;
+    const pending = this.pending.get(requestId);
+    if (!pending) return;
+    this.pending.delete(requestId);
+    clearTimeout(pending.timer);
+    if (message.error !== undefined) {
+      pending.reject(new NativeCodexIpcError(errorText(message.error), "request-failed"));
+      return;
+    }
+    const result = unwrapResult(message.result);
+    const envelopeOwner = textValue(message.handledByClientId);
+    if (!envelopeOwner) {
+      pending.resolve(result);
+      return;
+    }
+    const resultObject = asObject(result);
+    pending.resolve(resultObject
+      ? { ...resultObject, handledByClientId: envelopeOwner }
+      : { result, handledByClientId: envelopeOwner });
+  }
+
+  private failAll(error: Error): void {
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.pending.clear();
+  }
+}
+
+export class NativeCodexIpcClient {
+  readonly socketPath: string;
+  private readonly platform: NodeJS.Platform;
+  private readonly timeoutMs: number;
+  private readonly connector: NativeCodexIpcConnector;
+  private readonly idFactory: () => string;
+  private readonly requestIdFactory: () => string;
+  private readonly clientType: string;
+
+  constructor(options: NativeCodexIpcClientOptions = {}) {
+    const codexHome = path.resolve(options.codexHome ?? process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"));
+    this.socketPath = options.socketPath ?? path.join(codexHome, "ipc", "ipc.sock");
+    this.platform = options.platform ?? process.platform;
+    this.timeoutMs = Math.max(100, options.timeoutMs ?? NATIVE_CODEX_IPC_DEFAULT_TIMEOUT_MS);
+    this.connector = options.connector ?? connectNativeSocket;
+    this.idFactory = options.idFactory ?? randomUUID;
+    this.requestIdFactory = options.requestIdFactory ?? randomUUID;
+    this.clientType = options.clientType ?? "xiaoman_desktop_companion";
+  }
+
+  async sendReply(input: NativeCodexIpcReplyInput): Promise<NativeCodexIpcReplyResult> {
+    if (this.platform !== "darwin") {
+      throw new NativeCodexIpcError("原生 Codex 窗口路由仅支持 macOS", "unsupported-platform");
+    }
+    let connection: NativeCodexIpcConnection;
+    try {
+      connection = await this.connector(this.socketPath);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new NativeCodexIpcError(`无法连接原生 Codex IPC：${detail}`, "connect-failed");
+    }
+
+    const session = new NativeIpcSession(connection, this.timeoutMs, this.requestIdFactory);
+    try {
+      const initialized = await session.request("initialize", { clientType: this.clientType });
+      session.setSourceClientId(extractClientId(initialized) ?? this.idFactory());
+      const ownerResponse = await session.request("thread-owner-discovery", {
+        hostId: "local",
+        conversationId: input.threadId,
+      });
+      const ownerClientId = extractOwnerId(ownerResponse);
+      if (!ownerClientId) {
+        throw new NativeCodexIpcError("没有找到拥有该 Codex 任务的原生窗口", "owner-not-found");
+      }
+
+      const clientUserMessageId = this.idFactory();
+      const textInput = [{ type: "text", text: input.message }];
+      if (input.mode === "start") {
+        const request: JsonObject = {
+          threadId: input.threadId,
+          clientUserMessageId,
+          input: textInput,
+        };
+        await session.request("thread-follower-start-turn", {
+          conversationId: input.threadId,
+          turnStart: {
+            request,
+            context: { attachments: [], commentAttachments: [] },
+          },
+        }, ownerClientId);
+        return { transport: "native-start", clientUserMessageId };
+      }
+
+      await session.request("thread-follower-steer-turn", {
+        conversationId: input.threadId,
+        clientUserMessageId,
+        input: textInput,
+        attachments: [],
+        serviceTier: null,
+        additionalContext: null,
+        restoreMessage: null,
+      }, ownerClientId);
+      return { transport: "native-steer", clientUserMessageId };
+    } finally {
+      session.close();
+    }
+  }
 }

@@ -65,7 +65,12 @@ export function Overlay() {
   }, [snapshot?.settings.codexSessionControls, tasksOpen]);
 
   useEffect(() => {
-    if (!snapshot || !snapshot.settings.overlayVisible || !snapshot.settings.idleActionsEnabled) {
+    if (
+      !snapshot
+      || snapshot.settings.petProfile !== "enhanced"
+      || !snapshot.settings.overlayVisible
+      || !snapshot.settings.idleActionsEnabled
+    ) {
       setIdleMotion(null);
       return;
     }
@@ -77,6 +82,7 @@ export function Overlay() {
         if (!active) return;
         const canAnimate =
           snapshot.state === "idle" &&
+          snapshot.settings.petProfile === "enhanced" &&
           snapshot.settings.overlayVisible &&
           !dragRef.current.active &&
           !dragMotion &&
@@ -108,6 +114,7 @@ export function Overlay() {
     hoverMotion,
     snapshot?.settings.idleActionIntervalSec,
     snapshot?.settings.idleActionsEnabled,
+    snapshot?.settings.petProfile,
     snapshot?.settings.idleBlinkEnabled,
     snapshot?.settings.idleLickEnabled,
     snapshot?.settings.overlayVisible,
@@ -263,7 +270,12 @@ export function Overlay() {
         bridge.showOverlayMenu();
       }}
     >
-      {tasksOpen && <OverlayCodexPanel onClose={closeTaskPanel} />}
+      {tasksOpen && (
+        <OverlayCodexPanel
+          onClose={closeTaskPanel}
+          replyTransport={snapshot.settings.codexReplyTransport}
+        />
+      )}
       <div className={`pet-bubble source-${snapshot.stateSource}`} aria-live="polite">
         {idlePhrase ?? snapshot.stateMessage}
       </div>

@@ -6,3 +6,6 @@ dist-electron/
 *.log
 coverage/
 scripts/__pycache__/
+tests/__pycache__/
+/work/xiaoman-pet-90/frames-90/
+/work/xiaoman-pet-90/frames-90-v2/

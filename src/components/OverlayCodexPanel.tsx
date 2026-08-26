@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUpRight, Code2, RefreshCw, Send, X } from "lucide-react";
 import { CODEX_STATUS_LABEL, formatRelativeTime, preferredCodexThreadId, sortCodexThreads } from "../shared/codex-ui";
-import type { CodexThreadListResult } from "../shared/types";
+import type { CodexReplyTransport, CodexThreadListResult } from "../shared/types";
 import { bridge } from "../useCompanion";
 
 interface OverlayCodexPanelProps {
   onClose: () => void;
+  replyTransport?: CodexReplyTransport;
 }
 
-export function OverlayCodexPanel({ onClose }: OverlayCodexPanelProps) {
+export function OverlayCodexPanel({ onClose, replyTransport = "native" }: OverlayCodexPanelProps) {
   const [result, setResult] = useState<CodexThreadListResult>({ threads: [], source: "unavailable", warnings: [] });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [reply, setReply] = useState("");
@@ -46,7 +47,7 @@ export function OverlayCodexPanel({ onClose }: OverlayCodexPanelProps) {
       window.clearInterval(interval);
       window.removeEventListener("keydown", closeOnEscape);
     };
-  }, [onClose, refresh]);
+  }, [onClose, refresh, replyTransport]);
 
   const threads = useMemo(() => sortCodexThreads(result.threads), [result.threads]);
   const selected = threads.find((thread) => thread.id === selectedId) ?? null;
@@ -90,7 +91,13 @@ export function OverlayCodexPanel({ onClose }: OverlayCodexPanelProps) {
   return (
     <section className="overlay-codex-panel" aria-label="Codex 任务快捷回复" onContextMenu={(event) => event.stopPropagation()}>
       <header className="overlay-codex-header">
-        <span className="overlay-codex-title"><Code2 size={16} />Codex 任务</span>
+        <span className="overlay-codex-title">
+          <Code2 size={16} />
+          <span>Codex 任务</span>
+          <small className={`overlay-codex-transport transport-${replyTransport}`}>
+            {replyTransport === "native" ? "原生" : "兼容"}
+          </small>
+        </span>
         <span className="overlay-codex-count">{activeCount > 0 ? `${activeCount} 进行中` : `${threads.length} 项`}</span>
         <button className="icon-button compact" type="button" title="刷新任务" aria-label="刷新任务" onClick={() => void refresh(true)}>
           <RefreshCw size={14} className={loading ? "is-spinning" : ""} />
@@ -150,8 +157,12 @@ export function OverlayCodexPanel({ onClose }: OverlayCodexPanelProps) {
             className="icon-button overlay-send"
             type="button"
             disabled={!selected || !selected.canReply || !reply.trim() || sending}
-            title={selected?.status === "active" ? "排队回复" : "发送回复"}
-            aria-label={selected?.status === "active" ? "排队回复" : "发送回复"}
+            title={replyTransport === "native"
+              ? "发送到原生 Codex 窗口"
+              : selected?.status === "active" ? "排队回复" : "发送回复"}
+            aria-label={replyTransport === "native"
+              ? "发送到原生 Codex 窗口"
+              : selected?.status === "active" ? "排队回复" : "发送回复"}
             onClick={() => void sendReply()}
           >
             <Send size={15} />

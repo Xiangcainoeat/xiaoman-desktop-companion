@@ -3,16 +3,80 @@ import path from "node:path";
 import chokidar, { type FSWatcher } from "chokidar";
 
 export type CodexMonitorEvent =
-  | { kind: "started"; turnId: string; at: number; recovered?: boolean }
-  | { kind: "waiting"; turnId: string; at: number; recovered?: boolean }
-  | { kind: "completed"; turnId: string; at: number; durationMs: number | null }
-  | { kind: "failed"; turnId: string; at: number; durationMs: number | null }
-  | { kind: "aborted"; turnId: string; at: number };
+  | { kind: "started"; turnId: string; at: number; recovered?: boolean; threadId?: string }
+  | { kind: "waiting"; turnId: string; at: number; recovered?: boolean; threadId?: string }
+  | { kind: "completed"; turnId: string; at: number; durationMs: number | null; threadId?: string }
+  | { kind: "failed"; turnId: string; at: number; durationMs: number | null; threadId?: string }
+  | { kind: "aborted"; turnId: string; at: number; threadId?: string };
 
 interface JsonlRecord {
   timestamp?: string;
   type?: string;
   payload?: Record<string, unknown>;
+}
+
+export interface CodexSessionFileMetadata {
+  threadId: string | null;
+  interactive: boolean;
+}
+
+const UNKNOWN_SESSION_METADATA: CodexSessionFileMetadata = { threadId: null, interactive: true };
+const SESSION_META_READ_BYTES = 64 * 1024;
+
+function compactJson(value: unknown): string {
+  if (typeof value === "string") return value.toLowerCase();
+  try {
+    return JSON.stringify(value).toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+export function classifyCodexSessionMetadata(payload: Record<string, unknown>): CodexSessionFileMetadata {
+  const threadId = typeof payload.id === "string" && payload.id.trim()
+    ? payload.id.trim()
+    : typeof payload.session_id === "string" && payload.session_id.trim()
+      ? payload.session_id.trim()
+      : null;
+  const threadSource = compactJson(payload.thread_source);
+  const source = compactJson(payload.source);
+  const role = compactJson(payload.agent_role);
+  const nonInteractive = threadSource.includes("subagent")
+    || source === "exec"
+    || source.includes("subagent")
+    || role.includes("subagent");
+  return { threadId, interactive: !nonInteractive };
+}
+
+function readSessionFileMetadata(filePath: string): CodexSessionFileMetadata {
+  let descriptor: number | null = null;
+  try {
+    const stats = statSync(filePath);
+    const buffer = Buffer.alloc(Math.min(stats.size, SESSION_META_READ_BYTES));
+    descriptor = openSync(filePath, "r");
+    const bytesRead = readSync(descriptor, buffer, 0, buffer.length, 0);
+    for (const line of buffer.subarray(0, bytesRead).toString("utf8").split("\n")) {
+      if (!line.trim()) continue;
+      let record: JsonlRecord;
+      try {
+        record = JSON.parse(line) as JsonlRecord;
+      } catch {
+        continue;
+      }
+      if (record.type !== "session_meta") continue;
+      const payload = record.payload ?? {};
+      return classifyCodexSessionMetadata(payload);
+    }
+  } catch {
+    // A file may be created before its session metadata is flushed.
+  } finally {
+    if (descriptor !== null) closeSync(descriptor);
+  }
+  return UNKNOWN_SESSION_METADATA;
+}
+
+function addThreadId(event: CodexMonitorEvent, metadata: CodexSessionFileMetadata): CodexMonitorEvent {
+  return metadata.threadId ? { ...event, threadId: metadata.threadId } : event;
 }
 
 export function classifyCodexRecord(record: JsonlRecord): CodexMonitorEvent | null {
@@ -46,6 +110,7 @@ export class CodexSessionMonitor {
   private watcher: FSWatcher | null = null;
   private readonly offsets = new Map<string, number>();
   private readonly remainders = new Map<string, string>();
+  private readonly metadata = new Map<string, CodexSessionFileMetadata>();
 
   constructor(
     private readonly sessionsRoot: string,
@@ -79,6 +144,7 @@ export class CodexSessionMonitor {
     this.watcher = null;
     this.offsets.clear();
     this.remainders.clear();
+    this.metadata.clear();
   }
 
   private primeExistingOffsets(): Array<{ filePath: string; modifiedAt: number }> {
@@ -92,6 +158,7 @@ export class CodexSessionMonitor {
         try {
           const stats = statSync(filePath);
           this.offsets.set(filePath, stats.size);
+          this.metadata.set(filePath, readSessionFileMetadata(filePath));
           files.push({ filePath, modifiedAt: stats.mtimeMs });
         } catch {
           // A session can rotate while startup enumeration is in progress.
@@ -112,6 +179,9 @@ export class CodexSessionMonitor {
     const active = new Map<string, { started: Extract<CodexMonitorEvent, { kind: "started" }>; waiting: boolean }>();
 
     for (const { filePath } of recentFiles) {
+      const metadata = this.metadata.get(filePath) ?? readSessionFileMetadata(filePath);
+      this.metadata.set(filePath, metadata);
+      if (!metadata.interactive) continue;
       let descriptor: number | null = null;
       try {
         const size = statSync(filePath).size;
@@ -129,7 +199,8 @@ export class CodexSessionMonitor {
           } catch {
             continue;
           }
-          const event = classifyCodexRecord(record);
+          const classified = classifyCodexRecord(record);
+          const event = classified ? addThreadId(classified, metadata) : null;
           if (!event || event.turnId === "unknown") continue;
           if (event.kind === "started") active.set(event.turnId, { started: event, waiting: false });
           else if (event.kind === "waiting" && active.has(event.turnId)) active.get(event.turnId)!.waiting = true;
@@ -144,12 +215,20 @@ export class CodexSessionMonitor {
 
     for (const { started, waiting } of active.values()) {
       this.onEvent({ ...started, recovered: true });
-      if (waiting) this.onEvent({ kind: "waiting", turnId: started.turnId, at: Date.now(), recovered: true });
+      if (waiting) this.onEvent({
+        kind: "waiting",
+        turnId: started.turnId,
+        at: Date.now(),
+        recovered: true,
+        ...(started.threadId ? { threadId: started.threadId } : {}),
+      });
     }
   }
 
   private handleFile(filePath: string, isNew: boolean): void {
     if (!filePath.endsWith(".jsonl")) return;
+    const metadata = readSessionFileMetadata(filePath);
+    this.metadata.set(filePath, metadata);
     let size = 0;
     try {
       size = statSync(filePath).size;
@@ -175,7 +254,9 @@ export class CodexSessionMonitor {
       const lines = combined.split("\n");
       this.remainders.set(filePath, lines.pop() ?? "");
       this.offsets.set(filePath, start + bytesRead);
-      for (const line of lines) this.parseLine(line);
+      if (metadata.interactive) {
+        for (const line of lines) this.parseLine(line, metadata);
+      }
     } catch {
       this.onAvailability(false);
     } finally {
@@ -183,7 +264,7 @@ export class CodexSessionMonitor {
     }
   }
 
-  private parseLine(line: string): void {
+  private parseLine(line: string, metadata: CodexSessionFileMetadata): void {
     if (!line.trim()) return;
     let record: JsonlRecord;
     try {
@@ -193,6 +274,6 @@ export class CodexSessionMonitor {
     }
 
     const event = classifyCodexRecord(record);
-    if (event) this.onEvent(event);
+    if (event) this.onEvent(addThreadId(event, metadata));
   }
 }

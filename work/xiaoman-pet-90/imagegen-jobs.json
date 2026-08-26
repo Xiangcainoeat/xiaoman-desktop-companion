@@ -1,0 +1,57 @@
+{
+  "cli": "relay-imagegen/scripts/relay_imagegen.sh",
+  "model": "gpt-image-2",
+  "operation": "edit",
+  "sourceIdentity": "accepted Xiaoman Siamese cat atlas",
+  "selectedJobs": [
+    {
+      "id": "source-repair",
+      "prompt": "prompt-source-repair.md",
+      "output": "relay-output/look-32-source-repaired.png",
+      "purpose": "repair matte spill and red/pink edge contamination in the 8x4 anchor sheet"
+    },
+    {
+      "id": "transition-172",
+      "prompt": "transition-prompts/look-172.md",
+      "output": "transition-output/look-172.png",
+      "purpose": "bridge the 168-180 degree seam"
+    },
+    {
+      "id": "transition-176",
+      "prompt": "transition-prompts/look-176.md",
+      "output": "transition-output/look-176.png",
+      "purpose": "bridge the 168-180 degree seam"
+    },
+    {
+      "id": "transition-260",
+      "prompt": "transition-prompts/look-260-v3.md",
+      "output": "transition-output-v3/look-260.png",
+      "purpose": "compact lower-quadrant intermediate; v3 replacement for the v2 frame"
+    },
+    {
+      "id": "transition-264",
+      "prompt": "transition-prompts/look-264-v2.md",
+      "output": "transition-output-v2/look-264.png",
+      "purpose": "progressive lower-quadrant turn"
+    },
+    {
+      "id": "transition-268",
+      "prompt": "transition-prompts/look-268-v2.md",
+      "output": "transition-output-v2/look-268.png",
+      "purpose": "bridge the lower-facing and side-facing anchors"
+    },
+    {
+      "id": "transition-352",
+      "prompt": "transition-prompts/look-352.md",
+      "output": "transition-output/look-352.png",
+      "purpose": "bridge the 348-360 degree seam"
+    },
+    {
+      "id": "transition-356",
+      "prompt": "transition-prompts/look-356.md",
+      "output": "transition-output/look-356.png",
+      "purpose": "bridge the 348-360 degree seam"
+    }
+  ],
+  "notRuntime": "The CLI is used only during asset production. The desktop app does not call the relay."
+}

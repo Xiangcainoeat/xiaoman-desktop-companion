@@ -1,0 +1,36 @@
+{
+  "version": "1.2.0",
+  "atlas": {
+    "path": "public/pet/look-90.webp",
+    "metadata": "public/pet/look-90.json",
+    "sha256": "43dd9018741c6439cfdbb55fd94b673888994ee55506eb8a1502616d3e3f20b5",
+    "metadataSha256": "9814ca6500064137634ccf9c0114416334ce2f1fa7b297bb3a1b1767347f5291",
+    "dimensions": [1920, 1872],
+    "columns": 10,
+    "rows": 9,
+    "frameCount": 90,
+    "frameWidth": 192,
+    "frameHeight": 208,
+    "stepDegrees": 4,
+    "format": "RGBA/WebP"
+  },
+  "generation": {
+    "sourceAnchorCount": 32,
+    "selectedTransitionOverrideCount": 7,
+    "method": "local-cli-generated anchors and transitions plus deterministic registration/interpolation",
+    "cli": "relay-imagegen/scripts/relay_imagegen.sh",
+    "model": "gpt-image-2",
+    "sharedMaxConcurrency": 6,
+    "transition260Revision": "v3"
+  },
+  "qa": {
+    "errors": [],
+    "maxContaminatedEdgePixelsPerFrame": 0,
+    "maxRedPinkEdgePixelsPerFrame": 0,
+    "emptyFrames": 0,
+    "fullyOpaqueFrames": 0,
+    "hiddenRgbPixels": 0,
+    "contactSheet": "work/xiaoman-pet-90/qa/look-90-contact-sheet.png",
+    "seamSheet": "work/xiaoman-pet-90/qa/seam-frames.png"
+  }
+}

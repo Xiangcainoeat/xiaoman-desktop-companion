@@ -24,7 +24,7 @@
 
 ### 方案 A：原生 IPC 路由（采用）
 
-桌面伴侣连接 `${CODEX_HOME}/ipc/ipc.sock`，完成 IPC 初始化后，通过 `thread-owner-discovery` 找到拥有目标会话的原生 Codex 客户端。活动会话使用 `thread-follower-steer-turn`，空闲会话使用 `thread-follower-start-turn`。文本输入使用原生 `UserInput` 结构，并为每次发送生成唯一 `clientUserMessageId`。发送成功后再用 `open -a <Codex.app> codex://threads/<id>` 激活并定位窗口。
+桌面伴侣连接 `${CODEX_HOME}/ipc/ipc.sock`，完成 IPC 初始化后，通过 `thread-owner-discovery` 找到拥有目标会话的原生 Codex 客户端。活动会话使用 `thread-follower-steer-turn`，空闲会话使用 `thread-follower-start-turn`。文本输入使用原生 `UserInput` 结构，并为每次发送生成唯一 `clientUserMessageId`。发送成功后不再额外调用深链，避免把同一线程交给另一个窗口 handler；用户主动点击“打开任务”时才使用 `codex://threads/<id>`。
 
 这个方案的关键是把“发送”交给原生窗口所属客户端，而不是启动新的 app-server 或 `codex exec resume` 进程。IPC 不可用时返回明确错误，提示用户打开原生 Codex；只有设置明确选择“CLI 兼容”时才走旧路径。
 

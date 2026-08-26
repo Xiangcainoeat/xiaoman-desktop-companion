@@ -1,6 +1,6 @@
 # 小满桌面伴侣
 
-小满桌面伴侣是一个独立的 macOS 应用，为小满增加透明桌面悬浮窗、平滑注视、互动养成、提醒、声音、Codex 任务控制和外部应用事件。
+小满桌面伴侣 1.2.0 是一个独立的 macOS 应用，为小满增加透明桌面悬浮窗、平滑注视、互动养成、提醒、声音、Codex 任务控制和外部应用事件。
 
 它不会修改或替换 Codex 原生宠物包。应用未启动时，`~/.codex/pets/xiaoman/pet.json` 与 `spritesheet.webp` 仍按原方式工作。
 
@@ -11,7 +11,8 @@
 - 透明、可拖动、始终置顶的桌面小满
 - 可关闭注视，或选择上半区 180° / 全向 360° 跟随
 - 可选 30Hz / 60Hz，支持跟随速度、中心死区和静止回正时间
-- 使用原生宠物的 16 个标准方向帧，低头阶段限速收敛且不叠图
+- 可在“小满增强”和“原生 Codex”之间切换：增强配置使用 90 个 4° 注视方向，原生配置保留 16 个标准方向
+- 90 方向下方跟随采用独立中间帧、透明边缘清理和统一锚点，低头阶段平滑收敛且不叠图
 - 拖动时按方向奔跑，悬停时跳跃
 - 可分别启用舔嘴、眨眼、挠头和随机待机说话
 - 可添加、删除、恢复待机词条，最多 40 条、每条最多 80 字符
@@ -44,10 +45,11 @@
 
 ### Codex 回复语义
 
-- 正在执行或等待输入的任务：回复写入 Codex 本机队列；当前一轮结束后自动继续，界面明确显示“已排队”。
-- 已结束或空闲任务：通过本机 Codex CLI 在后台续跑，不需要先打开 Codex 主窗口。
+- 默认“原生窗口”通道：先通过 `~/.codex/ipc/ipc.sock` 找到拥有该线程的原生 Codex 客户端，再由该客户端执行 follower start/steer；不会为了发送消息再打开一个 Codex 窗口。
+- 原生回复每条消息使用新的请求连接和唯一消息 ID，连续发送不会复用已经关闭的 socket；原生确认后会在状态库落盘前短暂记住该线程正在运行，让紧接着的下一条消息走 `steer`，状态竞争只做一次 start/steer 互换重试，不静默改走 CLI。
+- “CLI 兼容”通道是显式选项：正在执行或等待输入的任务走 `codex queue`，已结束任务走 `codex exec resume`。
 - “在 Codex 中打开”：使用 `codex://threads/<thread-id>` 打开对应任务。
-- 只有 Codex CLI 明确输出 `turn.started` 后才显示启动成功；立即退出、超时或无确认都会显示错误。
+- 原生任务列表从 Codex state DB 读取交互线程身份，排除 `exec`、子 Agent 和未登记的本地日志；只读日志监视器仅给同一线程叠加实时运行状态。
 
 浏览器 `dev:web` 只提供内存 UI mock，任务列表和回复按钮会明确提示“模拟”，不会打开 Codex 或调用 CLI；真实发送必须在 Electron 宿主中验证。
 
@@ -58,7 +60,8 @@
 | 宿主没有安装或没有启动 | Codex 原生小满照常工作 |
 | 宿主正在运行 | 桌面出现独立小满，并启用扩展功能 |
 | Codex 没有运行 | 互动、养成、提醒和应用事件仍可用 |
-| Codex CLI / 会话目录不可用 | 任务列表或回复显示不可用，其他功能不受影响 |
+| 原生 Codex IPC 不可用 | 原生回复显示明确错误；可手动切换到“CLI 兼容”，其他功能不受影响 |
+| Codex state DB 不可用 | 原生任务列表显示不可用且不会改读无关日志；其他功能不受影响 |
 | 宿主退出或卸载 | 不写入或删除 Codex 原生宠物文件 |
 
 ## 本地数据与隐私
@@ -69,7 +72,7 @@ macOS 数据文件位于：
 ~/Library/Application Support/小满桌面伴侣/xiaoman-data.json
 ```
 
-该文件保存数值、提醒、应用规则、待机词条、设置、悬浮窗位置和最近动态。应用不包含遥测、分析、更新器或自建云服务。只有用户主动发送 Codex 回复时，应用才调用已安装的 Codex CLI；该命令沿用用户现有的 Codex 登录、网络和数据策略。详细边界见 [docs/PRIVACY.md](docs/PRIVACY.md)。
+该文件保存数值、提醒、应用规则、待机词条、设置、悬浮窗位置和最近动态。应用不包含遥测、分析、更新器或自建云服务。原生回复只通过本机 Codex IPC 交给拥有目标线程的 Codex 窗口；只有用户明确选择“CLI 兼容”并主动发送时，应用才调用已安装的 Codex CLI。详细边界见 [docs/PRIVACY.md](docs/PRIVACY.md)。
 
 ## 开发
 
@@ -86,6 +89,7 @@ npm run dev
 npm run typecheck
 npm test
 npm run verify:idle-atlas
+npm run verify:look-90
 npm run build
 npm run pack:mac
 npm run dist:mac
@@ -105,7 +109,7 @@ does not require Python, numpy, or Pillow.
 - [docs/PRIVACY.md](docs/PRIVACY.md)
 - [SECURITY.md](SECURITY.md)
 
-干净发布仓库还包含 `codex-pet/`：其中既有可直接安装的原生 Codex 两文件宠物，也有可由 Codex 复用的 `hatch-pet` 技能、确定性脚本、测试、QA 证据和小满完整制作案例。`work/` 保留生成提示词、选中结果、图集验证和真实窗口 QA 材料。
+干净发布仓库还包含 `codex-pet/`：其中既有可直接安装的原生 Codex 两文件宠物，也有可由 Codex 复用的 `hatch-pet` 技能、确定性脚本、测试、QA 证据和小满完整制作案例。`public/pet/native/` 是宿主内置的原生 profile 副本，`work/xiaoman-pet-90/` 保留本机 CLI 生图提示、选中结果、扩帧 provenance、图集验证和 QA 材料。宿主不会写回 `~/.codex/pets/xiaoman`。
 
 ## 许可证
 

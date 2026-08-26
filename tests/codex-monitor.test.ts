@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyCodexRecord } from "../electron/codex-monitor";
+import { classifyCodexRecord, classifyCodexSessionMetadata } from "../electron/codex-monitor";
 import { CodexSessionsService, type CodexLocalSessionRecord } from "../electron/codex-sessions";
 
 const THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9404";
@@ -23,6 +23,25 @@ function localRecord(activity: CodexLocalSessionRecord["activity"]): CodexLocalS
 }
 
 describe("Codex event classification", () => {
+  it("keeps user thread identity and excludes exec/subagent metadata", () => {
+    expect(classifyCodexSessionMetadata({
+      id: THREAD_ID,
+      thread_source: "user",
+      source: "vscode",
+    })).toEqual({ threadId: THREAD_ID, interactive: true });
+    expect(classifyCodexSessionMetadata({
+      id: "exec-thread",
+      thread_source: "user",
+      source: "exec",
+    }).interactive).toBe(false);
+    expect(classifyCodexSessionMetadata({
+      id: "subagent-thread",
+      thread_source: "subagent",
+      source: { subagent: { thread_spawn: {} } },
+      agent_role: "worker",
+    }).interactive).toBe(false);
+  });
+
   it("maps task lifecycle records without reading message content", () => {
     expect(classifyCodexRecord({
       timestamp: "2026-08-26T10:00:00.000Z",
@@ -57,6 +76,7 @@ describe("Codex event classification", () => {
 
   it("keeps a log-derived active task replyable when runtime metadata is stale", async () => {
     const service = new CodexSessionsService({
+      replyTransport: "cli",
       appServerRequest: async () => ({
         data: [{ id: THREAD_ID, status: { type: "notLoaded" }, canAcceptDirectInput: false }],
       }),

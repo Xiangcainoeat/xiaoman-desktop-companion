@@ -1,4 +1,7 @@
-# Packaged Reply Smoke Test
+# Historical Packaged CLI Reply Smoke Test
+
+> Historical record for v1.1.1. The current default path is native Codex IPC;
+> see `native-reply-smoke-test.md` for the 1.2.0 contract and verification.
 
 Date: 2026-08-26
 Version: 1.1.1

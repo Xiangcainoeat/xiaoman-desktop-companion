@@ -3,6 +3,8 @@ import { constants as fsConstants, existsSync } from "node:fs";
 import { access, open, readdir, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import { NativeCodexIpcClient, NativeCodexIpcError } from "./codex-ipc";
+import { readCodexStateDb, type CodexStateDbReader } from "./codex-state";
 
 export const CODEX_DESKTOP_BUNDLE_ID = "com.openai.codex";
 export const CODEX_DESKTOP_SCHEME = "codex";
@@ -27,6 +29,7 @@ const RESUME_STARTUP_GRACE_MS = 700;
 const RESUME_STARTUP_TIMEOUT_MS = 5_000;
 const PROCESS_KILL_GRACE_MS = 1_500;
 const DEFAULT_APP_SERVER_TIMEOUT_MS = 8_000;
+const NATIVE_REPLY_ASSUMED_ACTIVE_MS = 45_000;
 const THREAD_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
 
 type JsonObject = Record<string, unknown>;
@@ -68,11 +71,12 @@ export interface CodexSessionSummary {
 export interface CodexSessionListOptions {
   limit?: number;
   includeSubagents?: boolean;
+  sourceMode?: "native" | "cli";
 }
 
 export interface CodexSessionListResult {
   sessions: CodexSessionSummary[];
-  source: "app-server+logs" | "app-server" | "logs" | "unavailable";
+  source: "state-db" | "app-server+logs" | "app-server" | "logs" | "unavailable";
   warnings: string[];
 }
 
@@ -84,6 +88,8 @@ export interface CodexDesktopTarget {
   url: string;
   source: "official-deep-link";
 }
+
+export type CodexDesktopOpener = (target: CodexDesktopTarget) => Promise<void>;
 
 export interface CodexRuntimeInfo {
   cliPath: string;
@@ -163,18 +169,33 @@ export interface CodexProcessHandle {
 export type CodexProcessSpawner = (invocation: CodexProcessInvocation) => CodexProcessHandle;
 
 export type CodexReplyMode = "auto" | "queue" | "resume";
+export type CodexReplyTransport = "native" | "cli";
+
+export interface CodexNativeReplyClient {
+  sendReply(input: {
+    threadId: string;
+    message: string;
+    mode: "start" | "steer";
+    cwd?: string | null;
+  }): Promise<{
+    transport: "native-start" | "native-steer";
+    clientUserMessageId: string;
+  }>;
+}
 
 export interface CodexReplyInput {
   threadId: string;
   message: string;
   mode?: CodexReplyMode;
+  transport?: CodexReplyTransport;
   activity?: CodexSessionActivity;
   cwd?: string | null;
 }
 
 export interface CodexReplyDispatch extends CodexProcessHandle {
-  transport: "queue" | "exec-resume";
+  transport: "queue" | "exec-resume" | "native-start" | "native-steer";
   fallbackReason: string | null;
+  clientUserMessageId?: string;
 }
 
 export interface CodexSessionsServiceOptions {
@@ -185,11 +206,16 @@ export interface CodexSessionsServiceOptions {
   platform?: NodeJS.Platform;
   commandTimeoutMs?: number;
   appServerTimeoutMs?: number;
+  stateDbPath?: string;
+  stateDbReader?: CodexStateDbReader;
   activeStaleMs?: number;
   now?: () => number;
   appServerRequest?: CodexAppServerRequester;
   localSessionScanner?: CodexLocalSessionScanner;
   processSpawner?: CodexProcessSpawner;
+  nativeIpcClient?: CodexNativeReplyClient;
+  replyTransport?: CodexReplyTransport;
+  desktopOpener?: CodexDesktopOpener;
 }
 
 export class CodexSessionCommandError extends Error {
@@ -783,7 +809,7 @@ async function requestAppServerProcess(
             clientInfo: {
               name: "xiaoman_desktop_companion",
               title: "Xiaoman Desktop Companion",
-              version: "1.1.1",
+              version: "1.2.0",
             },
             capabilities: {
               optOutNotificationMethods: [
@@ -847,6 +873,13 @@ function isAppServerThread(value: unknown): value is JsonObject {
   return Boolean(object && stringValue(object.id) && isValidCodexThreadId(stringValue(object.id)!));
 }
 
+function isNativeInteractiveSession(session: CodexSessionSummary, includeSubagents: boolean): boolean {
+  const source = session.source?.toLowerCase() ?? "";
+  const threadSource = session.threadSource?.toLowerCase() ?? "";
+  if (source === "exec" || source.includes("subagent") || threadSource.includes("subagent")) return false;
+  return includeSubagents || !session.isSubagent;
+}
+
 function normalizeAppServerThread(value: JsonObject): CodexSessionSummary {
   const id = requireThreadId(stringValue(value.id)!);
   const cwd = stringValue(value.cwd);
@@ -882,6 +915,32 @@ function normalizeAppServerThread(value: JsonObject): CodexSessionSummary {
       inferredFromLog: false,
     },
     desktopUrl: getCodexThreadDeepLink(id),
+  };
+}
+
+function stateDbSessionSummary(record: import("./codex-state").CodexStateThreadRecord): CodexSessionSummary {
+  return {
+    id: record.id,
+    sessionId: record.sessionId || record.id,
+    title: record.title || record.preview || (record.cwd ? path.basename(record.cwd) : "未命名任务"),
+    preview: record.preview,
+    cwd: record.cwd,
+    path: record.rolloutPath,
+    createdAt: record.createdAt,
+    updatedAt: record.updatedAt,
+    source: record.source,
+    threadSource: record.threadSource,
+    isSubagent: record.isSubagent,
+    // The state DB is authoritative for identity, but does not expose live turn state.
+    canAcceptDirectInput: true,
+    status: {
+      activity: "unknown",
+      runtimeType: "state-db",
+      activeFlags: [],
+      activeTurnId: null,
+      inferredFromLog: false,
+    },
+    desktopUrl: getCodexThreadDeepLink(record.id),
   };
 }
 
@@ -987,6 +1046,22 @@ function isActiveSessionNotFoundError(error: unknown): error is CodexSessionComm
   return matches(error.message);
 }
 
+function isNativeInactiveError(error: unknown): boolean {
+  const detail = error instanceof Error ? error.message : String(error);
+  if (error instanceof NativeCodexIpcError && error.code === "owner-not-found") return false;
+  return /no\s+active|inactive|not\s+active|active\s+turn.*(?:not\s+found|missing)/i.test(detail);
+}
+
+function isNativeActiveError(error: unknown): boolean {
+  const detail = error instanceof Error ? error.message : String(error);
+  if (isNativeInactiveError(error)) return false;
+  return /already\s+(?:active|running)/i.test(detail)
+    || /(?:active|running)\s+turn/i.test(detail)
+    || /turn.*(?:already.*active|in\s+progress)/i.test(detail)
+    || /currently\s+(?:active|running)/i.test(detail)
+    || /cannot\s+start.*(?:active|running)/i.test(detail);
+}
+
 async function usableWorkingDirectory(cwd: string | null | undefined): Promise<string | undefined> {
   if (!cwd || !path.isAbsolute(cwd)) return undefined;
   try {
@@ -1007,6 +1082,35 @@ async function commandExists(executable: string): Promise<boolean> {
   }
 }
 
+export const openCodexDesktopTarget: CodexDesktopOpener = async (target) => {
+  if (process.platform !== "darwin") {
+    throw new Error("原生 Codex 窗口激活仅支持 macOS");
+  }
+  if (!target.available) {
+    throw new Error(`未找到 Codex 桌面应用：${target.appPath}`);
+  }
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    const finish = (error?: Error): void => {
+      if (settled) return;
+      settled = true;
+      if (error) reject(error);
+      else resolve();
+    };
+    const child = spawn("/usr/bin/open", ["-a", target.appPath, target.url], {
+      shell: false,
+      stdio: "ignore",
+      windowsHide: true,
+    });
+    child.once("error", (error) => finish(error));
+    child.once("close", (code) => {
+      if (code === 0) finish();
+      else finish(new Error(`系统未能激活 Codex 窗口（退出码 ${code ?? "unknown"}）`));
+    });
+  });
+};
+
 export class CodexSessionsService {
   readonly codexPath: string;
   readonly codexHome: string;
@@ -1019,8 +1123,15 @@ export class CodexSessionsService {
   private readonly now: () => number;
   private readonly env: NodeJS.ProcessEnv;
   private readonly appServerRequest: CodexAppServerRequester;
+  private readonly stateDbPath: string | undefined;
+  private readonly stateDbReader: CodexStateDbReader;
   private readonly localSessionScanner: CodexLocalSessionScanner;
   private readonly processSpawner: CodexProcessSpawner;
+  private readonly nativeIpcClient: CodexNativeReplyClient | null;
+  private readonly replyTransport: CodexReplyTransport;
+  private readonly desktopOpener: CodexDesktopOpener;
+  private readonly nativeReplyLocks = new Map<string, Promise<CodexReplyDispatch>>();
+  private readonly nativeReplyActiveUntil = new Map<string, number>();
 
   private getAvailableDesktopAppPath(): string {
     return getCodexDesktopAppCandidates(this.desktopAppPath).find((candidate) => existsSync(candidate))
@@ -1038,8 +1149,16 @@ export class CodexSessionsService {
     this.activeStaleMs = options.activeStaleMs ?? DEFAULT_ACTIVE_STALE_MS;
     this.now = options.now ?? Date.now;
     this.env = { ...process.env, CODEX_HOME: this.codexHome };
+    this.stateDbPath = options.stateDbPath ? path.resolve(options.stateDbPath) : undefined;
+    this.stateDbReader = options.stateDbReader ?? readCodexStateDb;
     this.localSessionScanner = options.localSessionScanner ?? scanLocalCodexSessions;
     this.processSpawner = options.processSpawner ?? spawnCodexProcess;
+    this.nativeIpcClient = options.nativeIpcClient ?? new NativeCodexIpcClient({
+      codexHome: this.codexHome,
+      platform: this.platform,
+    });
+    this.replyTransport = options.replyTransport ?? "native";
+    this.desktopOpener = options.desktopOpener ?? openCodexDesktopTarget;
     this.appServerRequest = options.appServerRequest ?? createDefaultAppServerRequester(
       this.codexPath,
       this.codexHome,
@@ -1073,10 +1192,63 @@ export class CodexSessionsService {
     };
   }
 
+  async openDesktopTarget(threadId: string): Promise<void> {
+    await this.desktopOpener(this.getDesktopTarget(threadId));
+  }
+
   async listSessions(options: CodexSessionListOptions = {}): Promise<CodexSessionListResult> {
     const limit = Math.max(1, Math.min(100, Math.trunc(options.limit ?? 30)));
     const includeSubagents = options.includeSubagents ?? false;
+    const sourceMode = options.sourceMode ?? this.replyTransport;
     const warnings: string[] = [];
+
+    if (sourceMode === "native") {
+      try {
+        const records = await this.stateDbReader({
+          codexHome: this.codexHome,
+          stateDbPath: this.stateDbPath,
+          limit,
+        });
+        const sessions = records
+          .map(stateDbSessionSummary)
+          .filter((session) => isNativeInteractiveSession(session, includeSubagents))
+          .sort((left, right) => right.updatedAt - left.updatedAt)
+          .slice(0, limit);
+        return { sessions, source: "state-db", warnings };
+      } catch (stateError) {
+        const stateDetail = stateError instanceof Error ? compactText(stateError.message, 180) : "未知状态库错误";
+        try {
+          const result = asObject(await this.appServerRequest("thread/list", {
+            cursor: null,
+            limit,
+            sortKey: "updated_at",
+            sortDirection: "desc",
+            archived: false,
+            useStateDbOnly: true,
+            sourceKinds: ["vscode", "appServer"],
+          }));
+          const sessions = (Array.isArray(result?.data) ? result.data : [])
+            .filter(isAppServerThread)
+            .map(normalizeAppServerThread)
+            .filter((session) => isNativeInteractiveSession(session, includeSubagents))
+            .sort((left, right) => right.updatedAt - left.updatedAt)
+            .slice(0, limit);
+          return {
+            sessions,
+            source: "app-server",
+            warnings: [`原生状态库不可用，改用 app-server 权威结果：${stateDetail}`],
+          };
+        } catch (appServerError) {
+          const appDetail = appServerError instanceof Error ? compactText(appServerError.message, 180) : "未知 app-server 错误";
+          return {
+            sessions: [],
+            source: "unavailable",
+            warnings: [`原生 Codex 任务不可用，未读取本地日志：状态库 ${stateDetail}；app-server ${appDetail}`],
+          };
+        }
+      }
+    }
+
     let appServerAvailable = false;
     let appThreads: JsonObject[] = [];
 
@@ -1155,8 +1327,37 @@ export class CodexSessionsService {
     return { sessions: filtered, source, warnings };
   }
 
-  async readSession(threadId: string): Promise<CodexSessionSummary | null> {
+  async readSession(
+    threadId: string,
+    options: { sourceMode?: CodexReplyTransport } = {},
+  ): Promise<CodexSessionSummary | null> {
     const id = requireThreadId(threadId);
+    const sourceMode = options.sourceMode ?? this.replyTransport;
+
+    if (sourceMode === "native") {
+      try {
+        const records = await this.stateDbReader({
+          codexHome: this.codexHome,
+          stateDbPath: this.stateDbPath,
+          threadId: id,
+          limit: 1,
+        });
+        const record = records.find((candidate) => candidate.id === id);
+        return record ? stateDbSessionSummary(record) : null;
+      } catch {
+        try {
+          const result = asObject(await this.appServerRequest("thread/read", {
+            threadId: id,
+            includeTurns: false,
+          }));
+          const candidate = result?.thread;
+          return isAppServerThread(candidate) ? normalizeAppServerThread(candidate) : null;
+        } catch {
+          return null;
+        }
+      }
+    }
+
     let appThread: JsonObject | null = null;
     try {
       const result = asObject(await this.appServerRequest("thread/read", {
@@ -1186,6 +1387,21 @@ export class CodexSessionsService {
   async sendReply(input: CodexReplyInput): Promise<CodexReplyDispatch> {
     const threadId = requireThreadId(input.threadId);
     const message = requireMessage(input.message);
+    const transport = input.transport ?? this.replyTransport;
+    if (transport === "native") {
+      const activeUntil = this.nativeReplyActiveUntil.get(threadId);
+      const activity = activeUntil && activeUntil > this.now()
+        ? "running"
+        : input.activity;
+      if (activeUntil && activeUntil <= this.now()) this.nativeReplyActiveUntil.delete(threadId);
+      const dispatch = await this.sendNativeReply(threadId, message, activity, input.cwd);
+      // The native owner acknowledges the follower request before the state DB
+      // necessarily records the new turn. Keep the next immediate send on the
+      // steer path; monitor events replace this marker when available.
+      this.nativeReplyActiveUntil.set(threadId, this.now() + NATIVE_REPLY_ASSUMED_ACTIVE_MS);
+      return dispatch;
+    }
+
     const mode = input.mode ?? "auto";
     const shouldResume = mode === "resume"
       || mode === "auto" && (input.activity === "idle" || input.activity === "error");
@@ -1218,6 +1434,89 @@ export class CodexSessionsService {
         error.result ? summarizeCodexProcessResult(error.result) : error.message,
         freshSession.cwd,
       );
+    }
+  }
+
+  private async sendNativeReply(
+    threadId: string,
+    message: string,
+    activity: CodexSessionActivity | undefined,
+    cwd: string | null | undefined,
+  ): Promise<CodexReplyDispatch> {
+    if (!this.nativeIpcClient) {
+      throw new NativeCodexIpcError("原生 Codex 窗口路由未配置", "connect-failed");
+    }
+    if (this.nativeReplyLocks.has(threadId)) {
+      throw new NativeCodexIpcError("这项任务正在处理上一条回复", "request-failed");
+    }
+
+    const mode: "start" | "steer" = activity === "running" || activity === "waiting"
+      ? "steer"
+      : "start";
+    const task = (async (): Promise<CodexReplyDispatch> => {
+      try {
+        const result = await this.nativeIpcClient!.sendReply({ threadId, message, mode, cwd });
+        return {
+          pid: null,
+          startup: Promise.resolve(true),
+          completion: Promise.resolve({ code: 0, signal: null, stdout: "", stderr: "" }),
+          cancel: () => undefined,
+          transport: result.transport,
+          clientUserMessageId: result.clientUserMessageId,
+          fallbackReason: null,
+        };
+      } catch (error) {
+        const fallbackReason = error instanceof Error ? error.message : String(error);
+        if (mode === "steer" && isNativeInactiveError(error)) {
+          const freshSession = await this.readSession(threadId, { sourceMode: "native" }).catch(() => null);
+          const canStart = freshSession
+            && canReplyToCodexSession(freshSession)
+            && (isResumableActivity(freshSession.status.activity) || freshSession.status.activity === "unknown");
+          if (!canStart) throw error;
+          const result = await this.nativeIpcClient!.sendReply({
+            threadId,
+            message,
+            mode: "start",
+            cwd: freshSession.cwd ?? cwd,
+          });
+          return {
+            pid: null,
+            startup: Promise.resolve(true),
+            completion: Promise.resolve({ code: 0, signal: null, stdout: "", stderr: "" }),
+            cancel: () => undefined,
+            transport: result.transport,
+            clientUserMessageId: result.clientUserMessageId,
+            fallbackReason,
+          };
+        }
+        if (mode === "start" && isNativeActiveError(error)) {
+          const freshSession = await this.readSession(threadId, { sourceMode: "native" }).catch(() => null);
+          const canSteer = freshSession && canReplyToCodexSession(freshSession);
+          if (!canSteer) throw error;
+          const result = await this.nativeIpcClient!.sendReply({
+            threadId,
+            message,
+            mode: "steer",
+            cwd: freshSession.cwd ?? cwd,
+          });
+          return {
+            pid: null,
+            startup: Promise.resolve(true),
+            completion: Promise.resolve({ code: 0, signal: null, stdout: "", stderr: "" }),
+            cancel: () => undefined,
+            transport: result.transport,
+            clientUserMessageId: result.clientUserMessageId,
+            fallbackReason,
+          };
+        }
+        throw error;
+      }
+    })();
+    this.nativeReplyLocks.set(threadId, task);
+    try {
+      return await task;
+    } finally {
+      if (this.nativeReplyLocks.get(threadId) === task) this.nativeReplyLocks.delete(threadId);
     }
   }
 

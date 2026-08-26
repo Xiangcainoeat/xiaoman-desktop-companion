@@ -54,6 +54,7 @@ describe("Codex task presentation", () => {
   it("keeps the reply control enabled for a locally active stale-runtime task", async () => {
     const threadId = "01a03ab3-3112-7cf3-949f-07e0ae5a9404";
     const service = new CodexSessionsService({
+      replyTransport: "cli",
       appServerRequest: async () => ({
         data: [{ id: threadId, status: { type: "notLoaded" }, canAcceptDirectInput: false }],
       }),
@@ -85,6 +86,7 @@ describe("Codex task presentation", () => {
   it("keeps an approval-waiting reply control disabled", async () => {
     const threadId = "01a03ab3-3112-7cf3-949f-07e0ae5a9404";
     const service = new CodexSessionsService({
+      replyTransport: "cli",
       appServerRequest: async () => ({
         data: [{
           id: threadId,

@@ -1,7 +1,7 @@
 import { mkdtempSync, mkdirSync, rmSync, utimesSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   buildCodexQueueArgs,
   buildCodexResumeArgs,
@@ -17,6 +17,7 @@ import {
   type CodexProcessResult,
   type CodexProcessSpawner,
 } from "./codex-sessions";
+import type { CodexStateThreadRecord } from "./codex-state";
 
 const THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9404";
 const SECOND_THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9405";
@@ -66,6 +67,26 @@ function localRecord(overrides: Partial<CodexLocalSessionRecord> = {}): CodexLoc
     activity: "running",
     activeTurnId: "turn-1",
     lastOutcome: null,
+    ...overrides,
+  };
+}
+
+function stateRecord(overrides: Partial<CodexStateThreadRecord> = {}): CodexStateThreadRecord {
+  return {
+    id: THREAD_ID,
+    sessionId: THREAD_ID,
+    rolloutPath: "/Users/example/.codex/sessions/native.jsonl",
+    createdAt: 1_700_000_000_000,
+    updatedAt: 1_700_000_100_000,
+    source: "vscode",
+    cwd: "/Users/example/project",
+    title: "原生任务",
+    preview: "原生任务",
+    threadSource: "user",
+    agentNickname: null,
+    agentRole: null,
+    isSubagent: false,
+    archived: false,
     ...overrides,
   };
 }
@@ -267,6 +288,69 @@ describe("Codex desktop navigation", () => {
 });
 
 describe("session listing", () => {
+  it("uses the state database as the native source and does not union local logs", async () => {
+    const requests: Array<{ method: string; params: Record<string, unknown> }> = [];
+    const scanner = vi.fn(async () => [localRecord({ id: SECOND_THREAD_ID })]);
+    const stateRecords: CodexStateThreadRecord[] = [
+      {
+        id: THREAD_ID,
+        sessionId: THREAD_ID,
+        rolloutPath: "/Users/example/.codex/sessions/native.jsonl",
+        createdAt: 1_700_000_000_000,
+        updatedAt: 1_700_000_100_000,
+        source: "vscode",
+        cwd: "/Users/example/project",
+        title: "原生任务",
+        preview: "原生任务预览",
+        threadSource: "user",
+        agentNickname: null,
+        agentRole: null,
+        isSubagent: false,
+        archived: false,
+      },
+    ];
+    const service = new CodexSessionsService({
+      appServerRequest: async (method, params) => {
+        requests.push({ method, params });
+        return {
+          data: [
+            {
+              id: THREAD_ID,
+              name: "原生任务",
+              source: "vscode",
+              threadSource: "user",
+              status: { type: "idle" },
+            },
+            {
+              id: SECOND_THREAD_ID,
+              name: "不应显示的 exec 任务",
+              source: "exec",
+              threadSource: "user",
+              status: { type: "idle" },
+            },
+            {
+              id: SUBAGENT_THREAD_ID,
+              name: "不应显示的子 Agent",
+              source: "vscode",
+              threadSource: "subAgent",
+              agentRole: "subagent",
+              status: { type: "idle" },
+            },
+          ],
+        };
+      },
+      localSessionScanner: scanner,
+      stateDbReader: async () => stateRecords,
+    });
+
+    const result = await service.listSessions({ limit: 20 });
+
+    expect(requests).toHaveLength(0);
+    expect(result.source).toBe("state-db");
+    expect(result.sessions.map((session) => session.id)).toEqual([THREAD_ID]);
+    expect(scanner).not.toHaveBeenCalled();
+  });
+
   it("merges app-server metadata with read-only log activity", async () => {
     const appServerRequest: CodexAppServerRequester = async (method) => {
       expect(method).toBe("thread/list");
@@ -293,6 +377,7 @@ describe("session listing", () => {
       codexHome: "/Users/example/.codex",
       appServerRequest,
       localSessionScanner: async () => [localRecord()],
+      replyTransport: "cli",
     });
 
     const result = await service.listSessions({ limit: 10 });
@@ -322,6 +407,7 @@ describe("session listing", () => {
         }],
       }),
       localSessionScanner: async () => [localRecord({ activity: "waiting" })],
+      replyTransport: "cli",
     });
 
     const session = (await service.listSessions()).sessions[0];
@@ -335,6 +421,7 @@ describe("session listing", () => {
         data: [{ id: THREAD_ID, status: { type: "notLoaded" }, canAcceptDirectInput: false }],
       }),
       localSessionScanner: async () => [localRecord({ activity: "waiting" })],
+      replyTransport: "cli",
     });
 
     const session = (await service.listSessions()).sessions[0];
@@ -348,6 +435,7 @@ describe("session listing", () => {
     const service = new CodexSessionsService({
       appServerRequest: async () => { throw new Error("offline"); },
       localSessionScanner: async () => [localRecord({ activity: "idle" })],
+      replyTransport: "cli",
     });
     const result = await service.listSessions();
     expect(result.source).toBe("logs");
@@ -378,6 +466,7 @@ describe("session listing", () => {
           updatedAt: 2_200,
         }),
       ],
+      replyTransport: "cli",
     });
 
     const result = await service.listSessions({ limit: 2, includeSubagents: false });
@@ -404,6 +493,7 @@ describe("session listing", () => {
         filePath: localPath,
         updatedAt: 2_100,
       })],
+      replyTransport: "cli",
     });
 
     const result = await service.listSessions({ limit: 10 });
@@ -414,6 +504,128 @@ describe("session listing", () => {
 });
 
 describe("safe reply dispatch", () => {
+  it("uses the native Codex owner by default without spawning a CLI process", async () => {
+    const recorder = recordingSpawner();
+    const nativeReply = {
+      sendReply: vi.fn(async (input: { threadId: string; message: string; mode: "start" | "steer" }) => ({
+        transport: input.mode === "steer" ? ("native-steer" as const) : ("native-start" as const),
+        clientUserMessageId: "native-message-id",
+      })),
+    };
+    const service = new CodexSessionsService({
+      processSpawner: recorder.spawner,
+      nativeIpcClient: nativeReply,
+    });
+
+    const dispatch = await service.sendReply({
+      threadId: THREAD_ID,
+      message: "原生窗口继续",
+      activity: "running",
+    });
+
+    expect(dispatch.transport).toBe("native-steer");
+    expect(nativeReply.sendReply).toHaveBeenCalledWith({
+      threadId: THREAD_ID,
+      message: "原生窗口继续",
+      mode: "steer",
+      cwd: undefined,
+    });
+    expect(recorder.invocations).toHaveLength(0);
+  });
+
+  it("uses the CLI only when the compatibility transport is explicit", async () => {
+    const recorder = recordingSpawner();
+    const nativeReply = { sendReply: vi.fn() };
+    const service = new CodexSessionsService({
+      processSpawner: recorder.spawner,
+      nativeIpcClient: nativeReply,
+      replyTransport: "cli",
+    });
+
+    const dispatch = await service.sendReply({
+      threadId: THREAD_ID,
+      message: "CLI 兼容继续",
+      activity: "running",
+    });
+
+    expect(dispatch.transport).toBe("queue");
+    expect(nativeReply.sendReply).not.toHaveBeenCalled();
+    expect(recorder.invocations).toHaveLength(1);
+  });
+
+  it("steers an immediate native follow-up while the state db is still unknown", async () => {
+    const calls: Array<"start" | "steer"> = [];
+    const nativeReply = {
+      sendReply: vi.fn(async (input: { threadId: string; message: string; mode: "start" | "steer" }) => {
+        calls.push(input.mode);
+        return {
+          transport: input.mode === "steer" ? ("native-steer" as const) : ("native-start" as const),
+          clientUserMessageId: `native-${calls.length}`,
+        };
+      }),
+    };
+    const service = new CodexSessionsService({
+      nativeIpcClient: nativeReply,
+      now: () => 1_700_000_000_000,
+    });
+
+    await service.sendReply({ threadId: THREAD_ID, message: "第一条" });
+    await service.sendReply({ threadId: THREAD_ID, message: "第二条" });
+
+    expect(calls).toEqual(["start", "steer"]);
+  });
+
+  it("switches from native start to steer only after an explicit active-turn conflict", async () => {
+    const calls: Array<{ mode: "start" | "steer"; message: string }> = [];
+    let attempt = 0;
+    const nativeReply = {
+      sendReply: vi.fn(async (input: { threadId: string; message: string; mode: "start" | "steer" }) => {
+        calls.push({ mode: input.mode, message: input.message });
+        attempt += 1;
+        if (attempt === 1) throw new Error("turn already active");
+        return { transport: "native-steer" as const, clientUserMessageId: "native-steer-after-conflict" };
+      }),
+    };
+    const service = new CodexSessionsService({
+      nativeIpcClient: nativeReply,
+      stateDbReader: async () => [stateRecord()],
+      appServerRequest: async () => { throw new Error("offline"); },
+    });
+
+    const dispatch = await service.sendReply({ threadId: THREAD_ID, message: "活动任务补充" });
+
+    expect(dispatch.transport).toBe("native-steer");
+    expect(calls).toEqual([
+      { mode: "start", message: "活动任务补充" },
+      { mode: "steer", message: "活动任务补充" },
+    ]);
+  });
+
+  it("switches from native steer to start when the state-db task is no longer active", async () => {
+    const calls: Array<"start" | "steer"> = [];
+    const nativeReply = {
+      sendReply: vi.fn(async (input: { threadId: string; message: string; mode: "start" | "steer" }) => {
+        calls.push(input.mode);
+        if (calls.length === 1) throw new Error("no active turn found");
+        return { transport: "native-start" as const, clientUserMessageId: "native-start-after-race" };
+      }),
+    };
+    const service = new CodexSessionsService({
+      nativeIpcClient: nativeReply,
+      stateDbReader: async () => [stateRecord()],
+      appServerRequest: async () => { throw new Error("offline"); },
+    });
+
+    const dispatch = await service.sendReply({
+      threadId: THREAD_ID,
+      message: "活动状态已结束",
+      activity: "running",
+    });
+
+    expect(dispatch.transport).toBe("native-start");
+    expect(calls).toEqual(["steer", "start"]);
+  });
+
   it("acknowledges a resumed turn from JSONL stdout", async () => {
     const handle = spawnCodexProcess({
       executable: process.execPath,
@@ -451,6 +663,7 @@ describe("safe reply dispatch", () => {
     const service = new CodexSessionsService({
       codexPath: "/safe/codex",
       processSpawner: recorder.spawner,
+      replyTransport: "cli",
     });
     const dispatch = await service.sendReply({
       threadId: THREAD_ID,
@@ -469,7 +682,7 @@ describe("safe reply dispatch", () => {
 
   it("resumes idle sessions with the prompt on stdin", async () => {
     const recorder = recordingSpawner();
-    const service = new CodexSessionsService({ codexPath: "/safe/codex", processSpawner: recorder.spawner });
+    const service = new CodexSessionsService({ codexPath: "/safe/codex", processSpawner: recorder.spawner, replyTransport: "cli" });
     const dispatch = await service.sendReply({
       threadId: THREAD_ID,
       message: "检查失败测试",
@@ -493,7 +706,7 @@ describe("safe reply dispatch", () => {
     writeFileSync(filePath, "content");
     const missingPath = path.join(root, "missing");
     const recorder = recordingSpawner();
-    const service = new CodexSessionsService({ codexPath: "/safe/codex", processSpawner: recorder.spawner });
+    const service = new CodexSessionsService({ codexPath: "/safe/codex", processSpawner: recorder.spawner, replyTransport: "cli" });
 
     try {
       await service.sendReply({ threadId: THREAD_ID, message: "缺失目录", activity: "idle", cwd: missingPath });
@@ -511,7 +724,7 @@ describe("safe reply dispatch", () => {
 
   it("does not resume an active task when queueing fails", async () => {
     const recorder = recordingSpawner([processResult(1, "daemon unavailable")]);
-    const service = new CodexSessionsService({ codexPath: "/safe/codex", processSpawner: recorder.spawner });
+    const service = new CodexSessionsService({ codexPath: "/safe/codex", processSpawner: recorder.spawner, replyTransport: "cli" });
 
     await expect(service.sendReply({
       threadId: THREAD_ID,
@@ -531,6 +744,7 @@ describe("safe reply dispatch", () => {
     const service = new CodexSessionsService({
       codexPath: "/safe/codex",
       processSpawner: recorder.spawner,
+      replyTransport: "cli",
       localSessionScanner: async () => {
         readCount += 1;
         return [localRecord({ activity: "idle", cwd: os.tmpdir() })];
@@ -560,6 +774,7 @@ describe("safe reply dispatch", () => {
     const service = new CodexSessionsService({
       codexPath: "/safe/codex",
       processSpawner: recorder.spawner,
+      replyTransport: "cli",
       localSessionScanner: async () => [localRecord({ activity: "idle" })],
       appServerRequest: async () => { throw new Error("offline"); },
     });
@@ -580,6 +795,7 @@ describe("safe reply dispatch", () => {
     const service = new CodexSessionsService({
       codexPath: "/safe/codex",
       processSpawner: recorder.spawner,
+      replyTransport: "cli",
       localSessionScanner: async () => {
         readCount += 1;
         return [localRecord({ activity: "waiting" })];
@@ -604,6 +820,7 @@ describe("safe reply dispatch", () => {
     const service = new CodexSessionsService({
       codexPath: "/safe/codex",
       processSpawner: recorder.spawner,
+      replyTransport: "cli",
       localSessionScanner: async () => [localRecord({ activity: "error" })],
       appServerRequest: async () => { throw new Error("offline"); },
     });
@@ -625,6 +842,7 @@ describe("safe reply dispatch", () => {
     const service = new CodexSessionsService({
       codexPath: "/safe/codex",
       processSpawner: recorder.spawner,
+      replyTransport: "cli",
       localSessionScanner: async () => {
         readCount += 1;
         return [localRecord({ activity: "idle" })];
@@ -644,7 +862,7 @@ describe("safe reply dispatch", () => {
 
   it("retains bounded summaries from both command output streams", async () => {
     const recorder = recordingSpawner([processResult(1, "stderr detail", "stdout detail")]);
-    const service = new CodexSessionsService({ codexPath: "/safe/codex", processSpawner: recorder.spawner });
+    const service = new CodexSessionsService({ codexPath: "/safe/codex", processSpawner: recorder.spawner, replyTransport: "cli" });
 
     await expect(service.sendReply({
       threadId: THREAD_ID,
@@ -657,7 +875,7 @@ describe("safe reply dispatch", () => {
     const recorder = recordingSpawner([
       processResult(1, "Not inside a trusted directory and --skip-git-repo-check was not specified."),
     ]);
-    const service = new CodexSessionsService({ codexPath: "/safe/codex", processSpawner: recorder.spawner });
+    const service = new CodexSessionsService({ codexPath: "/safe/codex", processSpawner: recorder.spawner, replyTransport: "cli" });
 
     await expect(service.sendReply({
       threadId: THREAD_ID,
@@ -676,6 +894,7 @@ describe("safe reply dispatch", () => {
         completion: Promise.resolve(processResult(0)),
         cancel: () => undefined,
       }),
+      replyTransport: "cli",
     });
 
     await expect(service.sendReply({
@@ -688,7 +907,7 @@ describe("safe reply dispatch", () => {
 
   it("rejects empty replies before spawning a process", async () => {
     const recorder = recordingSpawner();
-    const service = new CodexSessionsService({ processSpawner: recorder.spawner });
+    const service = new CodexSessionsService({ processSpawner: recorder.spawner, replyTransport: "cli" });
     await expect(service.sendReply({ threadId: THREAD_ID, message: "   " })).rejects.toThrow(
       "Reply message must not be empty",
     );
