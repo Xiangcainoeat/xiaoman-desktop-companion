@@ -63,6 +63,32 @@ describe("standard sprite atlas", () => {
 });
 
 describe("version 2 persistence migration", () => {
+  it("defaults animation playback to 30 Hz for new and legacy data", () => {
+    const defaults = createDefaultData();
+    expect(defaults.settings.animationFrameRate).toBe(30);
+
+    const legacySettings = { ...defaults.settings } as Record<string, unknown>;
+    delete legacySettings.animationFrameRate;
+    const migrated = normalizePersistedData({
+      ...defaults,
+      version: 1,
+      settings: legacySettings,
+    });
+    expect(migrated.settings.animationFrameRate).toBe(30);
+  });
+
+  it("keeps 60 Hz and rejects unsupported animation playback rates", () => {
+    const data = createDefaultData();
+    expect(normalizePersistedData({
+      ...data,
+      settings: { ...data.settings, animationFrameRate: 60 },
+    }).settings.animationFrameRate).toBe(60);
+    expect(normalizePersistedData({
+      ...data,
+      settings: { ...data.settings, animationFrameRate: 24 },
+    }).settings.animationFrameRate).toBe(30);
+  });
+
   it("preserves version 1 values and adds new defaults", () => {
     const old = createDefaultData(100);
     const migrated = normalizePersistedData({

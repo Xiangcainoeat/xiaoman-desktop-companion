@@ -94,6 +94,22 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
                 ))}
               </div>
             </SettingsRow>
+            <SettingsRow icon={<Gauge size={18} />} label="动作刷新率" value={`${settings.animationFrameRate} Hz`}>
+              <div className="segmented-control" role="group" aria-label="动作刷新率">
+                {[30, 60].map((rate) => (
+                  <button
+                    key={rate}
+                    type="button"
+                    className={settings.animationFrameRate === rate ? "is-selected" : ""}
+                    aria-pressed={settings.animationFrameRate === rate}
+                    disabled={!settings.overlayVisible}
+                    onClick={() => update({ animationFrameRate: rate as 30 | 60 })}
+                  >
+                    {rate}
+                  </button>
+                ))}
+              </div>
+            </SettingsRow>
             <SettingsRow icon={<Gauge size={18} />} label="跟随速度" value={`${settings.gazeSmoothingMs} ms`}>
               <input
                 className="range-control"

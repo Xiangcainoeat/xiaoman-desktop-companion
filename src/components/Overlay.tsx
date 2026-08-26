@@ -8,11 +8,26 @@ import { bridge, useCompanion } from "../useCompanion";
 
 const MOTION_ALLOWED_STATES = new Set(["idle", "working", "happy", "sleepy"]);
 
-const IDLE_ACTION_DURATION: Record<Extract<PetMotion, "idle-lick" | "idle-blink" | "idle-scratch">, number> = {
-  "idle-lick": 1650,
-  "idle-blink": 1250,
-  "idle-scratch": 1900,
+type IdleActionMotion = Extract<PetMotion, "idle-lick" | "idle-blink" | "idle-scratch">;
+
+const IDLE_ACTION_LOOPS: Record<IdleActionMotion, number> = {
+  "idle-lick": 1,
+  "idle-blink": 1,
+  "idle-scratch": 1,
 };
+
+const IDLE_ACTION_FPS: Record<IdleActionMotion, number> = {
+  "idle-lick": 5.6,
+  "idle-blink": 6.8,
+  "idle-scratch": 5.1,
+};
+
+const IDLE_ACTION_FRAME_COUNT = 30;
+
+function idleActionDurationMs(motion: IdleActionMotion): number {
+  const fps = IDLE_ACTION_FPS[motion];
+  return (IDLE_ACTION_FRAME_COUNT / fps) * IDLE_ACTION_LOOPS[motion] * 1000;
+}
 
 export function Overlay() {
   const snapshot = useCompanion();
@@ -77,7 +92,7 @@ export function Overlay() {
           if (!active) return;
           setIdleMotion(null);
           schedule();
-        }, IDLE_ACTION_DURATION[motion as keyof typeof IDLE_ACTION_DURATION]);
+        }, idleActionDurationMs(motion as IdleActionMotion));
       }, randomizedDelayMs(snapshot.settings.idleActionIntervalSec));
     };
     schedule();

@@ -105,6 +105,7 @@ export interface CompanionSettings {
   gazeEnabled: boolean;
   gazeRange: GazeRange;
   gazeFrameRate: 30 | 60;
+  animationFrameRate: 30 | 60;
   gazeSmoothingMs: number;
   gazeDeadzonePx: number;
   gazeIdleResetMs: number;

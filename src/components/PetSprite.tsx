@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BellRing, Fish, Heart, Moon, Sparkles, Utensils } from "lucide-react";
+import { advanceAnimationClock, atlasFramePosition } from "../shared/animation";
 import { STANDARD_ATLAS_FRAME_COUNTS } from "../shared/domain";
 import {
   interpolateLookDirection,
@@ -10,6 +11,7 @@ import {
   smoothAngle,
 } from "../shared/gaze";
 import { bridge } from "../useCompanion";
+import type { AnimationClock } from "../shared/animation";
 import type { CompanionSettings, PetMotion, PetState } from "../shared/types";
 
 interface PetSpriteProps {
@@ -27,6 +29,8 @@ interface AnimationSpec {
   row: number;
   frames: number;
   fps: number;
+  columns: number;
+  atlasRows: number;
 }
 
 const STATE_ROW: Record<PetState, number> = {
@@ -68,12 +72,12 @@ const STATE_FPS: Record<PetState, number> = {
 };
 
 const MOTION_SPEC: Record<PetMotion, AnimationSpec> = {
-  "running-right": { atlas: "standard", row: 1, frames: 8, fps: 7.4 },
-  "running-left": { atlas: "standard", row: 2, frames: 8, fps: 7.4 },
-  jumping: { atlas: "standard", row: 4, frames: 5, fps: 6.2 },
-  "idle-lick": { atlas: "idle", row: 0, frames: 8, fps: 5.6 },
-  "idle-blink": { atlas: "idle", row: 1, frames: 8, fps: 6.8 },
-  "idle-scratch": { atlas: "idle", row: 2, frames: 8, fps: 5.1 },
+  "running-right": { atlas: "standard", row: 1, frames: 8, fps: 7.4, columns: 8, atlasRows: 11 },
+  "running-left": { atlas: "standard", row: 2, frames: 8, fps: 7.4, columns: 8, atlasRows: 11 },
+  jumping: { atlas: "standard", row: 4, frames: 5, fps: 6.2, columns: 8, atlasRows: 11 },
+  "idle-lick": { atlas: "idle", row: 0, frames: 30, fps: 5.6, columns: 10, atlasRows: 9 },
+  "idle-blink": { atlas: "idle", row: 3, frames: 30, fps: 6.8, columns: 10, atlasRows: 9 },
+  "idle-scratch": { atlas: "idle", row: 6, frames: 30, fps: 5.1, columns: 10, atlasRows: 9 },
 };
 
 const LOOK_STATES = new Set<PetState>(["idle", "working", "happy", "celebrating", "sleepy"]);
@@ -101,6 +105,11 @@ export function PetSprite({
   const [settled, setSettled] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [lookIndex, setLookIndex] = useState<number | null>(null);
+  const animationClockRef = useRef<AnimationClock>({ frame: 0, remainderMs: 0 });
+  const frameRef = useRef(0);
+  const loopsRef = useRef(0);
+  const settledRef = useRef(false);
+  const animationRef = useRef<AnimationSpec | null>(null);
   const lookIndexRef = useRef<number | null>(null);
   const targetAngleRef = useRef(0);
   const currentAngleRef = useRef(0);
@@ -118,47 +127,106 @@ export function PetSprite({
   }, []);
 
   useEffect(() => {
-    setFrame(0);
-    setSettled(false);
+    animationClockRef.current = { frame: 0, remainderMs: 0 };
+    frameRef.current = 0;
+    loopsRef.current = 0;
+    settledRef.current = false;
+    setFrame((value) => value === 0 ? value : 0);
+    setSettled((value) => value ? false : value);
   }, [motion, state]);
 
   const animation = useMemo<AnimationSpec>(() => {
     if (motion) return MOTION_SPEC[motion];
-    if (settled) return { atlas: "standard", row: 0, frames: STANDARD_ATLAS_FRAME_COUNTS[0], fps: STATE_FPS.idle };
+    if (settled) {
+      return {
+        atlas: "standard",
+        row: 0,
+        frames: STANDARD_ATLAS_FRAME_COUNTS[0],
+        fps: STATE_FPS.idle,
+        columns: 8,
+        atlasRows: 11,
+      };
+    }
     const row = STATE_ROW[state];
-    return { atlas: "standard", row, frames: STANDARD_ATLAS_FRAME_COUNTS[row], fps: STATE_FPS[state] };
+    return {
+      atlas: "standard",
+      row,
+      frames: STANDARD_ATLAS_FRAME_COUNTS[row],
+      fps: STATE_FPS[state],
+      columns: 8,
+      atlasRows: 11,
+    };
   }, [motion, settled, state]);
 
+  animationRef.current = animation;
+  settledRef.current = settled;
+
   useEffect(() => {
-    setFrame(0);
-    if (reducedMotion) return;
-    let loops = 0;
-    const interval = window.setInterval(() => {
-      setFrame((value) => {
-        const next = (value + 1) % animation.frames;
-        if (next === 0) {
-          loops += 1;
-          if (!motion && state !== "idle" && !settled && loops >= 3) setSettled(true);
+    if (reducedMotion) {
+      animationClockRef.current = { frame: 0, remainderMs: 0 };
+      loopsRef.current = 0;
+      if (frameRef.current !== 0) {
+        frameRef.current = 0;
+        setFrame(0);
+      }
+      return;
+    }
+
+    let animationFrame = 0;
+    let previousTime: number | null = null;
+    let previousTickTime: number | null = null;
+    const animate = (time: number) => {
+      if (previousTime === null) {
+        previousTime = time;
+        previousTickTime = time;
+      } else if (time - (previousTickTime ?? time) >= 1000 / settings.animationFrameRate - 1) {
+        const elapsed = time - previousTime;
+        previousTime = time;
+        previousTickTime = time;
+        const spec = animationRef.current;
+        if (spec) {
+          const previousFrame = animationClockRef.current.frame;
+          const nextClock = advanceAnimationClock(animationClockRef.current, elapsed, spec.fps, spec.frames);
+          animationClockRef.current = nextClock;
+          if (nextClock.frame !== previousFrame) {
+            if (nextClock.frame === 0) {
+              loopsRef.current += 1;
+              if (!motion && state !== "idle" && !settledRef.current && loopsRef.current >= 3) {
+                settledRef.current = true;
+                setSettled(true);
+              }
+            }
+            frameRef.current = nextClock.frame;
+            setFrame(nextClock.frame);
+          }
         }
-        return next;
-      });
-    }, 1000 / animation.fps);
-    return () => window.clearInterval(interval);
-  }, [animation.fps, animation.frames, animation.row, animation.atlas, motion, reducedMotion, settled, state]);
+      }
+      animationFrame = requestAnimationFrame(animate);
+    };
+
+    animationFrame = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(animationFrame);
+  }, [motion, reducedMotion, settings.animationFrameRate, state]);
 
   const dimensions = useMemo(() => ({ width: size, height: Math.round((size * 208) / 192) }), [size]);
+  const displayFrame = Math.max(0, Math.min(frame, animation.frames - 1));
+  const framePosition = useMemo(
+    () => atlasFramePosition(animation, displayFrame),
+    [animation, displayFrame],
+  );
 
   const baseSprite = useMemo(() => {
-    const atlasRows = animation.atlas === "idle" ? 3 : 11;
     return {
       width: dimensions.width,
       height: dimensions.height,
-      backgroundImage: animation.atlas === "idle" ? "url('./pet/idle-actions.webp')" : "url('./pet/spritesheet.webp')",
-      backgroundSize: `${size * 8}px ${dimensions.height * atlasRows}px`,
-      backgroundPosition: `${-frame * size}px ${-animation.row * dimensions.height}px`,
+      backgroundImage: animation.atlas === "idle"
+        ? "url('./pet/idle-actions-30.webp')"
+        : "url('./pet/spritesheet.webp')",
+      backgroundSize: `${size * animation.columns}px ${dimensions.height * animation.atlasRows}px`,
+      backgroundPosition: `${-framePosition.column * size}px ${-framePosition.row * dimensions.height}px`,
       opacity: lookIndex === null ? 1 : 0,
     };
-  }, [animation.atlas, animation.row, dimensions.height, dimensions.width, frame, lookIndex, size]);
+  }, [animation, dimensions.height, dimensions.width, framePosition, lookIndex, size]);
 
   useEffect(() => {
     const canLook = settings.gazeEnabled && !gazeSuppressed && !motion && !reducedMotion && LOOK_STATES.has(state);
