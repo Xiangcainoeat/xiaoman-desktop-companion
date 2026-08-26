@@ -1,7 +1,10 @@
-03e465017f0aba7eac080dcd8543b2f60af1c8c3d6db9e2c70d0edd842ec4751  Xiaoman-Desktop-Companion-1.1.1-arm64.dmg
-347c4e6a73b8fc547b751e1772e613087a26ca992c229bb359fba95e9d0c04b3  Xiaoman-Desktop-Companion-1.1.1-arm64.dmg.blockmap
-678641e2d6bc1b71de8344a8724722214d3936b4e67417cf6d7ba0dbd2f11370  Xiaoman-Desktop-Companion-1.1.1-arm64.zip
-8727a2cfb4d4eca60b7ef7cd61a3d05038f828aee624a63cd44baa4994b0cd51  Xiaoman-Desktop-Companion-1.1.1-arm64.zip.blockmap
-8ff80052f872d8c4af0a7c6bf37a88a87d84e893a5d96d70fdccead55d4434fc  xiaoman-desktop-companion-source-v1.1.1.zip
-1249a9d60c54e0de43b9ada300bb86f2ca8e3eb82b93ff63d68131f0e71dbe73  qa/animation-report.json
-a29fbb79f16f94fbb4ed2909cab9585e5db20430e458c18eace72140df4d4699  qa/reply-smoke-test.md
+ef8ddfc6d9bb497fefdd0de28ec50e18bf3501f49f2ffc73a63c533a85e5f244  Xiaoman-Desktop-Companion-1.2.0-arm64.dmg
+abf53e0eddade1da655795d716d82b29386d0eca30576ba9ae97332f43b5a004  Xiaoman-Desktop-Companion-1.2.0-arm64.dmg.blockmap
+ec7167b6e574fa52d2f4260c9e58dab6ee78804e88bc533bc3875e720bb9fde1  Xiaoman-Desktop-Companion-1.2.0-arm64.zip
+176a10f1ccb6df9ec336942b3c0f41aba6c428e1d51eb0389240cb6da3fec8ae  Xiaoman-Desktop-Companion-1.2.0-arm64.zip.blockmap
+461764484542440b124238023ab63762619a6987300851491646ae2a710e2078  xiaoman-desktop-companion-source-v1.2.0.zip
+63372b8c1049d46fde4a775f3f8ce0a751e2a6209712b9d7c6d262842d68d372  qa/animation-report.json
+7706cd7433a3fc08fa312ee1bd8a8ef68019c128171edea6cb8811603a25adcb  qa/look-90-report.json
+1667a12128468c2af4cfc824812ef1dd794e5f103d59bcfea08090448651b75a  qa/native-profile-hashes.json
+01f7571be71c20f6979d6f9ebbd213f1a99b263d12140aa2da6cc4b9fd904a81  qa/native-reply-smoke-test.md
+0c208a14bf52f36089938ee3fd855a0e561f74047f7673cb13f1ca045fd801bd  qa/reply-smoke-test.md
