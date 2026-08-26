@@ -25,6 +25,8 @@ export type SoundName = (typeof SOUND_NAMES)[number];
 export type InteractionAction = "feed" | "pet" | "play" | "sleep" | "wake" | "celebrate";
 export type ReminderRepeat = "once" | "daily" | "weekdays" | "weekly";
 export type GazeRange = "upper-180" | "full-360";
+export type PetProfile = "enhanced" | "native";
+export type CodexReplyTransport = "native" | "cli";
 export type PetMotion =
   | "running-left"
   | "running-right"
@@ -102,6 +104,7 @@ export interface AppRule {
 export interface CompanionSettings {
   overlayVisible: boolean;
   alwaysOnTop: boolean;
+  petProfile: PetProfile;
   gazeEnabled: boolean;
   gazeRange: GazeRange;
   gazeFrameRate: 30 | 60;
@@ -120,6 +123,7 @@ export interface CompanionSettings {
   idleSpeechEnabled: boolean;
   idleSpeechIntervalSec: number;
   codexSessionControls: boolean;
+  codexReplyTransport: CodexReplyTransport;
   remindersEnabled: boolean;
   soundEnabled: boolean;
   volume: number;

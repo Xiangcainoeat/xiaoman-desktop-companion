@@ -9,6 +9,20 @@ export interface AtlasFrameSpec {
   columns: number;
 }
 
+export interface LookAtlasMetadata {
+  frameCount: number;
+  columns: number;
+  rows: number;
+  frameWidth: number;
+  frameHeight: number;
+  stepDegrees: number;
+}
+
+export type LookAtlasMetadataInput = Pick<
+  LookAtlasMetadata,
+  "frameCount" | "columns" | "frameWidth" | "frameHeight"
+>;
+
 const MAX_ELAPSED_MS = 250;
 
 function assertPositiveFinite(value: number, name: string): void {
@@ -22,6 +36,19 @@ function assertPositiveInteger(value: number, name: string): void {
   if (!Number.isInteger(value)) {
     throw new RangeError(`${name} must be a positive integer`);
   }
+}
+
+export function createLookAtlasMetadata(input: LookAtlasMetadataInput): LookAtlasMetadata {
+  assertPositiveInteger(input.frameCount, "Look atlas frame count");
+  assertPositiveInteger(input.columns, "Look atlas column count");
+  assertPositiveInteger(input.frameWidth, "Look atlas frame width");
+  assertPositiveInteger(input.frameHeight, "Look atlas frame height");
+
+  return {
+    ...input,
+    rows: Math.ceil(input.frameCount / input.columns),
+    stepDegrees: 360 / input.frameCount,
+  };
 }
 
 export function advanceAnimationClock(

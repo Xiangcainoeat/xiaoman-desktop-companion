@@ -34,6 +34,9 @@ export function resolveGazeTarget(angle: number, range: GazeRange): number {
 }
 
 export function interpolateLookDirection(angle: number, directionCount = 16): LookInterpolation {
+  if (!Number.isInteger(directionCount) || directionCount <= 0) {
+    throw new RangeError("Look direction count must be a positive integer");
+  }
   const step = 360 / directionCount;
   const position = normalizeAngle(angle) / step;
   const first = Math.floor(position) % directionCount;

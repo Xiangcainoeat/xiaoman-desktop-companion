@@ -35,6 +35,7 @@ export const STATE_LABELS: Record<PetState, string> = {
 export const DEFAULT_SETTINGS: CompanionSettings = {
   overlayVisible: true,
   alwaysOnTop: true,
+  petProfile: "enhanced",
   gazeEnabled: true,
   gazeRange: "full-360",
   gazeFrameRate: 60,
@@ -53,6 +54,7 @@ export const DEFAULT_SETTINGS: CompanionSettings = {
   idleSpeechEnabled: true,
   idleSpeechIntervalSec: 46,
   codexSessionControls: true,
+  codexReplyTransport: "native",
   remindersEnabled: true,
   soundEnabled: true,
   volume: 0.62,
@@ -248,6 +250,9 @@ export function normalizeCompanionSettings(value: unknown): CompanionSettings {
   return {
     overlayVisible: booleanValue(source.overlayVisible, DEFAULT_SETTINGS.overlayVisible),
     alwaysOnTop: booleanValue(source.alwaysOnTop, DEFAULT_SETTINGS.alwaysOnTop),
+    petProfile: source.petProfile === "enhanced" || source.petProfile === "native"
+      ? source.petProfile
+      : DEFAULT_SETTINGS.petProfile,
     gazeEnabled: booleanValue(source.gazeEnabled, DEFAULT_SETTINGS.gazeEnabled),
     gazeRange: source.gazeRange === "upper-180" ? "upper-180" : "full-360",
     gazeFrameRate: source.gazeFrameRate === 30 ? 30 : 60,
@@ -266,6 +271,9 @@ export function normalizeCompanionSettings(value: unknown): CompanionSettings {
     idleSpeechEnabled: booleanValue(source.idleSpeechEnabled, DEFAULT_SETTINGS.idleSpeechEnabled),
     idleSpeechIntervalSec: integerValue(source.idleSpeechIntervalSec, DEFAULT_SETTINGS.idleSpeechIntervalSec, 15, 180),
     codexSessionControls: booleanValue(source.codexSessionControls, DEFAULT_SETTINGS.codexSessionControls),
+    codexReplyTransport: source.codexReplyTransport === "native" || source.codexReplyTransport === "cli"
+      ? source.codexReplyTransport
+      : DEFAULT_SETTINGS.codexReplyTransport,
     remindersEnabled: booleanValue(source.remindersEnabled, DEFAULT_SETTINGS.remindersEnabled),
     soundEnabled: booleanValue(source.soundEnabled, DEFAULT_SETTINGS.soundEnabled),
     volume: numberValue(source.volume, DEFAULT_SETTINGS.volume, 0, 1),
