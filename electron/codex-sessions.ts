@@ -9,6 +9,13 @@ export const CODEX_DESKTOP_SCHEME = "codex";
 export const DEFAULT_CODEX_APP_PATH = "/Applications/ChatGPT.app";
 export const DEFAULT_BUNDLED_CODEX_PATH = `${DEFAULT_CODEX_APP_PATH}/Contents/Resources/codex`;
 
+const COMMON_CODEX_DESKTOP_APP_PATHS = [
+  DEFAULT_CODEX_APP_PATH,
+  "/Applications/Codex.app",
+  path.join(os.homedir(), "Applications/ChatGPT.app"),
+  path.join(os.homedir(), "Applications/Codex.app"),
+] as const;
+
 const MAX_MESSAGE_LENGTH = 16_000;
 const MAX_PROCESS_OUTPUT = 1024 * 1024;
 const MAX_JSON_RPC_LINE = 8 * 1024 * 1024;
@@ -23,6 +30,13 @@ const DEFAULT_APP_SERVER_TIMEOUT_MS = 8_000;
 const THREAD_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
 
 type JsonObject = Record<string, unknown>;
+
+export function getCodexDesktopAppCandidates(preferredPath?: string): string[] {
+  return [...new Set([
+    preferredPath,
+    ...COMMON_CODEX_DESKTOP_APP_PATHS,
+  ].filter((candidate): candidate is string => Boolean(candidate)).map((candidate) => path.resolve(candidate)))];
+}
 
 export type CodexSessionActivity = "running" | "waiting" | "idle" | "error" | "unknown";
 
@@ -1008,6 +1022,11 @@ export class CodexSessionsService {
   private readonly localSessionScanner: CodexLocalSessionScanner;
   private readonly processSpawner: CodexProcessSpawner;
 
+  private getAvailableDesktopAppPath(): string {
+    return getCodexDesktopAppCandidates(this.desktopAppPath).find((candidate) => existsSync(candidate))
+      ?? this.desktopAppPath;
+  }
+
   constructor(options: CodexSessionsServiceOptions = {}) {
     this.codexHome = path.resolve(options.codexHome ?? process.env.CODEX_HOME ?? path.join(os.homedir(), ".codex"));
     this.sessionsRoot = path.resolve(options.sessionsRoot ?? path.join(this.codexHome, "sessions"));
@@ -1030,11 +1049,12 @@ export class CodexSessionsService {
   }
 
   async getRuntimeInfo(): Promise<CodexRuntimeInfo> {
+    const desktopAppPath = this.getAvailableDesktopAppPath();
     return {
       cliPath: this.codexPath,
       cliAvailable: await commandExists(this.codexPath),
-      desktopAppPath: this.desktopAppPath,
-      desktopAppAvailable: this.platform === "darwin" && existsSync(this.desktopAppPath),
+      desktopAppPath,
+      desktopAppAvailable: this.platform === "darwin" && existsSync(desktopAppPath),
       desktopBundleId: CODEX_DESKTOP_BUNDLE_ID,
       desktopScheme: CODEX_DESKTOP_SCHEME,
       threadDeepLinkTemplate: "codex://threads/<thread-id>",
@@ -1042,9 +1062,10 @@ export class CodexSessionsService {
   }
 
   getDesktopTarget(threadId: string): CodexDesktopTarget {
+    const appPath = this.getAvailableDesktopAppPath();
     return {
-      available: this.platform === "darwin" && existsSync(this.desktopAppPath),
-      appPath: this.desktopAppPath,
+      available: this.platform === "darwin" && existsSync(appPath),
+      appPath,
       bundleId: CODEX_DESKTOP_BUNDLE_ID,
       scheme: CODEX_DESKTOP_SCHEME,
       url: getCodexThreadDeepLink(threadId),
@@ -1083,7 +1104,7 @@ export class CodexSessionsService {
     try {
       localRecords = await this.localSessionScanner({
         sessionsRoot: this.sessionsRoot,
-        limit: Math.max(limit, preferredPaths.length),
+        limit: 100,
         includeSubagents,
         preferredPaths,
         now: this.now(),
@@ -1095,14 +1116,28 @@ export class CodexSessionsService {
 
     const localById = new Map(localRecords.map((record) => [record.id, record]));
     const localByPath = new Map(localRecords.map((record) => [path.resolve(record.filePath), record]));
-    const sessions = appThreads.map((thread) => {
+    const matchedLocalIds = new Set<string>();
+    const matchedLocalPaths = new Set<string>();
+    const seenAppIds = new Set<string>();
+    const seenAppPaths = new Set<string>();
+    const sessions: CodexSessionSummary[] = [];
+    for (const thread of appThreads) {
       const session = normalizeAppServerThread(thread);
+      const normalizedPath = session.path ? path.resolve(session.path) : null;
+      if (seenAppIds.has(session.id) || normalizedPath && seenAppPaths.has(normalizedPath)) continue;
+      seenAppIds.add(session.id);
+      if (normalizedPath) seenAppPaths.add(normalizedPath);
       const local = session.path ? localByPath.get(path.resolve(session.path)) : localById.get(session.id);
-      return mergeLocalStatus(session, local ?? localById.get(session.id));
-    });
-
-    if (!appThreads.length) {
-      sessions.push(...localRecords.map(localSessionSummary));
+      const matchedLocal = local ?? localById.get(session.id);
+      if (matchedLocal) {
+        matchedLocalIds.add(matchedLocal.id);
+        matchedLocalPaths.add(path.resolve(matchedLocal.filePath));
+      }
+      sessions.push(mergeLocalStatus(session, matchedLocal));
+    }
+    for (const record of localRecords) {
+      if (matchedLocalIds.has(record.id) || matchedLocalPaths.has(path.resolve(record.filePath))) continue;
+      sessions.push(localSessionSummary(record));
     }
 
     const filtered = sessions

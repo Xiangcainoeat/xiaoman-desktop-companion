@@ -523,10 +523,14 @@ async function listCodexThreads(force = false): Promise<CodexThreadListResult> {
 
 async function openCodexThread(threadId: string): Promise<CodexOpenResult> {
   if (!data.settings.codexSessionControls) return { ok: false, message: "Codex 任务功能已关闭" };
-  const target = codexSessionsService.getDesktopTarget(threadId);
-  if (!target.available) return { ok: false, message: "未找到 ChatGPT/Codex 桌面应用" };
-  await shell.openExternal(target.url);
-  return { ok: true, message: "已打开对应 Codex 任务" };
+  try {
+    const target = codexSessionsService.getDesktopTarget(threadId);
+    await shell.openExternal(target.url);
+    return { ok: true, message: "已打开对应 Codex 任务" };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return { ok: false, message: `无法打开对应 Codex 任务：${detail || "系统未关联 codex:// 协议"}` };
+  }
 }
 
 async function replyToCodexThread(threadId: string, message: string): Promise<CodexReplyResult> {

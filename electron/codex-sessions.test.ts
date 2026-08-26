@@ -6,6 +6,7 @@ import {
   buildCodexQueueArgs,
   buildCodexResumeArgs,
   CodexSessionsService,
+  getCodexDesktopAppCandidates,
   getCodexThreadDeepLink,
   parseCodexSessionLog,
   scanLocalCodexSessions,
@@ -18,6 +19,8 @@ import {
 } from "./codex-sessions";
 
 const THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9404";
+const SECOND_THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9405";
+const SUBAGENT_THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9406";
 
 function jsonl(...records: unknown[]): string {
   return records.map((record) => JSON.stringify(record)).join("\n");
@@ -252,6 +255,15 @@ describe("Codex desktop navigation", () => {
   it("rejects path-like thread ids", () => {
     expect(() => getCodexThreadDeepLink("../../settings")).toThrow("Invalid Codex thread id");
   });
+
+  it("considers common Codex and ChatGPT application locations", () => {
+    expect(getCodexDesktopAppCandidates()).toEqual(expect.arrayContaining([
+      "/Applications/ChatGPT.app",
+      "/Applications/Codex.app",
+      path.join(os.homedir(), "Applications/ChatGPT.app"),
+      path.join(os.homedir(), "Applications/Codex.app"),
+    ]));
+  });
 });
 
 describe("session listing", () => {
@@ -341,6 +353,63 @@ describe("session listing", () => {
     expect(result.source).toBe("logs");
     expect(result.warnings).toHaveLength(1);
     expect(result.sessions[0].status.activity).toBe("idle");
+  });
+
+  it("unions unmatched local user sessions with partial app-server results", async () => {
+    const service = new CodexSessionsService({
+      appServerRequest: async () => ({
+        data: [{ id: THREAD_ID, name: "app-server task", updatedAt: 2_000 }],
+      }),
+      localSessionScanner: async () => [
+        localRecord({ updatedAt: 2_100 }),
+        localRecord({
+          id: SECOND_THREAD_ID,
+          sessionId: SECOND_THREAD_ID,
+          filePath: `/tmp/${SECOND_THREAD_ID}.jsonl`,
+          preview: "local-only task",
+          updatedAt: 1_900,
+        }),
+        localRecord({
+          id: SUBAGENT_THREAD_ID,
+          sessionId: SUBAGENT_THREAD_ID,
+          filePath: `/tmp/${SUBAGENT_THREAD_ID}.jsonl`,
+          preview: "local subagent",
+          isSubagent: true,
+          updatedAt: 2_200,
+        }),
+      ],
+    });
+
+    const result = await service.listSessions({ limit: 2, includeSubagents: false });
+
+    expect(result.sessions.map((session) => session.id)).toEqual([THREAD_ID, SECOND_THREAD_ID]);
+    expect(result.sessions).toHaveLength(2);
+    expect(result.sessions.some((session) => session.isSubagent)).toBe(false);
+  });
+
+  it("deduplicates a local record matched to an app-server path", async () => {
+    const localPath = "/tmp/shared-codex-session.jsonl";
+    const service = new CodexSessionsService({
+      appServerRequest: async () => ({
+        data: [{
+          id: THREAD_ID,
+          path: localPath,
+          name: "app-server task",
+          updatedAt: 2_000,
+        }],
+      }),
+      localSessionScanner: async () => [localRecord({
+        id: SECOND_THREAD_ID,
+        sessionId: SECOND_THREAD_ID,
+        filePath: localPath,
+        updatedAt: 2_100,
+      })],
+    });
+
+    const result = await service.listSessions({ limit: 10 });
+
+    expect(result.sessions).toHaveLength(1);
+    expect(result.sessions[0].id).toBe(THREAD_ID);
   });
 });
 
