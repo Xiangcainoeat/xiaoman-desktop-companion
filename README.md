@@ -49,6 +49,8 @@
 - “在 Codex 中打开”：使用 `codex://threads/<thread-id>` 打开对应任务。
 - 只有 Codex CLI 明确输出 `turn.started` 后才显示启动成功；立即退出、超时或无确认都会显示错误。
 
+浏览器 `dev:web` 只提供内存 UI mock，任务列表和回复按钮会明确提示“模拟”，不会打开 Codex 或调用 CLI；真实发送必须在 Electron 宿主中验证。
+
 ## 兼容边界
 
 | 场景 | 结果 |
@@ -83,10 +85,16 @@ npm run dev
 ```bash
 npm run typecheck
 npm test
+npm run verify:idle-atlas
 npm run build
 npm run pack:mac
 npm run dist:mac
 ```
+
+`verify:idle-atlas` only needs the optional image-tool dependencies listed in
+`requirements-image.txt`. The launcher first checks `PYTHON`, `CODEX_PYTHON`,
+the system `python3`, and the Codex bundled runtime; the desktop app itself
+does not require Python, numpy, or Pillow.
 
 生成的应用和安装包位于 `release/`。详细资料见：
 

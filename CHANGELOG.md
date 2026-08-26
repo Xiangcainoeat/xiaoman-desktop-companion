@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1 - 2026-08-26
+
+- Expanded lick, blink, and scratch idle actions to 30-frame generated sequences with a 30/60Hz animation clock and transparent color QA.
+- Fixed Codex task discovery/reply fallback races and made browser preview replies explicitly non-live.
+- Rebuilt the Apple Silicon application and source archive from the corrected tree.
+
 ## 1.1.0 - 2026-08-26
 
 - Added gaze enable/disable, upper-180/full-360 modes, 30/60Hz rendering, configurable smoothing/deadzone/idle reset, and adjustable pet size.

@@ -42,17 +42,24 @@ Expected contract: `1536x416`, `8x2`, 16 populated transparent cells of `192x208
 
 ## Rebuilding idle actions
 
-The selected ImageGen output is `work/idle-actions-generated-v2.png`. The deterministic build extracts and validates 24 cells:
+The selected ImageGen sources are `work/idle-actions-30-generated-lick.png`,
+`work/idle-actions-30-generated-blink.png`, and
+`work/idle-actions-30-generated-scratch.png`. The deterministic build extracts
+30 frames per action and assembles a `10x9` atlas:
 
 ```bash
-python3 scripts/build_idle_atlas.py \
-  --source work/idle-actions-generated-v2.png \
-  --output public/pet/idle-actions.webp \
-  --contact-sheet work/idle-actions-contact-sheet.png \
-  --report work/idle-actions-validation.json
+sh scripts/run_image_python.sh scripts/build_idle_atlas_30.py \
+  --lick work/idle-actions-30-generated-lick.png \
+  --blink work/idle-actions-30-generated-blink.png \
+  --scratch work/idle-actions-30-generated-scratch.png
+npm run verify:idle-atlas
 ```
 
-Expected contract: `1536x624`, `8x3`, 24 populated transparent cells, no detected green residue.
+Expected contract: `1920x1872`, `10x9`, 90 populated transparent cells, no
+hidden RGB, and detected green/magenta edge contamination within the configured
+limits. Install the optional tools
+with `python3 -m pip install -r requirements-image.txt` when the bundled Codex
+runtime is not available.
 
 The prior `look-32.webp` pipeline and its prompt remain in `work/` for provenance only; v1.1 does not load that atlas.
 

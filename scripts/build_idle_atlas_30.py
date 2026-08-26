@@ -49,7 +49,7 @@ def _shift(array: np.ndarray, dx: int, dy: int, fill: int | float = 0) -> np.nda
 
 
 def chroma_to_alpha(image: Image.Image, return_stats: bool = False) -> Image.Image | tuple[Image.Image, dict[str, int]]:
-    """Remove only the connected green matte and retain natural subject colors."""
+    """Remove the sampled green matte while retaining natural subject colors."""
     rgba = np.asarray(image.convert("RGBA"), dtype=np.float32).copy()
     red, green, blue = rgba[..., 0], rgba[..., 1], rgba[..., 2]
     green_dominance = green - np.maximum(red, blue)

@@ -18,14 +18,19 @@ The lick, blink and scratch source sheet was created through the user's private 
 
 - generation skill: `relay-imagegen`
 - route: private OpenAI-compatible HTTPS relay
-- operation: image edit from the accepted Xiaoman spritesheet
+- operation: three image edits from the accepted Xiaoman spritesheet
 - model: `gpt-image-2`
-- selected result: `work/idle-actions-generated-v2.png`
-- final prompt: `work/idle-actions-prompt.md`
-- deterministic builder: `scripts/build_idle_atlas.py`
-- runtime atlas: `public/pet/idle-actions.webp`
-- report: `work/idle-actions-validation.json` (`ok: true`)
-- contact sheet: `work/idle-actions-contact-sheet.png`
+- selected results: `work/idle-actions-30-generated-lick.png`,
+  `work/idle-actions-30-generated-blink.png`, and
+  `work/idle-actions-30-generated-scratch.png`
+- prompts: `work/idle-actions-30-prompt-lick.md`,
+  `work/idle-actions-30-prompt-blink.md`, and
+  `work/idle-actions-30-prompt-scratch.md`
+- deterministic builder: `scripts/build_idle_atlas_30.py`
+- runtime atlas: `public/pet/idle-actions-30.webp`
+- report: `work/idle-actions-30-report.json` (`ok: true`)
+- contact sheets: `work/idle-actions-30-contact-sheet.png` and
+  `work/idle-actions-30-background-check.png`
 
 No relay endpoint, API key, original user-photo path or private configuration is included in this repository.
 
@@ -40,5 +45,8 @@ No relay endpoint, API key, original user-photo path or private configuration is
 - `qa-v1.1-gaze-restored-cold.png` verifies removal of the direction layer after pointer inactivity.
 - `qa-v1.1-actual-window.png` verifies a single pet layer with transparent-window alpha.
 - `qa-production-final.png` and `qa-production-settings.png` retain v1.0 packaged control-center evidence.
+- `qa-v1.1.1-packaged-reply-success.png` records the final packaged reply acknowledgement.
+- `qa-v1.1.1-packaged-overlay-idle.png` records the packaged overlay idle state using the 30-frame atlas.
+- `qa-v1.1.1-packaged-idle-action.png` records a packaged idle-action frame during runtime playback.
 
 Automated checks cover schema migration, phrase sanitization, gaze geometry and phase smoothing, drag threshold/direction, idle action selection, overlay sizing/anchoring, task status mapping, command validation, active queueing, idle resume startup failures and renderer selection behavior.

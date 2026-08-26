@@ -45,7 +45,7 @@ Renderer-only motion does not mutate this business state. Drag running, hover ju
 
 - Horizontal drag crosses a 4px threshold before choosing left/right running rows.
 - Hover starts one jump cycle when enabled.
-- Idle lick, blink and scratch use `idle-actions.webp`, an 8x3 transparent atlas.
+- Idle lick, blink and scratch use `idle-actions-30.webp`, a 10x9 transparent atlas with 30 frames per action. Rows 0–2 are lick, 3–5 blink, and 6–8 scratch.
 - Idle scheduling pauses during drag, gaze, hidden overlay or higher-priority state animation.
 - Random speech is selected from a normalized list of at most 40 unique phrases, each at most 80 characters.
 - Overlay dimensions derive from the 150–340px pet size and preserve the lower-right screen anchor.

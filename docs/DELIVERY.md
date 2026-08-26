@@ -21,13 +21,17 @@ release/                  DMG, app ZIP, source archive and SHA-256 checksums
 
 Commit `package.json` and `package-lock.json`; they pin the dependency graph and are required for reproducible installation. Do not commit `node_modules/`, `dist/` or `dist-electron/`; `npm ci` recreates them.
 
+`requirements-image.txt` is optional and applies only to deterministic artwork
+rebuild/verification. The final desktop application does not depend on Python,
+numpy, or Pillow.
+
 Large DMG/ZIP files should be attached as GitHub Release assets with `release/SHA256SUMS`, not kept in normal Git history. The source archive can be attached to the same release.
 
 ## Installable outputs
 
-- `release/Xiaoman-Desktop-Companion-1.1.0-arm64.dmg`
-- `release/Xiaoman-Desktop-Companion-1.1.0-arm64.zip`
-- `release/xiaoman-desktop-companion-source-v1.1.0.zip`
+- `release/Xiaoman-Desktop-Companion-1.1.1-arm64.dmg`
+- `release/Xiaoman-Desktop-Companion-1.1.1-arm64.zip`
+- `release/xiaoman-desktop-companion-source-v1.1.1.zip`
 - `codex-pet/release/xiaoman-codex-install.zip`
 
 The desktop host targets Apple Silicon and macOS 13 or later. It is ad-hoc/unsigned for local distribution and is not notarized. The native Codex package does not require the host and continues to work when the host is absent or closed.

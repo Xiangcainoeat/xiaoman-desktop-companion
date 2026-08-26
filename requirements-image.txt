@@ -1,0 +1,4 @@
+# Optional dependencies used only by scripts/build_idle_atlas_30.py and
+# scripts/verify_idle_atlas_30.py. They are not bundled into the desktop app.
+numpy==2.3.5
+Pillow==12.3.0

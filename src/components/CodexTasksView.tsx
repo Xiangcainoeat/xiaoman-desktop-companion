@@ -66,6 +66,10 @@ export function CodexTasksView({ enabled }: { enabled: boolean }) {
     setNotice(null);
     try {
       const response = await bridge.replyCodexThread(selected.id, message);
+      if (!response.ok) {
+        setNotice(response.message);
+        return;
+      }
       setReply("");
       setNotice(response.message);
       await refresh(true);

@@ -55,7 +55,7 @@ export interface CodexReplyResult {
 
 export interface CodexThreadListResult {
   threads: CodexThreadSummary[];
-  source: "app-server+logs" | "app-server" | "logs" | "unavailable" | "off";
+  source: "app-server+logs" | "app-server" | "logs" | "unavailable" | "off" | "mock";
   warnings: string[];
 }
 

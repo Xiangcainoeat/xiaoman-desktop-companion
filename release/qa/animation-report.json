@@ -1,0 +1,57 @@
+{
+  "version": "1.1.1",
+  "concurrencyPolicy": "fewer than 5 concurrent agents or external requests",
+  "atlas": {
+    "path": "public/pet/idle-actions-30.webp",
+    "algorithm": "idle-atlas-30-v2-stable-registration",
+    "dimensions": [1920, 1872],
+    "columns": 10,
+    "rows": 9,
+    "frames": 90,
+    "framesPerAction": 30,
+    "actions": ["idle-lick", "idle-blink", "idle-scratch"],
+    "backgroundsChecked": ["white", "charcoal", "checkerboard"],
+    "maxAdjacentAreaDeltaRatio": {
+      "idle-lick": 0.0442,
+      "idle-blink": 0.0148,
+      "idle-scratch": 0.0955
+    },
+    "maxRedPinkEdgePixels": {
+      "idle-lick": 0,
+      "idle-blink": 1,
+      "idle-scratch": 1
+    },
+    "regressions": {
+      "enclosedBackgroundHoleRemoved": true,
+      "enclosedGreenPixelPreserved": true
+    }
+  },
+  "runtime": {
+    "package": "release/Xiaoman-Desktop-Companion-1.1.1-arm64.zip",
+    "asarContainsAtlas": true,
+    "asarContainsAnimationRateSetting": true,
+    "settingsDefaultHz": 30,
+    "settingsOptionsHz": [30, 60],
+    "taskListSource": "logs",
+    "taskCountObserved": 20,
+    "activeTaskCountObserved": 1,
+    "replySmokeTask": "xiaoman-reply-qa",
+    "replySmoke": {
+      "started": true,
+      "inputCleared": true,
+      "noticeObserved": "Task started and is running in the background",
+      "returnedToReady": true,
+      "screenshot": "work/qa-v1.1.1-packaged-reply-success.png"
+    }
+  },
+  "verification": {
+    "npmTest": "81/81 passed",
+    "typecheck": "passed",
+    "build": "passed",
+    "verifyIdleAtlas": "passed"
+  },
+  "nativePetUnchanged": {
+    "petJsonSha256": "ee3297a517c3ae8ee25bb16263b7ff9569276107e58b52654dee23d89f7a8152",
+    "spritesheetSha256": "36168f60a08a7c566674d12123f3e6efb44159197475d5104923bc210243a502"
+  }
+}

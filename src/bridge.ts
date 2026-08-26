@@ -130,8 +130,8 @@ function createMockApi(): XiaomanApi {
       return publish();
     },
     listCodexThreads: async (): Promise<CodexThreadListResult> => ({
-      source: "app-server+logs",
-      warnings: [],
+      source: "mock",
+      warnings: ["浏览器预览仅模拟任务状态；真实回复请使用 Electron 应用"],
       threads: [
         {
           id: "01a03ab3-1111-7111-8111-111111111111",
@@ -157,11 +157,11 @@ function createMockApi(): XiaomanApi {
         },
       ],
     }),
-    openCodexThread: async () => ({ ok: true, message: "已打开对应 Codex 任务" }),
+    openCodexThread: async () => ({ ok: false, message: "浏览器预览不会打开 Codex 任务，请使用 Electron 应用" }),
     replyCodexThread: async (_threadId: string, message: string) => ({
-      ok: true,
+      ok: false,
       mode: "queued",
-      message: message.trim() ? "回复已排队；当前回复结束后会自动继续" : "请输入回复内容",
+      message: message.trim() ? "浏览器预览仅模拟回复，未调用 Codex；请使用 Electron 应用" : "请输入回复内容",
     }),
     setOverlayTaskPanel: () => undefined,
     showCenter: () => undefined,
