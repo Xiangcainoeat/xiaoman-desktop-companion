@@ -42,10 +42,41 @@ function createMockApi(): XiaomanApi {
   let gameActive = false;
   const desktopHitIds = new Set<string>();
   let lastDesktopSessionId: string | null = null;
+  let desktopSessionExpiryTimer: ReturnType<typeof setTimeout> | null = null;
 
   const publish = () => {
     for (const listener of listeners) listener(structuredClone(current));
     return structuredClone(current);
+  };
+  const clearDesktopSessionExpiryTimer = () => {
+    if (desktopSessionExpiryTimer) clearTimeout(desktopSessionExpiryTimer);
+    desktopSessionExpiryTimer = null;
+  };
+  const clearDesktopSessionWithoutReward = (): boolean => {
+    if (!current.desktopInteraction.active) return false;
+    lastDesktopSessionId = current.desktopInteraction.sessionId;
+    current.desktopInteraction = { active: false, sessionId: null, startedAt: null, score: 0 };
+    desktopHitIds.clear();
+    clearDesktopSessionExpiryTimer();
+    return true;
+  };
+  const expireDesktopSessionIfNeeded = (): boolean => {
+    const startedAt = current.desktopInteraction.startedAt;
+    if (!current.desktopInteraction.active || startedAt === null || Date.now() < startedAt + DESKTOP_SESSION_DURATION_MS) return false;
+    return clearDesktopSessionWithoutReward();
+  };
+  const expireDesktopSessionAndPublishIfNeeded = (): void => {
+    if (expireDesktopSessionIfNeeded()) publish();
+  };
+  const scheduleDesktopSessionExpiry = (): void => {
+    clearDesktopSessionExpiryTimer();
+    const startedAt = current.desktopInteraction.startedAt;
+    const sessionId = current.desktopInteraction.sessionId;
+    if (!current.desktopInteraction.active || startedAt === null || !sessionId) return;
+    desktopSessionExpiryTimer = setTimeout(() => {
+      if (current.desktopInteraction.sessionId !== sessionId) return;
+      expireDesktopSessionAndPublishIfNeeded();
+    }, Math.max(0, startedAt + DESKTOP_SESSION_DURATION_MS - Date.now()));
   };
   const temporaryState = (state: AppSnapshot["state"], message: string, sound: SoundName, durationMs = 2600) => {
     current.state = state;
@@ -175,7 +206,10 @@ function createMockApi(): XiaomanApi {
   };
 
   return {
-    getSnapshot: async () => structuredClone(current),
+    getSnapshot: async () => {
+      expireDesktopSessionAndPublishIfNeeded();
+      return structuredClone(current);
+    },
     interact,
     feedFood: async (foodId: FoodId) => runCare({ kind: "feed", foodId }, "eating", "鱼干真香", "crunch", "喂了小满"),
     bathePet: async () => runCare({ kind: "bath" }, "bathing", "洗得香香的", "chime", "给小满洗澡"),
@@ -184,17 +218,30 @@ function createMockApi(): XiaomanApi {
     collectPetJob: async () => runCare({ kind: "complete-job" }, "celebrating", "打工奖励到账", "chime", "领取打工奖励"),
     cancelPetJob: async () => runCare({ kind: "cancel-job" }, "idle", "已取消打工", "none", "取消打工"),
     claimDailyQuest: async (questId: string) => runCare({ kind: "claim-quest", questId }, "celebrating", "领取成功", "chime", "领取每日任务奖励"),
-    setGameActive: (active: boolean) => { gameActive = Boolean(active) && current.settings.gameModeEnabled; },
+    setGameActive: (active: boolean) => {
+      expireDesktopSessionAndPublishIfNeeded();
+      if (current.desktopInteraction.active) return;
+      gameActive = Boolean(active) && current.settings.gameModeEnabled;
+    },
     completeGame: async (gameId: GameId, score: number) => {
       if (!current.settings.gameModeEnabled) throw new Error("小游戏模式已关闭");
       if (gameId !== "rock-paper-scissors" && gameId !== "fish-catch" && gameId !== "bubble-pop") {
         throw new Error("没有这个小游戏");
       }
-      return runCare({ kind: "complete-game", gameId, score }, "playful", "游戏完成", "pop", "完成互动游戏");
+      expireDesktopSessionAndPublishIfNeeded();
+      if (current.desktopInteraction.active) throw new Error("桌面泡泡互动正在进行");
+      if (!gameActive) throw new Error("没有正在进行的游戏");
+      try {
+        return runCare({ kind: "complete-game", gameId, score }, "playful", "游戏完成", "pop", "完成互动游戏");
+      } finally {
+        gameActive = false;
+      }
     },
     startDesktopBubbleSession: async () => {
+      expireDesktopSessionAndPublishIfNeeded();
       if (!current.settings.gameModeEnabled) throw new Error("小游戏模式已关闭");
       if (current.desktopInteraction.active) return structuredClone(current);
+      if (gameActive) throw new Error("已有游戏正在进行");
       const now = Date.now();
       current.desktopInteraction = {
         active: true,
@@ -204,10 +251,11 @@ function createMockApi(): XiaomanApi {
       } satisfies DesktopInteractionStatus;
       desktopHitIds.clear();
       lastDesktopSessionId = null;
-      gameActive = true;
+      scheduleDesktopSessionExpiry();
       return publish();
     },
     hitDesktopBubble: async (sessionId: string, bubbleId: string) => {
+      expireDesktopSessionAndPublishIfNeeded();
       if (!canHitDesktopBubble(current.desktopInteraction, sessionId, bubbleId, Date.now(), desktopHitIds)) {
         throw new Error("泡泡命中无效");
       }
@@ -219,6 +267,7 @@ function createMockApi(): XiaomanApi {
       return publish();
     },
     stopDesktopBubbleSession: async (sessionId: string, completed: boolean) => {
+      expireDesktopSessionAndPublishIfNeeded();
       if (current.desktopInteraction.sessionId !== sessionId) {
         if (!current.desktopInteraction.active && lastDesktopSessionId === sessionId) return structuredClone(current);
         throw new Error("桌面互动 session 无效");
@@ -229,7 +278,7 @@ function createMockApi(): XiaomanApi {
       lastDesktopSessionId = sessionId;
       desktopHitIds.clear();
       current.desktopInteraction = { active: false, sessionId: null, startedAt: null, score: 0 };
-      gameActive = false;
+      clearDesktopSessionExpiryTimer();
       if (completed && !expired) return runCare({ kind: "complete-game", gameId: "bubble-pop", score }, "playful", "游戏完成", "pop", "完成桌面泡泡互动");
       return publish();
     },
@@ -267,7 +316,10 @@ function createMockApi(): XiaomanApi {
     },
     updateSettings: async (patch: Partial<CompanionSettings>) => {
       current.settings = { ...current.settings, ...patch };
-      if (!current.settings.gameModeEnabled) gameActive = false;
+      if (!current.settings.gameModeEnabled) {
+        clearDesktopSessionWithoutReward();
+        gameActive = false;
+      }
       return publish();
     },
     updateIdlePhrases: async (phrases: string[]) => {
@@ -354,4 +406,8 @@ export function getBridge(): XiaomanApi {
   if (window.xiaoman) return window.xiaoman;
   mockApi ??= createMockApi();
   return mockApi;
+}
+
+export function createMockApiForTests(): XiaomanApi {
+  return createMockApi();
 }

@@ -239,8 +239,22 @@ export function shouldAutoSleepForRuntime(input: AutoSleepInput): boolean {
   return shouldAutoSleep(input);
 }
 
-export function canCompleteGame(gameActive: boolean, gameModeEnabled: boolean): boolean {
-  return gameActive && gameModeEnabled;
+export function canCompleteGame(
+  gameActive: boolean,
+  gameModeEnabled: boolean,
+  desktopSessionActive = false,
+): boolean {
+  return gameActive && gameModeEnabled && !desktopSessionActive;
+}
+
+export function transitionGameActivity(
+  currentActive: boolean,
+  desktopSessionActive: boolean,
+  requestedActive: boolean,
+  gameModeEnabled: boolean,
+): { accepted: boolean; active: boolean } {
+  if (desktopSessionActive) return { accepted: false, active: currentActive };
+  return { accepted: true, active: requestedActive && gameModeEnabled };
 }
 
 export interface DesktopBubbleSessionState {
@@ -303,15 +317,16 @@ export function stopDesktopBubbleSessionState(
   sessionId: string,
   completed: boolean,
   now: number,
-): { state: DesktopBubbleSessionState; settlement: GameSettlement | null; accepted: boolean } {
+): { state: DesktopBubbleSessionState; settlement: GameSettlement | null; accepted: boolean; changed: boolean } {
   if (!state.status.active) {
     return {
       state,
       settlement: null,
       accepted: state.lastSessionId === sessionId,
+      changed: false,
     };
   }
-  if (state.status.sessionId !== sessionId) return { state, settlement: null, accepted: false };
+  if (state.status.sessionId !== sessionId) return { state, settlement: null, accepted: false, changed: false };
 
   const expired = state.status.startedAt === null
     || now >= state.status.startedAt + DESKTOP_SESSION_DURATION_MS;
@@ -324,6 +339,7 @@ export function stopDesktopBubbleSessionState(
     state: nextState,
     settlement: completed && !expired ? settleGameResult("bubble-pop", state.status.score) : null,
     accepted: true,
+    changed: true,
   };
 }
 
@@ -331,6 +347,53 @@ interface QuickWindowLike {
   isDestroyed(): boolean;
   show(): void;
   focus(): void;
+}
+
+export interface QuickLoadController<T> {
+  enqueue(window: T, mode: QuickViewMode): void;
+  invalidate(window: T): void;
+}
+
+export function createQuickLoadController<T>(
+  load: (window: T, mode: QuickViewMode) => Promise<void>,
+  isCurrent: (window: T) => boolean,
+  onError: (error: unknown, window: T, mode: QuickViewMode) => void = () => undefined,
+): QuickLoadController<T> {
+  let generation = 0;
+  let queue = Promise.resolve();
+
+  const enqueue = (window: T, mode: QuickViewMode): void => {
+    const requestGeneration = ++generation;
+    queue = queue
+      .catch(() => undefined)
+      .then(async () => {
+        if (requestGeneration !== generation || !isCurrent(window)) return;
+        try {
+          await load(window, mode);
+        } catch (error) {
+          if (requestGeneration !== generation || !isCurrent(window)) return;
+          try {
+            onError(error, window, mode);
+          } catch {
+            // Error reporting must not create a second unhandled rejection.
+          }
+        }
+      });
+    void queue.catch(() => undefined);
+  };
+
+  return {
+    enqueue,
+    invalidate: () => {
+      generation += 1;
+    },
+  };
+}
+
+export function teardownQuickWindow<T extends { isDestroyed(): boolean; destroy(): void }>(current: T | null, target: T): T | null {
+  if (current !== target) return current;
+  if (!target.isDestroyed()) target.destroy();
+  return null;
 }
 
 export function ensureQuickWindow<T extends QuickWindowLike>(
@@ -368,6 +431,7 @@ let data: PersistedData;
 let overlayWindow: BrowserWindow | null = null;
 let centerWindow: BrowserWindow | null = null;
 let quickWindow: BrowserWindow | null = null;
+let quickLoadController: QuickLoadController<BrowserWindow> | null = null;
 let tray: Tray | null = null;
 let codexMonitor: CodexSessionMonitor | null = null;
 let codexSessionsService: CodexSessionsService;
@@ -601,11 +665,28 @@ function claimDailyQuest(questId: string): AppSnapshot {
 }
 
 function completeGame(gameId: GameId, score: number): AppSnapshot {
-  if (!canCompleteGame(gameActive, data.settings.gameModeEnabled)) throw new Error("没有正在进行的游戏");
-  if (desktopSessionState.status.active) throw new Error("桌面泡泡互动正在进行");
+  expireDesktopBubbleSessionIfNeeded();
+  if (!canCompleteGame(gameActive, data.settings.gameModeEnabled, desktopSessionState.status.active)) {
+    if (desktopSessionState.status.active) throw new Error("桌面泡泡互动正在进行");
+    throw new Error("没有正在进行的游戏");
+  }
   const result = runCareMutation({ kind: "complete-game", gameId, score }, "完成互动游戏", "playful", "游戏完成", "pop");
   gameActive = false;
   return result;
+}
+
+function wakeForGameInteraction(title = "开始互动游戏"): void {
+  if (!(data.sleeping && data.sleepReason === "inactivity")) return;
+  data = { ...data, sleeping: false, sleepReason: null };
+  data.activity = appendActivity(data.activity, {
+    source: "interaction",
+    title,
+    detail: "小满醒来陪你玩",
+    state: "playful",
+  });
+  triggerState("playful", "一起玩吧", "interaction", 2600, 90, false);
+  emitSound("pop");
+  persistAndBroadcast();
 }
 
 async function performInteraction(action: InteractionAction): Promise<AppSnapshot> {
@@ -934,7 +1015,7 @@ function runAutoSleepCheck(): void {
     codexBusy: monitoring.codexBusy,
     reminderActive: highPriorityReminderActive(),
     jobActive: Boolean(data.activeJob),
-    gameActive,
+    gameActive: gameActive || desktopSessionState.status.active,
     sleeping: data.sleeping,
     manualSleep: data.sleepReason === "manual",
   };
@@ -975,20 +1056,19 @@ function configurePowerMonitor(): void {
   });
 }
 
-function setGameActive(active: boolean): void {
-  if (!active && desktopSessionState.status.active) return;
-  gameActive = active && data.settings.gameModeEnabled;
-  if (!gameActive || !(data.sleeping && data.sleepReason === "inactivity")) return;
-  data = { ...data, sleeping: false, sleepReason: null };
-  data.activity = appendActivity(data.activity, {
-    source: "interaction",
-    title: "开始互动游戏",
-    detail: "小满醒来陪你玩",
-    state: "playful",
-  });
-  triggerState("playful", "一起玩吧", "interaction", 2600, 90, false);
-  emitSound("pop");
-  persistAndBroadcast();
+function setGameActive(active: boolean): boolean {
+  expireDesktopBubbleSessionIfNeeded();
+  const transition = transitionGameActivity(
+    gameActive,
+    desktopSessionState.status.active,
+    active,
+    data.settings.gameModeEnabled,
+  );
+  if (!transition.accepted) return false;
+  gameActive = transition.active;
+  if (!gameActive) return true;
+  wakeForGameInteraction();
+  return true;
 }
 
 function clearDesktopSessionExpiryTimer(): void {
@@ -1002,7 +1082,6 @@ function clearDesktopBubbleSessionWithoutReward(shouldBroadcast = true): void {
   const sessionId = desktopSessionState.status.sessionId;
   if (!sessionId) return;
   desktopSessionState = stopDesktopBubbleSessionState(desktopSessionState, sessionId, false, Date.now()).state;
-  gameActive = false;
   if (shouldBroadcast) broadcast();
 }
 
@@ -1011,26 +1090,28 @@ function expireDesktopBubbleSession(sessionId: string): void {
   clearDesktopBubbleSessionWithoutReward();
 }
 
+function expireDesktopBubbleSessionIfNeeded(now = Date.now()): boolean {
+  const { active, sessionId, startedAt } = desktopSessionState.status;
+  if (!active || !sessionId || startedAt === null || now < startedAt + DESKTOP_SESSION_DURATION_MS) return false;
+  expireDesktopBubbleSession(sessionId);
+  return true;
+}
+
 function scheduleDesktopSessionExpiry(sessionId: string, startedAt: number): void {
   clearDesktopSessionExpiryTimer();
   desktopSessionExpiryTimer = setTimeout(() => expireDesktopBubbleSession(sessionId), Math.max(0, startedAt + DESKTOP_SESSION_DURATION_MS - Date.now()));
 }
 
 export function startDesktopBubbleSession(): Promise<AppSnapshot> {
-  if (!data.settings.gameModeEnabled) return Promise.reject(new Error("小游戏模式已关闭"));
   const now = Date.now();
-  if (desktopSessionState.status.active
-    && desktopSessionState.status.startedAt !== null
-    && now >= desktopSessionState.status.startedAt + DESKTOP_SESSION_DURATION_MS) {
-    const expiredSessionId = desktopSessionState.status.sessionId;
-    if (expiredSessionId) expireDesktopBubbleSession(expiredSessionId);
-  }
+  expireDesktopBubbleSessionIfNeeded(now);
+  if (!data.settings.gameModeEnabled) return Promise.reject(new Error("小游戏模式已关闭"));
   if (desktopSessionState.status.active) return Promise.resolve(snapshot());
   if (gameActive) return Promise.reject(new Error("已有游戏正在进行"));
   desktopSessionState = startDesktopBubbleSessionState(desktopSessionState, now, data.settings.gameModeEnabled, gameActive);
   const sessionId = desktopSessionState.status.sessionId;
   if (!sessionId || desktopSessionState.status.startedAt === null) return Promise.reject(new Error("无法开始桌面互动"));
-  setGameActive(true);
+  wakeForGameInteraction("开始桌面泡泡互动");
   scheduleDesktopSessionExpiry(sessionId, desktopSessionState.status.startedAt);
   broadcast();
   return Promise.resolve(snapshot());
@@ -1038,11 +1119,7 @@ export function startDesktopBubbleSession(): Promise<AppSnapshot> {
 
 export function hitDesktopBubble(sessionId: string, bubbleId: string): Promise<AppSnapshot> {
   const now = Date.now();
-  if (desktopSessionState.status.startedAt !== null
-    && now >= desktopSessionState.status.startedAt + DESKTOP_SESSION_DURATION_MS) {
-    const activeSessionId = desktopSessionState.status.sessionId;
-    if (activeSessionId) expireDesktopBubbleSession(activeSessionId);
-  }
+  expireDesktopBubbleSessionIfNeeded(now);
   const result = hitDesktopBubbleState(desktopSessionState, sessionId, bubbleId, now);
   if (!result.accepted) return Promise.reject(new Error("泡泡命中无效"));
   desktopSessionState = result.state;
@@ -1054,6 +1131,7 @@ export function stopDesktopBubbleSession(sessionId: string, completed: boolean):
   const now = Date.now();
   const result = stopDesktopBubbleSessionState(desktopSessionState, sessionId, completed, now);
   if (!result.accepted) return Promise.reject(new Error("桌面互动 session 无效"));
+  if (!result.changed) return Promise.resolve(snapshot());
   clearDesktopSessionExpiryTimer();
   desktopSessionState = result.state;
   if (result.settlement) {
@@ -1064,10 +1142,8 @@ export function stopDesktopBubbleSession(sessionId: string, completed: boolean):
       "泡泡互动完成",
       "pop",
     );
-    gameActive = false;
     return Promise.resolve(settled);
   }
-  gameActive = false;
   broadcast();
   return Promise.resolve(snapshot());
 }
@@ -1308,6 +1384,15 @@ async function loadView(window: BrowserWindow, view: "overlay" | "center" | "qui
   }
 }
 
+function reportViewLoadError(view: string, error: unknown): void {
+  const detail = error instanceof Error ? error.message : String(error);
+  console.warn(`[xiaoman] failed to load ${view} view${detail ? `: ${detail}` : ""}`);
+}
+
+function loadViewSafely(window: BrowserWindow, view: "overlay" | "center" | "quick", mode?: QuickViewMode): void {
+  void loadView(window, view, mode).catch((error) => reportViewLoadError(view, error));
+}
+
 function hardenRendererWindow(window: BrowserWindow): void {
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   window.webContents.on("will-navigate", (event, targetUrl) => {
@@ -1387,7 +1472,7 @@ function createOverlayWindow(): void {
     if (data.settings.overlayVisible) overlayWindow?.showInactive();
     broadcast();
   });
-  void loadView(overlayWindow, "overlay");
+  loadViewSafely(overlayWindow, "overlay");
 }
 
 function createCenterWindow(): void {
@@ -1417,7 +1502,7 @@ function createCenterWindow(): void {
   centerWindow.on("ready-to-show", () => {
     broadcast();
   });
-  void loadView(centerWindow, "center");
+  loadViewSafely(centerWindow, "center");
 }
 
 function showCenter(): void {
@@ -1461,21 +1546,31 @@ function createQuickWindow(): BrowserWindow {
     }
   });
   window.on("closed", () => {
-    if (quickWindow === window) quickWindow = null;
+    if (quickWindow === window) {
+      quickLoadController?.invalidate(window);
+      quickWindow = null;
+    }
   });
   window.webContents.on("render-process-gone", () => {
-    if (quickWindow === window) quickWindow = null;
+    if (quickWindow !== window) return;
+    quickLoadController?.invalidate(window);
+    quickWindow = teardownQuickWindow(quickWindow, window);
   });
   window.on("ready-to-show", () => broadcast());
   return window;
 }
 
 export function showQuickWindow(mode: QuickViewMode): void {
+  quickLoadController ??= createQuickLoadController(
+    (window, nextMode) => loadView(window, "quick", nextMode),
+    (window) => quickWindow === window && !window.isDestroyed(),
+    (error) => reportViewLoadError("quick", error),
+  );
   quickWindow = ensureQuickWindow(
     quickWindow,
     mode,
     createQuickWindow,
-    (window, nextMode) => { void loadView(window, "quick", nextMode); },
+    (window, nextMode) => quickLoadController?.enqueue(window, nextMode),
   );
 }
 
