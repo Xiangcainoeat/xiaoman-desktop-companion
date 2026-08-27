@@ -30,12 +30,16 @@
 
 **Files:**
 - Modify: `src/shared/motion.ts`
+- Modify: `src/shared/domain.ts`
+- Modify: `src/shared/types.ts`
 - Modify: `src/components/Overlay.tsx`
+- Modify: `src/components/SettingsView.tsx`
 - Test: `src/shared/motion.test.ts`
+- Test: `src/shared/domain.test.ts`
 
-- [ ] Write failing tests proving secondary/control click cannot start drag and blur/context-menu/cancel resets an armed drag.
+- [ ] Write failing tests proving secondary/control click cannot start drag, blur/context-menu/cancel resets an armed drag, and 1-5 configured hover jumps resolve to the correct complete animation duration.
 - [ ] Run the motion test and verify RED.
-- [ ] Add a pure pointer eligibility/reset policy and wire Overlay events to it.
+- [ ] Add a pure pointer eligibility/reset policy, normalized `hoverJumpCount`, exact jump-cycle timing, and wire Overlay/settings events to them.
 - [ ] Run the focused test and verify GREEN.
 
 ### Task 3: Settings Layout
@@ -77,6 +81,8 @@
 - [ ] Implement single-index gaze selection and preserve smoothed angle/idle return behavior.
 - [ ] Remove the second enhanced look layer and all runtime look opacity blending.
 - [ ] Run focused tests and verify GREEN.
+
+- [ ] Relabel the existing gaze idle timeout as `鼠标静止多久停止跟随`, retain persisted milliseconds, and verify smooth return-to-front behavior remains covered by gaze tests.
 
 ### Task 5: 96 Clean Frames And Native Color QA
 

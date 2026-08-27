@@ -58,6 +58,13 @@ This update changes only the standalone Xiaoman desktop companion and its releas
 - Returning from the context menu or control center must not move the overlay until a new primary-button pointer down occurs.
 - Existing click, double-click, drag-run animation, and position persistence remain intact.
 
+## Hover And Gaze Timing Controls
+
+- Add a persisted `悬停跳跃次数` setting with an integer range of 1 through 5 and a default of 1.
+- One hover entry starts exactly the selected number of complete jump cycles; leaving the hitbox or starting a drag cancels the remaining cycles.
+- Keep the existing gaze-idle timeout behavior but relabel it clearly as `鼠标静止多久停止跟随` and expose its seconds value in the reorganized settings layout.
+- When the timeout expires, gaze returns smoothly to the front idle direction rather than snapping or fading.
+
 ## Raised-Paw Idle Action
 
 - Replace the current scratch/head-touch action with a front-paw raise.
@@ -68,7 +75,7 @@ This update changes only the standalone Xiaoman desktop companion and its releas
 
 ## Verification
 
-- Unit tests cover single-layer frame selection, 96-frame metadata, hysteresis, right-click drag rejection, drag reset events, reply eligibility, native operation selection, and sanitized reply logging.
+- Unit tests cover single-layer frame selection, 96-frame metadata, hysteresis, hover jump-cycle counts, gaze-idle timeout normalization, right-click drag rejection, drag reset events, reply eligibility, native operation selection, and sanitized reply logging.
 - Atlas verification checks dimensions, 96 unique direction slots, alpha occupancy, duplicate silhouettes, baseline/scale drift, edge spill, and reference-color distance.
 - Visual QA includes a labeled 12x8 contact sheet, seam frames around 0/360 degrees, lower-quadrant frames, and raised-paw sequence.
 - Browser and packaged Electron QA cover settings layout at desktop and narrow widths, overlay task-panel typography and non-overlap, context-menu round trip, 30/60 Hz gaze, and task reply success/error messages.
