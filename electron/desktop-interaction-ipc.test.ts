@@ -129,6 +129,21 @@ describe("desktop interaction Electron boundary", () => {
     expect(canCompleteGame(true, true, false)).toBe(true);
   });
 
+  it("returns a start rejection before a regular game can render during desktop interaction", async () => {
+    vi.stubGlobal("window", { setTimeout, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    const api = createMockApiForTests();
+    const desktop = await api.startDesktopBubbleSession();
+
+    await expect(api.startGameSession()).resolves.toEqual({
+      accepted: false,
+      message: "桌面泡泡互动正在进行",
+    });
+
+    await api.stopDesktopBubbleSession(desktop.desktopInteraction.sessionId!, false);
+    await expect(api.startGameSession()).resolves.toEqual({ accepted: true });
+    await expect(api.completeGame("bubble-pop", 0)).resolves.toBeTruthy();
+  });
+
   it("serializes latest quick loads and contains navigation failures", async () => {
     const window = {};
     const calls: string[] = [];
