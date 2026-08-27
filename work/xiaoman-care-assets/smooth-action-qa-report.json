@@ -1,0 +1,57 @@
+{
+  "date": "2026-08-28",
+  "worktree": "/Users/zk/.config/superpowers/worktrees/xiaoman-desktop-companion-release/xiaoman-care-and-games",
+  "assets": {
+    "sleeping-30": {
+      "path": "public/pet/sleeping-30.webp",
+      "metadata": "public/pet/sleeping-30.json",
+      "dimensions": [1920, 624],
+      "frames": 30,
+      "duplicateRatio": 0.0,
+      "edgePixels": 0,
+      "mattePixels": 0,
+      "bboxViolations": 0,
+      "redPinkEdgePixels": 0,
+      "colorDrift": 2.884949
+    },
+    "care-actions-30": {
+      "path": "public/pet/care-actions-30.webp",
+      "metadata": "public/pet/care-actions-30.json",
+      "dimensions": [1920, 1248],
+      "framesPerAction": 30,
+      "duplicateRatio": 0.0,
+      "edgePixels": 0,
+      "mattePixels": 0,
+      "bboxViolations": 0,
+      "redPinkEdgePixels": 0,
+      "sequences": {
+        "bath": { "colorDrift": 17.181374 },
+        "feed-gift": { "colorDrift": 15.211349 }
+      }
+    }
+  },
+  "backgroundChecks": {
+    "surfaces": ["white", "charcoal", "checkerboard"],
+    "transparentRgbPixels": 0,
+    "blackRectangles": 0,
+    "blackRectanglePixels": 0,
+    "result": "pass"
+  },
+  "pipeline": {
+    "crossFrameRgbAlphaBlend": false,
+    "sourcePoseCount": 36,
+    "runtimeSlots": 30,
+    "expansion": "36 independently generated poses are sampled into 30 discrete registered runtime slots; undersized poses are baseline-equalized; no cross-frame tween"
+  },
+  "tests": {
+    "pythonSmoothActionAtlas": 21,
+    "vitest": 248,
+    "typecheck": "pass",
+    "build": "pass",
+    "arm64DirectoryPackage": "pass"
+  },
+  "nativeProfile": {
+    "publicNativeFilesUnchanged": true,
+    "homeCodexPetFilesUnchanged": true
+  }
+}

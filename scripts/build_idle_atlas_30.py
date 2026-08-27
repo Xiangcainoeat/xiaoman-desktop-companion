@@ -27,6 +27,10 @@ NEUTRAL_TARGET_HEIGHT = 178
 BACKGROUND_COLOR_TOLERANCE = 64
 ALPHA_VISIBLE = 10
 ALPHA_OPAQUE = 245
+# A generated matte can be slightly darker than the ideal chroma key. Once
+# the pixel still has a strong matte signature, retaining its soft alpha
+# creates a visible rectangle when the sprite is composited on charcoal.
+HARD_MATTE_KEY_STRENGTH = 0.90
 # The accepted native Codex sprite uses a warm cream body. Keep this anchor in
 # the shared validator so generated action props cannot redefine the palette.
 NATIVE_FUR_REFERENCE_RGB = (242.0, 208.0, 171.0)
@@ -110,6 +114,8 @@ def chroma_to_alpha(image: Image.Image, return_stats: bool = False) -> Image.Ima
     # components enclosed by the subject. A clearly different interior green
     # pixel does not match this mask and remains opaque.
     alpha[candidate] = np.minimum(alpha[candidate], 255.0 * (1.0 - key_strength[candidate]))
+    hard_matte = candidate & (key_strength >= HARD_MATTE_KEY_STRENGTH)
+    alpha[hard_matte] = 0.0
     alpha[alpha < ALPHA_VISIBLE] = 0.0
     rgba[..., 3] = alpha
     rgba[alpha == 0, :3] = 0

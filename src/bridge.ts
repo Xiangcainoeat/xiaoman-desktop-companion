@@ -6,6 +6,7 @@ import type { XiaomanApi } from "./electron";
 import type {
   AppRuleInput,
   AppSnapshot,
+  CenterTab,
   CompanionSettings,
   CodexThreadListResult,
   CursorPayload,
@@ -24,6 +25,7 @@ import type {
 function createMockApi(): XiaomanApi {
   const listeners = new Set<(snapshot: AppSnapshot) => void>();
   const soundListeners = new Set<(sound: SoundName) => void>();
+  const centerTabListeners = new Set<(tab: CenterTab) => void>();
   const data = createDefaultData();
   let current: AppSnapshot = {
     ...data,
@@ -381,7 +383,10 @@ function createMockApi(): XiaomanApi {
     }),
     showQuickWindow: (_mode: QuickViewMode) => undefined,
     setOverlayTaskPanel: () => undefined,
-    showCenter: () => undefined,
+    showCenter: (tab?: CenterTab) => {
+      if (!tab) return;
+      for (const listener of centerTabListeners) listener(tab);
+    },
     toggleOverlay: () => undefined,
     moveOverlayBy: () => undefined,
     setOverlayMouseMode: () => undefined,
@@ -407,6 +412,10 @@ function createMockApi(): XiaomanApi {
     onSound: (listener) => {
       soundListeners.add(listener);
       return () => soundListeners.delete(listener);
+    },
+    onCenterTab: (listener) => {
+      centerTabListeners.add(listener);
+      return () => centerTabListeners.delete(listener);
     },
   };
 }

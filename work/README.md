@@ -70,11 +70,11 @@ No relay endpoint, API key, original user-photo path or private configuration is
 
 Version 1.4.0 adds a separate local care loop and three small games. The visual sources and deterministic post-processing records are kept under `work/xiaoman-care-assets/`:
 
-- `sleep-source.png` and `sleeping-prompt.md` are the complete curled-body sleep source; `public/pet/sleeping-30.webp` is the validated 10x3, 30-frame runtime atlas.
-- `care-source.png` and `care-prompt.md` contain the bath/feed action source; `public/pet/care-actions-30.webp` is the validated 10x6 atlas, with bath frames at row 0 and feed/gift frames at row 3.
+- `expanded-sleep-source.png`, `expanded-bath-source.png` and `expanded-feed-gift-source.png` are the accepted 6x6 supplementary sheets (36 source poses each); `public/pet/sleeping-30.webp` and `public/pet/care-actions-30.webp` are the validated 10x3/10x6, 30-frame runtime atlases.
+- `sleep-source.png` and `care-source.png` remain the original 3x10-compatible sources and deterministic fallback inputs; the expanded builder keeps the bath frames at row 0 and feed/gift frames at row 3.
 - `game-fish-source.png` and `game-bubble-source.png` are the generated game illustrations. `scripts/extract_game_targets.py` removes the plain background, preserves alpha and emits `public/game/fish-target.png` and `public/game/bubble-target.png`.
 - `*-verify-report.json` and contact sheets record frame occupancy, transparent corners, hidden RGB and green-edge checks. Re-run both care checks with `npm run verify:care-atlas`.
-- `game-fish-prompt.md`, `game-bubble-prompt.md` and `concurrency.json` preserve the reusable prompt and the combined image-generation/agent concurrency boundary. Source generation was run serially through the local `relay-imagegen` CLI; the configured combined maximum is 6.
+- `game-fish-prompt.md`, `game-bubble-prompt.md`, `expanded-source-provenance.json` and `concurrency.json` preserve the reusable prompts, source hashes and the combined image-generation/agent concurrency boundary. Source generation was run serially through the local `relay-imagegen` CLI; the configured combined maximum is 4, strictly below five.
 
 The care economy is intentionally separate from ordinary desktop interaction. Feeding consumes inventory; Codex completion, jobs, daily quests and gift boxes are reward sources; games grant only bounded affection and experience. The native Codex pet files remain outside this workflow and are never rewritten.
 

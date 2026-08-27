@@ -2,19 +2,21 @@
 
 ## Process model
 
-The app uses one Electron main process and two sandboxed renderer windows.
+The app uses one Electron main process and three sandboxed renderer window
+types. The center and quick windows are reused rather than duplicated.
 
 | Component | Responsibility |
 | --- | --- |
 | Overlay window | Transparent pet, gaze, drag/hover interactions and compact Codex reply panel |
 | Control center | Feature switches, task controls, stats, reminders, app rules, activity and settings |
+| Quick window | Compact care or interaction actions; it is one reusable window with a mode query |
 | Main process | State priority, timers, persistence, notifications, tray, cursor sampling and IPC validation |
 | Preload bridge | Explicit typed IPC methods; no general Node or filesystem access |
 | Codex monitor | Append-only, read-only lifecycle classification of local JSONL records |
 | Codex sessions service | Native state-db discovery, native IPC follower replies and explicit CLI compatibility operations |
 | App monitor | Reads only the localized name of the frontmost macOS application |
 
-Both windows run with `contextIsolation: true`, `nodeIntegration: false`, and `sandbox: true`.
+All renderer windows run with `contextIsolation: true`, `nodeIntegration: false`, and `sandbox: true`.
 
 ## State priority
 

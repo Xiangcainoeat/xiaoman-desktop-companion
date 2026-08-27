@@ -49,6 +49,7 @@ export type PetMotion =
   | "idle-scratch";
 
 export type QuickViewMode = "care" | "interaction";
+export type CenterTab = "features" | "care" | "games" | "codex" | "overview" | "reminders" | "events" | "settings";
 
 export interface DesktopInteractionStatus {
   active: boolean;

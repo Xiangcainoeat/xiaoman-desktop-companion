@@ -14,6 +14,7 @@ from build_idle_atlas_30 import (
     CELL_HEIGHT,
     CELL_WIDTH,
     _boundary_mask,
+    BASELINE_Y,
     chroma_to_alpha,
     despill_edges,
     normalize_action_frames,
@@ -177,6 +178,89 @@ def _extract_source_rows(source: Image.Image, *, tight: bool = False) -> list[li
     return source_rows
 
 
+def _projection_boundaries(
+    projection: np.ndarray,
+    *,
+    extent: int,
+    expected: int,
+    threshold: int,
+    merge_gap: int,
+    axis: str,
+) -> list[int]:
+    runs = _runs(projection > threshold, merge_gap=merge_gap)
+    if len(runs) != expected:
+        raise ValueError(
+            f"expanded source {axis} grid needs {expected} subjects, found {len(runs)}: {runs}"
+        )
+    return [0, *[(left[1] + right[0]) // 2 for left, right in zip(runs, runs[1:])], extent]
+
+
+def extract_expanded_grid_frames(
+    source: Image.Image,
+    *,
+    columns: int = 6,
+    rows: int = 6,
+) -> list[Image.Image]:
+    """Extract independently generated frames from a dense contact sheet.
+
+    Image models often shift a subject a few pixels inside each nominal cell.
+    Projection-derived boundaries keep neighboring props out of the crop while
+    retaining the complete silhouette. The returned frames are still discrete
+    RGBA images; no pixels are interpolated between poses here.
+    """
+    if columns <= 0 or rows <= 0:
+        raise ValueError("expanded source grid dimensions must be positive")
+    rgb = np.asarray(source.convert("RGB"), dtype=np.int16)
+    red, green, blue = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    foreground = (green < GREEN_THRESHOLD) | (green - np.maximum(red, blue) < GREEN_DOMINANCE)
+    height, width = foreground.shape
+    row_boundaries = _projection_boundaries(
+        foreground.sum(axis=1),
+        extent=height,
+        expected=rows,
+        threshold=max(5, round(width * 0.02)),
+        merge_gap=12,
+        axis="row",
+    )
+    frames: list[Image.Image] = []
+    for row, (top, bottom) in enumerate(zip(row_boundaries, row_boundaries[1:])):
+        column_boundaries = _projection_boundaries(
+            foreground[top:bottom].sum(axis=0),
+            extent=width,
+            expected=columns,
+            threshold=max(5, round((bottom - top) * 0.03)),
+            merge_gap=45,
+            axis=f"column in row {row}",
+        )
+        for left, right in zip(column_boundaries, column_boundaries[1:]):
+            cell = source.crop((left, top, right, bottom))
+            cleaned = _trim_edge_fragments(
+                _clean_green_boundary(despill_edges(chroma_to_alpha(cell)))
+            )
+            alpha = np.asarray(cleaned.convert("RGBA"))[..., 3]
+            ys, xs = np.where(alpha >= ALPHA_VISIBLE)
+            if len(xs) == 0:
+                raise ValueError(f"expanded source frame {row},{len(frames) % columns} is empty")
+            margin = max(2, round(min(cleaned.width, cleaned.height) * 0.02))
+            box = (
+                max(0, int(xs.min()) - margin),
+                max(0, int(ys.min()) - margin),
+                min(cleaned.width, int(xs.max()) + margin + 1),
+                min(cleaned.height, int(ys.max()) + margin + 1),
+            )
+            frames.append(cleaned.crop(box).convert("RGBA"))
+    return frames
+
+
+def _prepare_expanded_sequence(source_path: Path, *, columns: int = 6, rows: int = 6) -> list[Image.Image]:
+    with Image.open(source_path) as image:
+        source_frames = extract_expanded_grid_frames(image, columns=columns, rows=rows)
+    sampled = expand_to_frame_count(source_frames, FRAMES)
+    normalized, _ = normalize_action_frames(sampled)
+    equalized = _equalize_expanded_frames(normalized)
+    return [_trim_edge_fragments(_clean_green_boundary(frame)) for frame in equalized]
+
+
 def expand_to_frame_count(frames: list[Image.Image], count: int = FRAMES) -> list[Image.Image]:
     """Expand source poses with discrete registered-frame scheduling.
 
@@ -227,6 +311,69 @@ def _register_interpolation_frames(frames: list[Image.Image]) -> list[Image.Imag
         canvas.alpha_composite(subject, ((canvas_width - subject.width) // 2, canvas_height - subject.height))
         registered.append(canvas)
     return registered
+
+
+def _equalize_expanded_frames(frames: list[Image.Image], *, max_scale: float = 1.2) -> list[Image.Image]:
+    """Lift undersized generated poses without changing their silhouette shape.
+
+    Contact-sheet generators occasionally render a late prop/reveal pose much
+    smaller than the preceding cat. Scaling only frames below the sequence's
+    median visible width keeps the action readable while leaving naturally
+    wider prop poses untouched. The baseline and safe inset remain fixed.
+    """
+    if not frames:
+        return []
+    if not np.isfinite(max_scale) or max_scale < 1:
+        raise ValueError("max_scale must be a finite value greater than or equal to one")
+    rgba_frames = [frame.convert("RGBA") for frame in frames]
+    boxes = [
+        frame.getchannel("A").point(lambda value: 255 if value >= ALPHA_VISIBLE else 0).getbbox()
+        for frame in rgba_frames
+    ]
+    if any(box is None for box in boxes):
+        raise ValueError("cannot equalize a frame without visible pixels")
+    concrete_boxes = [box for box in boxes if box is not None]
+    widths = np.array([box[2] - box[0] for box in concrete_boxes], dtype=np.float32)
+    reference_width = float(np.median(widths))
+    safe_left, safe_top, safe_right, _ = (
+        DEFAULT_SAFE_INSET[0],
+        DEFAULT_SAFE_INSET[1],
+        CELL_WIDTH - DEFAULT_SAFE_INSET[2],
+        CELL_HEIGHT - DEFAULT_SAFE_INSET[3],
+    )
+    result: list[Image.Image] = []
+    for frame, box, width in zip(rgba_frames, concrete_boxes, widths):
+        factor = min(float(max_scale), reference_width / max(1.0, float(width)))
+        if factor <= 1.01:
+            result.append(frame.copy())
+            continue
+        subject = frame.crop(box)
+        target_width = max(1, round(subject.width * factor))
+        target_height = max(1, round(subject.height * factor))
+        factor = min(
+            factor,
+            (safe_right - safe_left) / max(1, subject.width),
+            (BASELINE_Y - safe_top) / max(1, subject.height),
+        )
+        target_width = max(1, round(subject.width * factor))
+        target_height = max(1, round(subject.height * factor))
+        resized = subject.resize((target_width, target_height), Image.Resampling.LANCZOS)
+        original_center_x = (box[0] + box[2]) / 2
+        left = round(original_center_x - target_width / 2)
+        left = max(safe_left, min(left, safe_right - target_width))
+        top = BASELINE_Y - target_height
+        if top < safe_top:
+            factor = min(factor, (BASELINE_Y - safe_top) / max(1, subject.height))
+            target_width = max(1, round(subject.width * factor))
+            target_height = max(1, round(subject.height * factor))
+            resized = subject.resize((target_width, target_height), Image.Resampling.LANCZOS)
+            left = round(original_center_x - target_width / 2)
+            left = max(safe_left, min(left, safe_right - target_width))
+            top = BASELINE_Y - target_height
+        canvas = Image.new("RGBA", frame.size, (0, 0, 0, 0))
+        canvas.alpha_composite(resized, (left, top))
+        result.append(canvas)
+    return result
 
 
 def _atlas_frame(atlas: Image.Image, row: int, index: int) -> Image.Image:
@@ -404,23 +551,41 @@ def _assemble(frames: list[Image.Image], rows: int) -> tuple[Image.Image, list[d
     return atlas, reports
 
 
-def build_assets(sleep_source: Path, care_source: Path, output_dir: Path) -> dict[str, object]:
+def build_assets(
+    sleep_source: Path,
+    care_source: Path | None,
+    output_dir: Path,
+    *,
+    bath_source: Path | None = None,
+    feed_source: Path | None = None,
+) -> dict[str, object]:
     output_dir.mkdir(parents=True, exist_ok=True)
-    with Image.open(sleep_source) as image:
-        sleeping_frames = _prepare_frames(image)
-    with Image.open(care_source) as image:
-        care_rows = _extract_source_rows(image, tight=True)
-        if any(len(row) < 8 for row in care_rows):
-            raise ValueError(f"care source rows need complete subjects, found {[len(row) for row in care_rows]}")
-        bath_frames = expand_to_frame_count(care_rows[0])
-        feed_frames = expand_to_frame_count(care_rows[1])
-        gift_frames = expand_to_frame_count(care_rows[2])
-        bath_frames, _ = normalize_action_frames(bath_frames)
-        # The shared row is intentionally a stable care-feedback loop: feeding
-        # leads into the gift reveal, then returns to feeding.
-        care_frames, _ = normalize_action_frames(feed_frames[:15] + gift_frames[:15])
-        bath_frames = [_trim_edge_fragments(_clean_green_boundary(frame)) for frame in bath_frames]
-        care_frames = [_trim_edge_fragments(_clean_green_boundary(frame)) for frame in care_frames]
+    expanded_sources = (bath_source, feed_source)
+    if any(source is not None for source in expanded_sources) and not all(source is not None for source in expanded_sources):
+        raise ValueError("expanded bath and feed sources must be provided together")
+    if all(source is not None for source in expanded_sources):
+        assert bath_source is not None and feed_source is not None
+        sleeping_frames = _prepare_expanded_sequence(sleep_source)
+        bath_frames = _prepare_expanded_sequence(bath_source)
+        care_frames = _prepare_expanded_sequence(feed_source)
+    else:
+        if care_source is None:
+            raise ValueError("care source is required when expanded sources are not provided")
+        with Image.open(sleep_source) as image:
+            sleeping_frames = _prepare_frames(image)
+        with Image.open(care_source) as image:
+            care_rows = _extract_source_rows(image, tight=True)
+            if any(len(row) < 8 for row in care_rows):
+                raise ValueError(f"care source rows need complete subjects, found {[len(row) for row in care_rows]}")
+            bath_frames = expand_to_frame_count(care_rows[0])
+            feed_frames = expand_to_frame_count(care_rows[1])
+            gift_frames = expand_to_frame_count(care_rows[2])
+            bath_frames, _ = normalize_action_frames(bath_frames)
+            # The shared row is intentionally a stable care-feedback loop: feeding
+            # leads into the gift reveal, then returns to feeding.
+            care_frames, _ = normalize_action_frames(feed_frames[:15] + gift_frames[:15])
+            bath_frames = [_trim_edge_fragments(_clean_green_boundary(frame)) for frame in bath_frames]
+            care_frames = [_trim_edge_fragments(_clean_green_boundary(frame)) for frame in care_frames]
 
     sleep_atlas, sleep_reports = _assemble(sleeping_frames, 3)
     care_atlas, care_reports = _assemble(bath_frames + [Image.new("RGBA", (CELL_WIDTH, CELL_HEIGHT), (0, 0, 0, 0))] * 30, 6)
@@ -483,10 +648,23 @@ def build_assets(sleep_source: Path, care_source: Path, output_dir: Path) -> dic
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--sleep-source", type=Path, required=True)
-    parser.add_argument("--care-source", type=Path, required=True)
+    parser.add_argument("--care-source", type=Path)
+    parser.add_argument("--bath-source", type=Path)
+    parser.add_argument("--feed-source", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     args = parser.parse_args()
-    build_assets(args.sleep_source, args.care_source, args.output_dir)
+    expanded_sources = (args.bath_source, args.feed_source)
+    if args.care_source is None and not all(source is not None for source in expanded_sources):
+        parser.error("provide --care-source or both --bath-source and --feed-source")
+    if any(source is not None for source in expanded_sources) and not all(source is not None for source in expanded_sources):
+        parser.error("--bath-source and --feed-source must be provided together")
+    build_assets(
+        args.sleep_source,
+        args.care_source,
+        args.output_dir,
+        bath_source=args.bath_source,
+        feed_source=args.feed_source,
+    )
 
 
 if __name__ == "__main__":

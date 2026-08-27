@@ -1,8 +1,8 @@
 import { contextBridge, ipcRenderer } from "electron";
-import { MAX_OVERLAY_HIT_REGIONS } from "../src/shared/types";
 import type {
   AppRuleInput,
   AppSnapshot,
+  CenterTab,
   CompanionSettings,
   CodexOpenResult,
   CodexReplyResult,
@@ -20,6 +20,10 @@ import type {
   SoundName,
 } from "../src/shared/types";
 
+// Sandboxed preloads cannot require application-relative runtime modules.
+// Keep this protocol limit local and aligned with the shared type contract.
+const MAX_OVERLAY_HIT_REGIONS = 64;
+
 function isOverlayView(): boolean {
   if (typeof window === "undefined") return false;
   try {
@@ -28,6 +32,33 @@ function isOverlayView(): boolean {
     return false;
   }
 }
+
+const CENTER_TABS: readonly CenterTab[] = [
+  "features",
+  "care",
+  "games",
+  "codex",
+  "overview",
+  "reminders",
+  "events",
+  "settings",
+];
+
+function isCenterTab(value: unknown): value is CenterTab {
+  return typeof value === "string" && CENTER_TABS.includes(value as CenterTab);
+}
+
+const centerTabListeners = new Set<(tab: CenterTab) => void>();
+let pendingCenterTab: CenterTab | null = null;
+
+ipcRenderer.on("center:select-tab", (_event, value: unknown) => {
+  if (!isCenterTab(value)) return;
+  if (centerTabListeners.size === 0) {
+    pendingCenterTab = value;
+    return;
+  }
+  for (const listener of centerTabListeners) listener(value);
+});
 
 function rounded(value: number): number {
   return Math.round(value * 100) / 100;
@@ -212,7 +243,7 @@ contextBridge.exposeInMainWorld("xiaoman", {
   replyCodexThread: (threadId: string, message: string): Promise<CodexReplyResult> =>
     ipcRenderer.invoke("codex:thread:reply", threadId, message),
   setOverlayTaskPanel: (open: boolean): void => ipcRenderer.send("overlay:task-panel", open),
-  showCenter: (): void => ipcRenderer.send("center:show"),
+  showCenter: (tab?: CenterTab): void => ipcRenderer.send("center:show", tab),
   showQuickWindow: (mode: QuickViewMode): void => ipcRenderer.send("quick:show", mode),
   toggleOverlay: (): void => ipcRenderer.send("overlay:toggle"),
   moveOverlayBy: (deltaX: number, deltaY: number): void => ipcRenderer.send("overlay:move-by", deltaX, deltaY),
@@ -233,6 +264,17 @@ contextBridge.exposeInMainWorld("xiaoman", {
     const listener = (_event: Electron.IpcRendererEvent, sound: SoundName) => callback(sound);
     ipcRenderer.on("sound:play", listener);
     return () => ipcRenderer.removeListener("sound:play", listener);
+  },
+  onCenterTab: (callback: (tab: CenterTab) => void): (() => void) => {
+    centerTabListeners.add(callback);
+    if (pendingCenterTab !== null) {
+      const tab = pendingCenterTab;
+      pendingCenterTab = null;
+      queueMicrotask(() => {
+        if (centerTabListeners.has(callback)) callback(tab);
+      });
+    }
+    return () => centerTabListeners.delete(callback);
   },
 });
 

@@ -64,6 +64,7 @@ import {
   type AppRule,
   type AppRuleInput,
   type AppSnapshot,
+  type CenterTab,
   type CompanionSettings,
   type CodexOpenResult,
   type CodexReplyResult,
@@ -605,6 +606,8 @@ let store: CompanionStore;
 let data: PersistedData;
 let overlayWindow: BrowserWindow | null = null;
 let centerWindow: BrowserWindow | null = null;
+let pendingCenterTab: CenterTab | null = null;
+let centerWindowLoaded = false;
 let quickWindow: BrowserWindow | null = null;
 let quickLoadController: QuickLoadController<BrowserWindow> | null = null;
 let tray: Tray | null = null;
@@ -1765,8 +1768,31 @@ function createOverlayWindow(): void {
   loadViewSafely(window, "overlay");
 }
 
+const CENTER_TABS: readonly CenterTab[] = [
+  "features",
+  "care",
+  "games",
+  "codex",
+  "overview",
+  "reminders",
+  "events",
+  "settings",
+];
+
+function isCenterTab(value: unknown): value is CenterTab {
+  return typeof value === "string" && CENTER_TABS.includes(value as CenterTab);
+}
+
+function flushPendingCenterTab(): void {
+  if (!centerWindow || centerWindow.isDestroyed() || !centerWindowLoaded || pendingCenterTab === null) return;
+  const tab = pendingCenterTab;
+  pendingCenterTab = null;
+  centerWindow.webContents.send("center:select-tab", tab);
+}
+
 function createCenterWindow(): void {
-  centerWindow = new BrowserWindow({
+  centerWindowLoaded = false;
+  const window = new BrowserWindow({
     width: 1080,
     height: 730,
     minWidth: 900,
@@ -1782,23 +1808,43 @@ function createCenterWindow(): void {
       sandbox: true,
     },
   });
-  hardenRendererWindow(centerWindow);
-  centerWindow.on("close", (event) => {
+  centerWindow = window;
+  hardenRendererWindow(window);
+  window.webContents.on("did-start-loading", () => {
+    if (centerWindow !== window) return;
+    centerWindowLoaded = false;
+  });
+  window.webContents.on("did-finish-load", () => {
+    if (centerWindow !== window) return;
+    centerWindowLoaded = true;
+    flushPendingCenterTab();
+  });
+  window.on("close", (event) => {
     if (!quitting) {
       event.preventDefault();
-      centerWindow?.hide();
+      window.hide();
     }
   });
-  centerWindow.on("ready-to-show", () => {
+  window.on("ready-to-show", () => {
+    if (centerWindow !== window) return;
+    flushPendingCenterTab();
     broadcast();
   });
-  loadViewSafely(centerWindow, "center");
+  window.on("closed", () => {
+    if (centerWindow !== window) return;
+    centerWindowLoaded = false;
+    pendingCenterTab = null;
+    centerWindow = null;
+  });
+  loadViewSafely(window, "center");
 }
 
-function showCenter(): void {
+function showCenter(tab?: CenterTab): void {
+  if (tab !== undefined) pendingCenterTab = tab;
   if (!centerWindow || centerWindow.isDestroyed()) createCenterWindow();
   centerWindow?.show();
   centerWindow?.focus();
+  flushPendingCenterTab();
 }
 
 function createQuickWindow(): BrowserWindow {
@@ -2220,7 +2266,11 @@ function registerIpcHandlers(): void {
     if (mode !== "passthrough" && mode !== "interactive") throw new Error("Overlay 鼠标模式无效");
     setOverlayMouseMode(mode);
   });
-  ipcMain.on("center:show", () => showCenter());
+  ipcMain.on("center:show", (event, tab: unknown) => {
+    assertTrustedSender(event.sender, event.senderFrame);
+    if (tab !== undefined && !isCenterTab(tab)) throw new Error("控制中心标签无效");
+    showCenter(tab as CenterTab | undefined);
+  });
   ipcMain.on("overlay:toggle", () => toggleOverlay());
   ipcMain.on("overlay:task-panel", (event, open: unknown) => {
     assertTrustedOverlaySender(event.sender, event.senderFrame);

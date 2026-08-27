@@ -1,0 +1,41 @@
+{
+  "format": "6x6 contact sheet",
+  "sourcePoseCount": 36,
+  "runtimeFrameCount": 30,
+  "model": "gpt-image-2",
+  "generationRoute": "private relay via local relay_imagegen CLI",
+  "prompt": "work/xiaoman-care-assets/expanded-source-prompt.md",
+  "sources": {
+    "sleep": {
+      "path": "work/xiaoman-care-assets/expanded-sleep-source.png",
+      "sha256": "3593a1bcca57a055276c036eb11225b9522abde8aa294e4b308c756778ebc285",
+      "dimensions": [1619, 972]
+    },
+    "bath": {
+      "path": "work/xiaoman-care-assets/expanded-bath-source.png",
+      "sha256": "19307d022b4cfb9db788f6fb951d248893feb94816bb66f9518f6b4159072bec",
+      "dimensions": [1254, 1254]
+    },
+    "feedGift": {
+      "path": "work/xiaoman-care-assets/expanded-feed-gift-source.png",
+      "sha256": "a51cb07f8ef2fc0f45601b230fc426c48724bd3e6d16caff40fce18c3bfda8cd",
+      "dimensions": [1619, 972]
+    }
+  },
+  "assembly": {
+    "extractor": "projection-derived 6x6 boundaries with chroma key and edge cleanup",
+    "registration": "shared scale and baseline; undersized generated poses capped at 1.2x",
+    "blendAcrossPoses": false,
+    "transparentBackground": true
+  },
+  "publicOutputs": {
+    "sleepingAtlas": {
+      "path": "public/pet/sleeping-30.webp",
+      "sha256": "f8062119a216a7158a44cc0d741a479c68dd055fc0ea714e71852e49c767357f"
+    },
+    "careAtlas": {
+      "path": "public/pet/care-actions-30.webp",
+      "sha256": "acb4087cce617da35239c5eaa3e7e57ef99123cd1ef375cb27f718858c375b58"
+    }
+  }
+}

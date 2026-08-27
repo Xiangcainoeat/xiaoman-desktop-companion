@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   AppWindow,
   BellRing,
@@ -21,8 +21,9 @@ import { GamesView } from "./GamesView";
 import { OverviewView } from "./OverviewView";
 import { RemindersView } from "./RemindersView";
 import { SettingsView } from "./SettingsView";
+import type { CenterTab } from "../shared/types";
 
-type Tab = "features" | "care" | "games" | "codex" | "overview" | "reminders" | "events" | "settings";
+type Tab = CenterTab;
 
 const NAVIGATION: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
   { id: "features", label: "桌宠功能", icon: <ListChecks size={18} /> },
@@ -49,6 +50,8 @@ const TAB_TITLES: Record<Tab, string> = {
 export function ControlCenter() {
   const snapshot = useCompanion();
   const [tab, setTab] = useState<Tab>("features");
+
+  useEffect(() => bridge.onCenterTab((nextTab) => setTab(nextTab)), []);
 
   if (!snapshot) {
     return (

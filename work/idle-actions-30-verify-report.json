@@ -54,7 +54,7 @@
       "emptyFrames": 0,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 4,
-      "redPinkEdgePixels": 1,
+      "redPinkEdgePixels": 0,
       "maxColorDrift": 12.5,
       "backgroundHolePixelsRemoved": 0,
       "registration": {
@@ -529,7 +529,7 @@
       "opaquePixels": 11265,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 1,
-      "redPinkEdgePixels": 1
+      "redPinkEdgePixels": 0
     },
     {
       "action": "idle-blink",

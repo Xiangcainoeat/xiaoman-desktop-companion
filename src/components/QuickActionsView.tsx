@@ -14,6 +14,7 @@ import {
   Sparkles,
   Star,
   Utensils,
+  X,
   Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -152,7 +153,21 @@ export function QuickActionsView({ mode }: { mode: QuickViewMode }) {
           <span className="eyebrow">小满 · 快捷操作</span>
           <h1>{mode === "care" ? "养成照料" : "互动"}</h1>
         </div>
-        <div className="quick-level" aria-label={`等级 ${snapshot.stats.level}`}><Star size={15} /><span>Lv. {snapshot.stats.level}</span></div>
+        <div className="quick-header-actions">
+          <div className="quick-level" aria-label={`等级 ${snapshot.stats.level}`}><Star size={15} /><span>Lv. {snapshot.stats.level}</span></div>
+          <button
+            className="quick-close-button"
+            type="button"
+            title="关闭快捷窗口"
+            aria-label="关闭快捷窗口"
+            onClick={(event) => {
+              event.stopPropagation();
+              window.close();
+            }}
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
       </header>
 
       {mode === "care" ? (
@@ -252,7 +267,7 @@ export function QuickActionsView({ mode }: { mode: QuickViewMode }) {
           <QuickSection title="和小满相处" icon={<Heart size={17} aria-hidden="true" />}>
             <div className="quick-interaction-actions">
               <button className="quick-wide-button" type="button" disabled={busy !== null} title="摸摸小满" aria-label="摸摸小满" onClick={() => void runAction("pet", () => bridge.interact("pet"))}><Heart size={16} aria-hidden="true" /><span>摸摸</span></button>
-              <button className="quick-wide-button" type="button" title="打开更多游戏" aria-label="打开更多游戏" onClick={(event) => { event.stopPropagation(); bridge.showCenter(); }}><Gamepad2 size={16} aria-hidden="true" /><span>更多游戏</span></button>
+              <button className="quick-wide-button" type="button" title="打开更多游戏" aria-label="打开更多游戏" onClick={(event) => { event.stopPropagation(); bridge.showCenter("games"); }}><Gamepad2 size={16} aria-hidden="true" /><span>更多游戏</span></button>
             </div>
             <div className="quick-interaction-summary"><Sparkles size={14} aria-hidden="true" /><span>好感度 {Math.round(snapshot.stats.affection)} · 精力 {Math.round(snapshot.stats.energy)}</span></div>
           </QuickSection>

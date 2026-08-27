@@ -6,7 +6,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -36,6 +36,51 @@ def _smooth_source_frames(count: int) -> list[Image.Image]:
 
 
 class SmoothActionAtlasContractTest(unittest.TestCase):
+    def test_extract_expanded_grid_keeps_thirty_distinct_registered_frames(self) -> None:
+        import build_care_atlas_30
+
+        source = Image.new("RGB", (600, 600), (18, 238, 28))
+        draw = ImageDraw.Draw(source)
+        for row in range(6):
+            for column in range(6):
+                left = column * 100 + 12 + row
+                top = row * 100 + 14
+                width = 30 + row * 4 + column * 3
+                height = 40 + row * 3 + column * 2
+                draw.ellipse((left, top, left + width, top + height), fill=(214, 174, 142))
+
+        frames = build_care_atlas_30.extract_expanded_grid_frames(source)
+        expanded = build_care_atlas_30.expand_to_frame_count(frames, 30)
+
+        self.assertEqual(len(frames), 36)
+        self.assertEqual(len(expanded), 30)
+        self.assertGreater(len({frame.tobytes() for frame in expanded}), 20)
+        self.assertTrue(all(frame.mode == "RGBA" for frame in expanded))
+
+    def test_expanded_sequence_lifts_undersized_late_poses_on_the_same_baseline(self) -> None:
+        import build_care_atlas_30
+
+        frames = []
+        for index in range(30):
+            frame = Image.new("RGBA", (192, 208), (0, 0, 0, 0))
+            if index < 24:
+                box = (46, 72, 146, 202)
+            else:
+                box = (66, 102, 126, 202)
+            frame.paste((214, 174, 142, 255), box)
+            frames.append(frame)
+
+        equalized = build_care_atlas_30._equalize_expanded_frames(frames)
+        for frame in equalized:
+            alpha = np.asarray(frame.getchannel("A")) >= 10
+            ys, xs = np.where(alpha)
+            self.assertGreaterEqual(int(xs.min()), 8)
+            self.assertLessEqual(int(xs.max()), 183)
+            self.assertEqual(int(ys.max()), 201)
+        late_alpha = np.asarray(equalized[-1].getchannel("A")) >= 10
+        _, late_xs = np.where(late_alpha)
+        self.assertGreater(int(late_xs.max() - late_xs.min() + 1), 60)
+
     def test_chroma_to_alpha_preserves_existing_transparency(self) -> None:
         from build_idle_atlas_30 import chroma_to_alpha
 
@@ -46,6 +91,21 @@ class SmoothActionAtlasContractTest(unittest.TestCase):
 
         self.assertEqual(result.getpixel((0, 0))[3], 0)
         self.assertEqual(result.getpixel((4, 4))[3], 255)
+
+    def test_chroma_to_alpha_removes_low_alpha_from_an_uneven_green_matte(self) -> None:
+        from build_idle_atlas_30 import chroma_to_alpha
+
+        # Generated sheets often use a slightly darker green than the ideal
+        # matte. A soft key must not leave a visible rectangular halo on dark
+        # desktop backgrounds.
+        source = Image.new("RGB", (32, 32), (43, 193, 68))
+        source.paste((214, 174, 142), (10, 10, 22, 22))
+
+        result = chroma_to_alpha(source)
+
+        self.assertEqual(result.getpixel((0, 0))[3], 0)
+        self.assertEqual(result.getpixel((31, 31))[3], 0)
+        self.assertEqual(result.getpixel((16, 16))[3], 255)
 
     def test_expand_cycles_ten_registered_rgba_poses_into_thirty_discrete_frames(self) -> None:
         from build_care_atlas_30 import expand_to_frame_count

@@ -22,7 +22,7 @@
 - 游戏模式默认开启但可关闭；游戏输入不进入透明桌宠拖动区域。
 - 原生 profile 的 `pet.json`、`spritesheet.webp`、`look-16.webp` 不修改、不写回 `~/.codex/pets/xiaoman`。
 - 增强注视继续使用一个完整身体层、无透明混合；30/60 Hz、速度响应、死区和回正行为保持不变。
-- 生图和扩帧使用本机已有图像流程；所有并发任务（生图和 Agent 合计）不超过 6。
+- 生图和扩帧使用本机已有图像流程；所有并发任务（生图和 Agent 合计）最多 4 个，严格低于 5。
 - 每个任务完成后运行自身测试并提交一个小 commit；不得使用破坏性 git 命令。
 
 ## 文件地图
@@ -107,7 +107,7 @@ Commit: `git add src/shared tests && git commit -m "feat: add v3 Xiaoman care do
 - `verify_care_atlas_30.py <atlas> <metadata>` exits nonzero for missing/empty frames, wrong dimensions, mid-alpha contamination or magenta/green edge contamination.
 
 - [ ] **Step 1: Write the asset contract test.** Require 30 non-empty sleep frames, 30 non-empty bath/feeding frames, fixed cell metadata, transparent corners and stable light-fur color relative to `work/xiaoman-pet-96/generation-inputs/native-color-reference.png`.
-- [ ] **Step 2: Generate the curled sleeping and care source images through the local image-generation skill.** Keep Xiaoman’s native cream/brown/blue-eye palette, transparent background, complete body silhouette, no neck splice, and no third-party character assets. Keep total active generation/Agent concurrency below 6.
+- [ ] **Step 2: Generate the curled sleeping and care source images through the local image-generation skill.** Keep Xiaoman’s native cream/brown/blue-eye palette, transparent background, complete body silhouette, no neck splice, and no third-party character assets. Keep total active generation/Agent concurrency at most 4, strictly below 5.
 - [ ] **Step 3: Implement deterministic frame extraction, de-spill and atlas assembly.** Build `sleeping-30.webp` as 10x3 and `care-actions-30.webp` as 10x6; the first 30-frame animation starts at row 0 (bath), and the second starts at row 3 (feeding/gift feedback), matching `atlasFramePosition`.
 - [ ] **Step 4: Verify the atlases and inspect contact sheets.**
 

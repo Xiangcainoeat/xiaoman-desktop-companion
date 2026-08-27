@@ -2,7 +2,8 @@
   "scope": "xiaoman-care-and-games",
   "generationRoute": "private relay via local relay_imagegen CLI",
   "model": "gpt-image-2",
-  "combinedImageGenerationAndAgentLimit": 6,
+  "combinedImageGenerationAndAgentLimit": 4,
+  "requestedConstraint": "strictly below five active workers",
   "actualPeakCombinedConcurrency": 1,
   "sourceJobs": [
     "sleeping curled-body source",
@@ -10,5 +11,5 @@
     "fish target source",
     "bubble target source"
   ],
-  "note": "Source images were generated serially; deterministic extraction and atlas assembly run locally from the recorded sources. No endpoint, credential or private photo path is stored here."
+  "note": "The hard cap for this release is four combined image-generation and agent workers; source images were generated serially and deterministic extraction/atlas assembly ran locally. No endpoint, credential or private photo path is stored here."
 }

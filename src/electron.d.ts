@@ -1,6 +1,7 @@
 import type {
   AppRuleInput,
   AppSnapshot,
+  CenterTab,
   CompanionSettings,
   CodexOpenResult,
   CodexReplyResult,
@@ -47,7 +48,7 @@ export interface XiaomanApi {
   openCodexThread(threadId: string): Promise<CodexOpenResult>;
   replyCodexThread(threadId: string, message: string): Promise<CodexReplyResult>;
   setOverlayTaskPanel(open: boolean): void;
-  showCenter(): void;
+  showCenter(tab?: CenterTab): void;
   showQuickWindow(mode: QuickViewMode): void;
   toggleOverlay(): void;
   moveOverlayBy(deltaX: number, deltaY: number): void;
@@ -57,6 +58,7 @@ export interface XiaomanApi {
   onSnapshot(callback: (snapshot: AppSnapshot) => void): () => void;
   onCursor(callback: (payload: CursorPayload) => void): () => void;
   onSound(callback: (sound: SoundName) => void): () => void;
+  onCenterTab(callback: (tab: CenterTab) => void): () => void;
 }
 
 declare global {

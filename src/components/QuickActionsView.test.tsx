@@ -64,6 +64,12 @@ describe("quick action ownership", () => {
     expect(quickSource).toContain("catch");
   });
 
+  it("offers an explicit close control for the frameless quick window", () => {
+    expect(quickSource).toContain('title="关闭快捷窗口"');
+    expect(quickSource).toContain('aria-label="关闭快捷窗口"');
+    expect(quickSource).toContain("window.close()");
+  });
+
   it("does not leak Codex, CLI, gaze, notification, or settings controls into quick views", () => {
     for (const forbidden of ["ControlCenter", "Codex", "CLI", "注视", "通知", "updateSettings"]) {
       expect(quickSource).not.toContain(forbidden);

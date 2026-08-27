@@ -112,7 +112,17 @@ directly.
 
 ## Care and game assets
 
-The care loop uses `public/pet/sleeping-30.webp` and `public/pet/care-actions-30.webp`, each assembled and validated as fixed 192x208 cells. `public/game/fish-target.png` and `public/game/bubble-target.png` are cleaned transparent bitmap targets extracted deterministically from the local generated sources. Prompts, source images, reports and concurrency notes are kept in `work/xiaoman-care-assets/`.
+The care loop uses `public/pet/sleeping-30.webp` and `public/pet/care-actions-30.webp`, each assembled and validated as fixed 192x208 cells. The accepted source sheets contain 36 generated poses each; the builder samples 30 registered runtime slots without cross-frame blending and keeps the feet on a shared baseline. Rebuild the accepted expanded sources with:
+
+```bash
+sh scripts/run_image_python.sh scripts/build_care_atlas_30.py \
+  --sleep-source work/xiaoman-care-assets/expanded-sleep-source.png \
+  --bath-source work/xiaoman-care-assets/expanded-bath-source.png \
+  --feed-source work/xiaoman-care-assets/expanded-feed-gift-source.png \
+  --output-dir release/candidates/care-rebuild
+```
+
+`public/game/fish-target.png` and `public/game/bubble-target.png` are cleaned transparent bitmap targets extracted deterministically from the local generated sources. Prompts, source images, reports and concurrency notes are kept in `work/xiaoman-care-assets/`. Image generation and agent work share a hard maximum of four active workers for this release.
 
 ## Testing a local build
 
