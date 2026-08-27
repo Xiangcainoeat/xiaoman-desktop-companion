@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BellRing, Fish, Heart, Moon, Sparkles, Utensils } from "lucide-react";
+import { Bath, BellRing, Fish, Heart, Moon, Sparkles, Utensils } from "lucide-react";
 import {
   advanceAnimationClock,
   atlasFramePosition,
@@ -52,7 +52,9 @@ const STATE_ROW: Record<PetState, number> = {
   ready: 8,
   failed: 5,
   hungry: 6,
+  dirty: 6,
   eating: 0,
+  bathing: 0,
   happy: 3,
   affectionate: 8,
   sleepy: 0,
@@ -71,7 +73,9 @@ const STATE_FPS: Record<PetState, number> = {
   ready: 4.5,
   failed: 2.2,
   hungry: 1.8,
+  dirty: 1.5,
   eating: 3.4,
+  bathing: 5.2,
   happy: 4.2,
   affectionate: 2.8,
   sleepy: 1.1,
@@ -127,7 +131,9 @@ const LOOK_ATLAS_FALLBACKS: Record<PetProfile, LookAtlasMetadata> = {
 
 function MoodGlyph({ state }: { state: PetSpriteState }) {
   if (state === "hungry") return <Fish aria-hidden="true" />;
+  if (state === "dirty") return <Bath aria-hidden="true" />;
   if (state === "eating") return <Utensils aria-hidden="true" />;
+  if (state === "bathing") return <Sparkles aria-hidden="true" />;
   if (state === "affectionate" || state === "happy") return <Heart aria-hidden="true" />;
   if (state === "sleepy" || state === "sleeping") return <Moon aria-hidden="true" />;
   if (state === "reminder") return <BellRing aria-hidden="true" />;
@@ -473,7 +479,7 @@ export function PetSprite({
     backgroundPosition: `${-(index % lookMetadata.columns) * size}px ${-Math.floor(index / lookMetadata.columns) * dimensions.height}px`,
   });
 
-  const decorated = ["hungry", "eating", "happy", "affectionate", "sleepy", "sleeping", "playful", "celebrating", "reminder"].includes(state);
+  const decorated = ["hungry", "dirty", "eating", "bathing", "happy", "affectionate", "sleepy", "sleeping", "playful", "celebrating", "reminder"].includes(state);
 
   return (
     <div

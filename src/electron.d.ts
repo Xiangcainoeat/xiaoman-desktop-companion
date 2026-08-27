@@ -21,6 +21,7 @@ export interface XiaomanApi {
   bathePet(): Promise<AppSnapshot>;
   openGiftBox(): Promise<AppSnapshot>;
   startPetJob(jobId: JobId): Promise<AppSnapshot>;
+  collectPetJob(): Promise<AppSnapshot>;
   cancelPetJob(): Promise<AppSnapshot>;
   claimDailyQuest(questId: string): Promise<AppSnapshot>;
   setGameActive(active: boolean): void;

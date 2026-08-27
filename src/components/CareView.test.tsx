@@ -16,6 +16,8 @@ describe("CareView source contract", () => {
       "好感度",
       "食物库存",
       "礼包",
+      "Codex",
+      "小鱼干从哪里来",
       "洗澡",
       "打工",
       "每日任务",
@@ -37,6 +39,7 @@ describe("CareView source contract", () => {
       "bridge.openGiftBox()",
       "bridge.bathePet()",
       "bridge.startPetJob(jobId)",
+      "bridge.collectPetJob()",
       "bridge.cancelPetJob()",
       "bridge.claimDailyQuest(quest.id)",
     ]) {

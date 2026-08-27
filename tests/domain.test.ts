@@ -31,8 +31,15 @@ describe("pet stat decay", () => {
     const data = createDefaultData(0);
     const next = decayStats(data.stats, false, 60 * 60_000);
     expect(next.fullness).toBeLessThan(data.stats.fullness);
+    expect(next.cleanliness).toBeLessThan(data.stats.cleanliness);
     expect(next.energy).toBeLessThan(data.stats.energy);
     expect(next.lastUpdatedAt).toBe(60 * 60_000);
+  });
+
+  it("does not spend cleanliness while sleeping", () => {
+    const data = createDefaultData(0);
+    const next = decayStats(data.stats, true, 60 * 60_000);
+    expect(next.cleanliness).toBe(data.stats.cleanliness);
   });
 
   it("restores energy while sleeping", () => {
@@ -52,6 +59,12 @@ describe("ambient state priority", () => {
   it("surfaces sleeping and hunger before app state", () => {
     expect(deriveAmbientState(stats, true, false, "focused")).toBe("sleeping");
     expect(deriveAmbientState({ ...stats, fullness: 20 }, false, false, "focused")).toBe("hungry");
+  });
+
+  it("surfaces the bath reminder when cleanliness is low", () => {
+    expect(deriveAmbientState({ ...stats, cleanliness: 17 }, false, false, null)).toBe("dirty");
+    expect(deriveAmbientState({ ...stats, cleanliness: 17 }, false, true, null)).toBe("working");
+    expect(deriveAmbientState({ ...stats, cleanliness: 17 }, true, false, null)).toBe("sleeping");
   });
 });
 
@@ -170,6 +183,30 @@ describe("version 2 persistence migration", () => {
     expect(normalized.inventory.giftBoxes).toBe(0);
     expect(normalized.dailyQuests).toHaveLength(5);
     expect(normalized.codexRewardLedger).toEqual(["a"]);
+  });
+
+  it("restores canonical daily quest rewards instead of trusting persisted reward fields", () => {
+    const data = createDefaultData(100);
+    const quest = data.dailyQuests[0];
+    const normalized = normalizePersistedData({
+      ...data,
+      version: 3,
+      dailyQuests: [{
+        ...quest,
+        title: "伪造任务",
+        target: 999,
+        progress: 999,
+        reward: { food: { salmon: 9999 }, giftBoxes: 9999, experience: 999999 },
+      }, ...data.dailyQuests.slice(1)],
+    });
+
+    expect(normalized.dailyQuests[0]).toMatchObject({
+      kind: "feed",
+      title: "喂小满一次",
+      target: 1,
+      progress: 1,
+      reward: { food: { "fish-snack": 2 }, giftBoxes: 0, experience: 0 },
+    });
   });
 
   it("rejects versions newer than v3", () => {

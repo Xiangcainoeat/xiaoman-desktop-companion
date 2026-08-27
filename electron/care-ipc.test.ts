@@ -22,6 +22,7 @@ import { createDefaultData } from "../src/shared/domain";
 import {
   applyCareMutation,
   applyCodexCompletionReward,
+  canCompleteGame,
   settleDuePetJob,
   shouldAutoSleepForRuntime,
 } from "./main";
@@ -90,6 +91,12 @@ describe("care IPC integration boundary", () => {
     const input = { enabled: true, idleSeconds: 900, afterMinutes: 15, codexBusy: false, reminderActive: false, jobActive: false, sleeping: false, manualSleep: false };
     expect(shouldAutoSleepForRuntime({ ...input, gameActive: true })).toBe(false);
     expect(shouldAutoSleepForRuntime({ ...input, gameActive: false, codexBusy: true })).toBe(false);
+  });
+
+  it("only accepts a game settlement from an active enabled session", () => {
+    expect(canCompleteGame(false, true)).toBe(false);
+    expect(canCompleteGame(true, false)).toBe(false);
+    expect(canCompleteGame(true, true)).toBe(true);
   });
 
   it("grants one completion reward for duplicate non-recovered monitor events", () => {

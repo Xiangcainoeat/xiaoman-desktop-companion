@@ -101,6 +101,7 @@ export type CareMutation =
   | { kind: "bath" }
   | { kind: "open-gift" }
   | { kind: "start-job"; jobId: JobId }
+  | { kind: "complete-job" }
   | { kind: "cancel-job" }
   | { kind: "claim-quest"; questId: string }
   | { kind: "complete-game"; gameId: GameId; score: number };
@@ -187,6 +188,10 @@ export function applyCareMutation(input: {
     const result = startCareJob(data, operation.jobId, now);
     return result.ok ? { ok: true, data: result.data, message: result.message ?? "开始打工啦" } : result;
   }
+  if (operation.kind === "complete-job") {
+    const result = settleDuePetJob(data, now, random);
+    return result.ok ? { ok: true, data: result.data, message: result.message ?? "打工完成啦" } : result;
+  }
   if (operation.kind === "cancel-job") return cancelPetJob(data);
   if (operation.kind === "claim-quest") {
     if (typeof operation.questId !== "string" || !operation.questId.trim()) return { ok: false, message: "任务不存在" };
@@ -204,19 +209,9 @@ export function applyCareMutation(input: {
 }
 
 export function settleDuePetJob(data: PersistedData, now: number, random = Math.random): CareMutationResult {
-  const jobId = data.activeJob?.id;
-  const result = completePetJob(data, now);
+  const result = completePetJob(data, now, random);
   if (!result.ok) return result;
-  if (jobId !== "code-helper") return { ok: true, data: result.data, message: result.message ?? "打工完成啦" };
-  const rawGiftRoll = random();
-  const giftRoll = Number.isFinite(rawGiftRoll) ? Math.max(0, Math.min(0.999999, rawGiftRoll)) : 0.999999;
-  const withCodeHelperGift = jobId === "code-helper" && giftRoll < 0.12
-    ? {
-      ...result.data,
-      inventory: { ...result.data.inventory, giftBoxes: Math.min(9999, result.data.inventory.giftBoxes + 1) },
-    }
-    : result.data;
-  return { ok: true, data: withCodeHelperGift, message: result.message ?? "打工完成啦" };
+  return { ok: true, data: result.data, message: result.message ?? "打工完成啦" };
 }
 
 export function applyCodexCompletionReward(
@@ -235,6 +230,10 @@ export function applyCodexCompletionReward(
 
 export function shouldAutoSleepForRuntime(input: AutoSleepInput): boolean {
   return shouldAutoSleep(input);
+}
+
+export function canCompleteGame(gameActive: boolean, gameModeEnabled: boolean): boolean {
+  return gameActive && gameModeEnabled;
 }
 
 let store: CompanionStore;
@@ -334,7 +333,7 @@ function triggerState(
 ): void {
   const now = Date.now();
   // Care actions do not hide a live Codex task or an active reminder.
-  if (source === "interaction" && (runtimeState.source === "codex" || runtimeState.source === "reminder")) return;
+  if (source === "interaction" && (monitoring.codexBusy || runtimeState.source === "codex" || runtimeState.source === "reminder")) return;
   if (runtimeState.expiresAt && runtimeState.expiresAt > now && priority < runtimeState.priority) return;
   clearStateTimer();
   const sequence = ++stateSequence;
@@ -371,7 +370,7 @@ function recomputeState(force = false): void {
     message = "小满睡着了";
     source = "interaction";
     priority = 45;
-  } else if (state === "hungry" || state === "sleepy") {
+  } else if (state === "hungry" || state === "dirty" || state === "sleepy") {
     source = "needs";
     priority = 40;
   } else if (currentAppRule) {
@@ -410,6 +409,7 @@ function commitCareMutation(
   defaultMessage: string,
   sound: SoundName,
   wakesInactivity = true,
+  durationMs = 4200,
 ): AppSnapshot {
   if (!result.ok) throw new Error(result.message);
   data = wakesInactivity ? wakeInactivitySleep(result.data) : result.data;
@@ -419,7 +419,7 @@ function commitCareMutation(
     detail: result.message || defaultMessage,
     state,
   });
-  triggerState(state, result.message || defaultMessage, "interaction", 4200, 92, false);
+  triggerState(state, result.message || defaultMessage, "interaction", durationMs, 92, false);
   emitSound(sound);
   persistAndBroadcast();
   return snapshot();
@@ -432,19 +432,20 @@ function runCareMutation(
   message: string,
   sound: SoundName,
   wakesInactivity = true,
+  durationMs = 4200,
 ): AppSnapshot {
   const now = Date.now();
   rolloverDailyQuests(now);
   const inputData = { ...data, stats: decayStats(data.stats, data.sleeping, now) };
-  return commitCareMutation(applyCareMutation({ data: inputData, operation, now, random: careRandomSource }), title, state, message, sound, wakesInactivity);
+  return commitCareMutation(applyCareMutation({ data: inputData, operation, now, random: careRandomSource }), title, state, message, sound, wakesInactivity, durationMs);
 }
 
 function feedFood(foodId: FoodId): AppSnapshot {
-  return runCareMutation({ kind: "feed", foodId }, "喂了小满", "eating", "鱼干真香", "crunch");
+  return runCareMutation({ kind: "feed", foodId }, "喂了小满", "eating", "鱼干真香", "crunch", true, 6200);
 }
 
 function bathePet(): AppSnapshot {
-  return runCareMutation({ kind: "bath" }, "给小满洗澡", "happy", "洗得香香的", "chime");
+  return runCareMutation({ kind: "bath" }, "给小满洗澡", "bathing", "洗得香香的", "chime", true, 6200);
 }
 
 function openGiftBox(): AppSnapshot {
@@ -453,6 +454,10 @@ function openGiftBox(): AppSnapshot {
 
 function startPetJob(jobId: JobId): AppSnapshot {
   return runCareMutation({ kind: "start-job", jobId }, "开始打工", "working", "打工中", "chime");
+}
+
+function collectPetJob(): AppSnapshot {
+  return runCareMutation({ kind: "complete-job" }, "领取打工奖励", "celebrating", "打工奖励到账", "chime");
 }
 
 function cancelPetJobIpc(): AppSnapshot {
@@ -464,13 +469,16 @@ function claimDailyQuest(questId: string): AppSnapshot {
 }
 
 function completeGame(gameId: GameId, score: number): AppSnapshot {
-  return runCareMutation({ kind: "complete-game", gameId, score }, "完成互动游戏", "playful", "游戏完成", "pop");
+  if (!canCompleteGame(gameActive, data.settings.gameModeEnabled)) throw new Error("没有正在进行的游戏");
+  const result = runCareMutation({ kind: "complete-game", gameId, score }, "完成互动游戏", "playful", "游戏完成", "pop");
+  gameActive = false;
+  return result;
 }
 
 async function performInteraction(action: InteractionAction): Promise<AppSnapshot> {
   if (action === "feed") return feedFood("fish-snack");
   const now = Date.now();
-  data = { ...data, stats: decayStats(data.stats, data.sleeping, now) };
+  data = { ...data, stats: { ...decayStats(data.stats, data.sleeping, now), lastUpdatedAt: now } };
   data.stats.interactions += 1;
 
   if (action === "pet") {
@@ -1395,6 +1403,10 @@ function registerIpcHandlers(): void {
     assertTrustedInvoke(event);
     if (!isJobId(jobId)) throw new Error("没有这个打工");
     return startPetJob(jobId);
+  });
+  ipcMain.handle("care:collect-pet-job", (event) => {
+    assertTrustedInvoke(event);
+    return collectPetJob();
   });
   ipcMain.handle("care:cancel-pet-job", (event) => {
     assertTrustedInvoke(event);

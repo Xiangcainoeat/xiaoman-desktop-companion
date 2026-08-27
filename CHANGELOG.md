@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.4.0 - 2026-08-27
+
+- Added a persistent local care loop with fullness, cleanliness, energy, affection, experience and levels.
+- Added inventory-backed feeding for fish snacks, milk, tuna bites and salmon; zero inventory never changes stats.
+- Added Codex completion rewards with one fish snack per real `threadId + turnId`, an 18% gift-box roll, and no rewards for recovered history.
+- Added three local jobs, daily quests, gift-box opening with documented food weights, offline job settlement and explicit reward collection; the code-helper job exposes its separate 12% bonus gift chance.
+- Added a separate care center and a read-only overview handoff so care operations do not duplicate ordinary interaction actions.
+- Added configurable inactivity sleep with a complete curled-body atlas, a dirty state when cleanliness falls below 18, and a bathing animation.
+- Added a switchable local-games page with rock-paper-scissors, fish catching and bubble popping; game settlements are bounded to affection and experience.
+- Added original fish and bubble target bitmap assets, deterministic extraction, care/sleep atlas verification and the `verify:care-atlas` command.
+- Preserved the native Codex profile, native task routing and explicit CLI compatibility boundary.
+
 ## 1.3.1 - 2026-08-27
 
 - Reverted enhanced gaze rendering to the complete 96-direction body atlas so the head, neck, torso, paws and tail remain one coherent pose.

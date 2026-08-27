@@ -22,6 +22,7 @@ contextBridge.exposeInMainWorld("xiaoman", {
   bathePet: (): Promise<AppSnapshot> => ipcRenderer.invoke("care:bathe-pet"),
   openGiftBox: (): Promise<AppSnapshot> => ipcRenderer.invoke("care:open-gift-box"),
   startPetJob: (jobId: JobId): Promise<AppSnapshot> => ipcRenderer.invoke("care:start-pet-job", jobId),
+  collectPetJob: (): Promise<AppSnapshot> => ipcRenderer.invoke("care:collect-pet-job"),
   cancelPetJob: (): Promise<AppSnapshot> => ipcRenderer.invoke("care:cancel-pet-job"),
   claimDailyQuest: (questId: string): Promise<AppSnapshot> => ipcRenderer.invoke("care:claim-daily-quest", questId),
   setGameActive: (active: boolean): void => ipcRenderer.send("game:set-active", active),

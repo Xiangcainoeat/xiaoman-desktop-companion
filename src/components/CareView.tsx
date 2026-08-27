@@ -52,11 +52,15 @@ function formatDuration(milliseconds: number): string {
   return rest ? `${hours} 小时 ${rest} 分钟` : `${hours} 小时`;
 }
 
-function rewardText(reward: { experience: number; food: Partial<Record<FoodId, number>>; giftBoxes: number }): string {
+function rewardText(
+  reward: { experience: number; food: Partial<Record<FoodId, number>>; giftBoxes: number },
+  bonusGiftChance = 0,
+): string {
   const items = Object.entries(reward.food)
     .filter(([, quantity]) => quantity && quantity > 0)
     .map(([foodId, quantity]) => `${FOOD_LABELS[foodId as FoodId]} x${quantity}`);
   if (reward.giftBoxes > 0) items.push(`礼包 x${reward.giftBoxes}`);
+  if (bonusGiftChance > 0) items.push(`${Math.round(bonusGiftChance * 100)}% 礼包机会`);
   if (reward.experience > 0) items.push(`经验 +${reward.experience}`);
   return items.join("、");
 }
@@ -136,6 +140,10 @@ export function CareView({ snapshot }: { snapshot: AppSnapshot }) {
               <PackageOpen size={15} /><span>打开</span>
             </button>
           </div>
+          <div className="care-reward-note">
+            <Sparkles size={16} aria-hidden="true" />
+            <span><strong>小鱼干从哪里来</strong><small>每个真实完成的 Codex 任务奖励 1 份；打工、每日任务和礼包也会补充库存。Codex 奖励按任务只发一次，小游戏只增加好感度和经验。</small></span>
+          </div>
         </section>
 
         <section className="section-block care-panel care-bath-panel" aria-labelledby="care-bath-title">
@@ -154,8 +162,19 @@ export function CareView({ snapshot }: { snapshot: AppSnapshot }) {
             return (
               <article className={`care-job-card ${isActive ? "is-active" : ""}`} key={jobId}>
                 <div className="care-job-icon"><BriefcaseBusiness size={19} /></div>
-                <div className="care-job-copy"><strong>{JOB_LABELS[jobId]}</strong><p>{JOB_DESCRIPTIONS[jobId]}</p><small><Clock3 size={13} />{formatDuration(job.duration)} · {rewardText(job.reward)}</small></div>
-                {isActive ? <div className="care-job-status"><strong>{remaining > 0 ? `剩余 ${formatDuration(remaining)}` : "可以领取奖励"}</strong><button type="button" className="care-cancel-button" onClick={() => void runAction(() => bridge.cancelPetJob())}>取消打工</button></div> : <button type="button" className="care-action-button" disabled={Boolean(activeJob) || snapshot.stats.energy < 4} onClick={() => void runAction(() => bridge.startPetJob(jobId))}>开始</button>}
+                <div className="care-job-copy"><strong>{JOB_LABELS[jobId]}</strong><p>{JOB_DESCRIPTIONS[jobId]}</p><small><Clock3 size={13} />{formatDuration(job.duration)} · {rewardText(job.reward, job.bonusGiftChance)}</small></div>
+                {isActive ? (
+                  <div className="care-job-status">
+                    <strong>{remaining > 0 ? `剩余 ${formatDuration(remaining)}` : "可以领取奖励"}</strong>
+                    {remaining > 0 ? (
+                      <button type="button" className="care-cancel-button" onClick={() => void runAction(() => bridge.cancelPetJob())}>取消打工</button>
+                    ) : (
+                      <button type="button" className="care-action-button" onClick={() => void runAction(() => bridge.collectPetJob())}>领取奖励</button>
+                    )}
+                  </div>
+                ) : (
+                  <button type="button" className="care-action-button" disabled={Boolean(activeJob) || snapshot.stats.energy < 4} onClick={() => void runAction(() => bridge.startPetJob(jobId))}>开始</button>
+                )}
               </article>
             );
           })}

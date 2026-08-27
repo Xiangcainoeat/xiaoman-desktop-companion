@@ -1,5 +1,5 @@
 import { appendActivity, clampStat, createDefaultData, decayStats, FOOD_IDS, makeId, STATE_LABELS } from "./shared/domain";
-import { applyBath, applyFeed, claimDailyQuest, openGiftBox, startPetJob } from "./shared/care";
+import { applyBath, applyFeed, claimDailyQuest, completePetJob, openGiftBox, startPetJob } from "./shared/care";
 import { settleGameResult } from "./shared/games";
 import type { XiaomanApi } from "./electron";
 import type {
@@ -41,7 +41,7 @@ function createMockApi(): XiaomanApi {
     for (const listener of listeners) listener(structuredClone(current));
     return structuredClone(current);
   };
-  const temporaryState = (state: AppSnapshot["state"], message: string, sound: SoundName) => {
+  const temporaryState = (state: AppSnapshot["state"], message: string, sound: SoundName, durationMs = 2600) => {
     current.state = state;
     current.stateMessage = message;
     if (sound !== "none") for (const listener of soundListeners) listener(sound);
@@ -49,7 +49,7 @@ function createMockApi(): XiaomanApi {
       current.state = "idle";
       current.stateMessage = STATE_LABELS.idle;
       publish();
-    }, 2600);
+    }, durationMs);
   };
 
   const runCare = (
@@ -58,6 +58,7 @@ function createMockApi(): XiaomanApi {
       | { kind: "bath" }
       | { kind: "open-gift" }
       | { kind: "start-job"; jobId: JobId }
+      | { kind: "complete-job" }
       | { kind: "cancel-job" }
       | { kind: "claim-quest"; questId: string }
       | { kind: "complete-game"; gameId: GameId; score: number },
@@ -84,6 +85,7 @@ function createMockApi(): XiaomanApi {
       }
       result = startPetJob(baseData, operation.jobId, now);
     }
+    else if (operation.kind === "complete-job") result = completePetJob(baseData, now);
     else if (operation.kind === "cancel-job") {
       result = baseData.activeJob
         ? { ok: true as const, data: { ...baseData, activeJob: null }, message: "已取消打工" }
@@ -129,7 +131,8 @@ function createMockApi(): XiaomanApi {
       detail: result.message ?? message,
       state,
     });
-    temporaryState(state, result.message ?? message, sound);
+    const durationMs = operation.kind === "feed" || operation.kind === "bath" ? 6200 : 2600;
+    temporaryState(state, result.message ?? message, sound, durationMs);
     return publish();
   };
 
@@ -152,6 +155,7 @@ function createMockApi(): XiaomanApi {
       current.stats.energy = clampStat(current.stats.energy - 7);
     }
     current.sleeping = action === "sleep" ? true : action === "wake" ? false : current.sleeping;
+    current.sleepReason = action === "sleep" ? "manual" : action === "wake" ? null : current.sleepReason;
     current.stats.interactions += 1;
     temporaryState(mapping[action].state, mapping[action].message, mapping[action].sound);
     current.activity = appendActivity(current.activity, {
@@ -167,9 +171,10 @@ function createMockApi(): XiaomanApi {
     getSnapshot: async () => structuredClone(current),
     interact,
     feedFood: async (foodId: FoodId) => runCare({ kind: "feed", foodId }, "eating", "鱼干真香", "crunch", "喂了小满"),
-    bathePet: async () => runCare({ kind: "bath" }, "happy", "洗得香香的", "chime", "给小满洗澡"),
+    bathePet: async () => runCare({ kind: "bath" }, "bathing", "洗得香香的", "chime", "给小满洗澡"),
     openGiftBox: async () => runCare({ kind: "open-gift" }, "celebrating", "礼包打开啦", "chime", "打开了礼包"),
     startPetJob: async (jobId: JobId) => runCare({ kind: "start-job", jobId }, "working", "打工中", "chime", "开始打工"),
+    collectPetJob: async () => runCare({ kind: "complete-job" }, "celebrating", "打工奖励到账", "chime", "领取打工奖励"),
     cancelPetJob: async () => runCare({ kind: "cancel-job" }, "idle", "已取消打工", "none", "取消打工"),
     claimDailyQuest: async (questId: string) => runCare({ kind: "claim-quest", questId }, "celebrating", "领取成功", "chime", "领取每日任务奖励"),
     setGameActive: (active: boolean) => { gameActive = Boolean(active) && current.settings.gameModeEnabled; },

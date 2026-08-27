@@ -3,6 +3,8 @@ import {
   AppWindow,
   BellRing,
   Code2,
+  Gamepad2,
+  Heart,
   Eye,
   LayoutDashboard,
   ListChecks,
@@ -13,24 +15,30 @@ import { STATE_LABELS } from "../shared/domain";
 import { bridge, useCompanion } from "../useCompanion";
 import { EventsView } from "./EventsView";
 import { CodexTasksView } from "./CodexTasksView";
+import { CareView } from "./CareView";
 import { FeaturesView } from "./FeaturesView";
+import { GamesView } from "./GamesView";
 import { OverviewView } from "./OverviewView";
 import { RemindersView } from "./RemindersView";
 import { SettingsView } from "./SettingsView";
 
-type Tab = "features" | "codex" | "overview" | "reminders" | "events" | "settings";
+type Tab = "features" | "care" | "games" | "codex" | "overview" | "reminders" | "events" | "settings";
 
 const NAVIGATION: Array<{ id: Tab; label: string; icon: React.ReactNode }> = [
-  { id: "features", label: "功能", icon: <ListChecks size={18} /> },
+  { id: "features", label: "桌宠功能", icon: <ListChecks size={18} /> },
+  { id: "care", label: "养成照料", icon: <Heart size={18} /> },
+  { id: "games", label: "互动游戏", icon: <Gamepad2 size={18} /> },
   { id: "codex", label: "Codex 任务", icon: <Code2 size={18} /> },
   { id: "overview", label: "概览", icon: <LayoutDashboard size={18} /> },
   { id: "reminders", label: "提醒计划", icon: <BellRing size={18} /> },
   { id: "events", label: "应用事件", icon: <AppWindow size={18} /> },
-  { id: "settings", label: "设置", icon: <Settings size={18} /> },
+  { id: "settings", label: "偏好设置", icon: <Settings size={18} /> },
 ];
 
 const TAB_TITLES: Record<Tab, string> = {
   features: "小满的功能",
+  care: "照顾小满",
+  games: "和小满玩游戏",
   codex: "Codex 当前任务",
   overview: "今天的小满",
   reminders: "提醒计划",
@@ -73,6 +81,7 @@ export function ControlCenter() {
                 <em>{snapshot.reminders.filter((reminder) => reminder.enabled).length}</em>
               )}
               {item.id === "codex" && snapshot.monitoring.codexBusy && <em>运行中</em>}
+              {item.id === "care" && snapshot.inventory.food["fish-snack"] > 0 && <em>{snapshot.inventory.food["fish-snack"]}</em>}
             </button>
           ))}
         </nav>
@@ -103,13 +112,15 @@ export function ControlCenter() {
         </header>
         <div className="content-scroll">
           {tab === "features" && <FeaturesView snapshot={snapshot} />}
+          {tab === "care" && <CareView snapshot={snapshot} />}
+          {tab === "games" && <GamesView enabled={snapshot.settings.gameModeEnabled} />}
           {tab === "codex" && (
             <CodexTasksView
               enabled={snapshot.settings.codexSessionControls}
               replyTransport={snapshot.settings.codexReplyTransport}
             />
           )}
-          {tab === "overview" && <OverviewView snapshot={snapshot} />}
+          {tab === "overview" && <OverviewView snapshot={snapshot} onOpenCare={() => setTab("care")} />}
           {tab === "reminders" && <RemindersView snapshot={snapshot} />}
           {tab === "events" && <EventsView snapshot={snapshot} />}
           {tab === "settings" && <SettingsView snapshot={snapshot} />}

@@ -1,5 +1,5 @@
 import { PET_STATES, SOUND_NAMES } from "./types";
-import { canonicalJobReward } from "./care";
+import { canonicalJobReward, QUEST_DEFINITIONS } from "./care";
 import { DEFAULT_HOVER_JUMP_COUNT, normalizeHoverJumpCount } from "./motion";
 import type {
   ActivityItem,
@@ -15,7 +15,6 @@ import type {
   Inventory,
   JobId,
   QuestKind,
-  RewardBundle,
 } from "./types";
 
 // The source Codex atlas has transparent tail cells on several standard rows.
@@ -29,7 +28,9 @@ export const STATE_LABELS: Record<PetState, string> = {
   ready: "完成啦",
   failed: "出了点问题",
   hungry: "有点饿",
+  dirty: "该洗澡啦",
   eating: "正在吃饭",
+  bathing: "洗澡中",
   happy: "心情很好",
   affectionate: "喜欢你",
   sleepy: "有点困",
@@ -80,14 +81,6 @@ export const DEFAULT_SETTINGS: CompanionSettings = {
 };
 
 export const FOOD_IDS: FoodId[] = ["fish-snack", "milk", "tuna-bites", "salmon"];
-const QUEST_DEFINITIONS: Array<{ kind: QuestKind; title: string; reward: RewardBundle }> = [
-  { kind: "feed", title: "喂小满一次", reward: { food: { "fish-snack": 2 }, giftBoxes: 0, experience: 0 } },
-  { kind: "bathe", title: "给小满洗澡", reward: { food: {}, giftBoxes: 0, experience: 8 } },
-  { kind: "play", title: "完成一次互动游戏", reward: { food: {}, giftBoxes: 1, experience: 0 } },
-  { kind: "work", title: "完成一次打工", reward: { food: {}, giftBoxes: 0, experience: 10 } },
-  { kind: "codex-complete", title: "完成一个 Codex 任务", reward: { food: { "fish-snack": 1 }, giftBoxes: 0, experience: 0 } },
-];
-
 function dateKey(now: number): string {
   const date = new Date(now);
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -202,6 +195,7 @@ export function decayStats(stats: PetStats, sleeping: boolean, now = Date.now())
     ...stats,
     fullness: clampStat(stats.fullness - elapsedMinutes / 24),
     affection: clampStat(stats.affection - elapsedMinutes / (60 * 18)),
+    cleanliness: clampStat(stats.cleanliness - (sleeping ? 0 : elapsedMinutes / 45)),
     energy: clampStat(stats.energy + (sleeping ? elapsedMinutes / 7 : -elapsedMinutes / 52)),
     lastUpdatedAt: now,
   };
@@ -216,6 +210,7 @@ export function deriveAmbientState(
   if (codexBusy) return "working";
   if (sleeping) return "sleeping";
   if (stats.fullness <= 22) return "hungry";
+  if (stats.cleanliness < 18) return "dirty";
   if (stats.energy <= 18) return "sleepy";
   return appRuleState ?? "idle";
 }
@@ -359,17 +354,6 @@ function normalizeStats(value: unknown, defaults: PetStats): PetStats {
   };
 }
 
-function normalizeReward(value: unknown): RewardBundle {
-  const source = recordValue(value) ?? {};
-  const foodSource = recordValue(source.food) ?? {};
-  const food = Object.fromEntries(FOOD_IDS.map((id) => [id, integerValue(foodSource[id], 0, 0, 9999)])) as Record<FoodId, number>;
-  return {
-    food,
-    giftBoxes: integerValue(source.giftBoxes, 0, 0, 9999),
-    experience: integerValue(source.experience, 0, 0, Number.MAX_SAFE_INTEGER),
-  };
-}
-
 function normalizeInventory(value: unknown, defaults: Inventory): Inventory {
   const source = recordValue(value) ?? {};
   const foodSource = recordValue(source.food) ?? {};
@@ -394,14 +378,15 @@ function normalizeQuest(value: unknown): DailyQuest | null {
   const source = recordValue(value);
   const kinds: QuestKind[] = ["feed", "bathe", "play", "work", "codex-complete", "open-gift"];
   if (!source || typeof source.id !== "string" || !kinds.includes(source.kind as QuestKind)) return null;
-  const target = integerValue(source.target, 1, 1, 9999);
+  const definition = QUEST_DEFINITIONS.find((item) => item.kind === source.kind);
+  if (!definition) return null;
   return {
     id: textValue(source.id, "quest", 120),
     kind: source.kind as QuestKind,
-    title: textValue(source.title, "每日任务", 80),
-    target,
-    progress: integerValue(source.progress, 0, 0, target),
-    reward: normalizeReward(source.reward),
+    title: definition.title,
+    target: definition.target,
+    progress: integerValue(source.progress, 0, 0, definition.target),
+    reward: { food: { ...definition.reward.food }, giftBoxes: definition.reward.giftBoxes, experience: definition.reward.experience },
     claimed: booleanValue(source.claimed, false),
   };
 }

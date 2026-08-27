@@ -25,11 +25,11 @@ The app asks macOS `NSWorkspace` for the localized name of the frontmost applica
 
 ## Stored data
 
-The local JSON store contains pet stats, reminder text, app-name rules, idle phrases, settings, overlay position and a bounded recent activity list. It is written with owner-only file permissions.
+The local JSON store contains pet stats, inventory quantities, active job timing, daily quest progress, a bounded Codex reward ledger, reminder text, app-name rules, idle phrases, settings, overlay position and a bounded recent activity list. It is written with owner-only file permissions. Food, gift boxes and experience are local game data; they are never sent to Codex or a remote service.
 
 ## Build-time image generation
 
-The idle action sheet and enhanced gaze transition references were produced during development through the user's private OpenAI-compatible ImageGen relay with `gpt-image-2`, using the local `relay-imagegen` CLI wrapper. The relay endpoint and credentials are not included in the app and are never called at runtime. The native 16-direction gaze atlas is extracted locally from the accepted native spritesheet; the enhanced 96-direction atlas is assembled locally from generated anchors, selected in-between images and seam repairs.
+The idle action sheet, enhanced gaze transition references, care/sleep sources and game target sources were produced during development through the user's private OpenAI-compatible ImageGen relay with `gpt-image-2`, using the local `relay-imagegen` CLI wrapper. The relay endpoint and credentials are not included in the app and are never called at runtime. The native 16-direction gaze atlas is extracted locally from the accepted native spritesheet; the enhanced 96-direction atlas and care/game resources are assembled or cleaned locally from recorded sources.
 
 ## Codex independence
 
