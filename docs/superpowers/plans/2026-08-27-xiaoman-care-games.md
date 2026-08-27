@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **执行状态：已完成（2026-08-27）。** 养成、睡眠、小游戏、界面拆分、资源校验和 1.4.0 发布物均已落地并通过最终验证；下方步骤保留为实施记录。
+
 **Goal:** 在保留 Codex 原生宠物和回复边界的前提下，为小满增加可持久化养成系统、自动蜷缩睡眠、可开关小游戏、生产动作预览，并重排“桌宠功能/偏好设置”界面。
 
 **Architecture:** 将库存、食物、礼包、任务、打工、睡眠资格和游戏结算实现为共享纯函数；Electron 主进程负责持久化、系统空闲检测、工作结算、Codex 奖励幂等和 IPC 校验；React renderer 负责动作预览、养成表单和小游戏会话。增强 profile 使用新增完整身体护理/睡眠图集，native profile 资源不写回、不替换。
