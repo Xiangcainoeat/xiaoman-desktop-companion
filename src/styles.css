@@ -181,8 +181,19 @@ select:focus-visible {
 }
 
 .pet-sprite-base,
-.pet-look-layer {
+.pet-look-layer,
+.pet-head-look-layer {
   will-change: background-position;
+}
+
+/* Enhanced gaze is a spatial face mask over the fixed body. Visibility is
+   toggled discretely so adjacent directions never create a temporal ghost. */
+.pet-head-look-layer {
+  visibility: hidden;
+}
+
+.pet-head-look-layer.is-visible {
+  visibility: visible;
 }
 
 .pet-mood-glyph {

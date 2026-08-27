@@ -36,10 +36,11 @@ Renderer-only motion does not mutate this business state. Drag running, hover ju
 4. Shortest-path exponential smoothing follows the target without frame-rate dependence.
 5. Upper-180 mode clamps lower targets to the horizon; full-360 mode permits low-head frames.
 6. Lower tracking is capped relative to the inactivity timeout so it reaches the lower quadrant before reset; return-to-neutral uses a separate prompt-but-smooth cap.
-7. The selected profile chooses either the 96-frame enhanced atlas (3.75° steps) or the untouched native 16-frame atlas (22.5° steps); each profile renders one direction layer at a time, with no opacity cross-fade.
-8. After cursor inactivity, the direction eases to zero, the look layer is removed, and the ordinary forward animation is restored.
+7. Cursor samples carry timestamps. The renderer estimates instantaneous pointer velocity and lowers the gaze time constant while the pointer moves quickly, so a fast mouse move produces a fast response instead of a fixed-speed path.
+8. The enhanced profile keeps the ordinary body/action sprite stable and places one 96-frame head-only atlas (`head-look-96.webp`) over its face. The native profile keeps the accepted 16-frame full-body look atlas. Both profiles select one direction at a time, with no opacity cross-fade.
+9. After cursor inactivity, the direction eases to zero, the enhanced head layer is hidden, and the ordinary forward animation is restored.
 
-The enhanced `look-96.webp` is assembled deterministically from a repaired 32-anchor source, 64 generated in-betweens and four selected lower-hemisphere seam repairs. Its metadata, source hashes, prompts, concurrency record and contact sheets live under `work/xiaoman-pet-96/`. The native `public/pet/native/` profile is a byte-for-byte copy of the accepted v2 `pet.json`, `spritesheet.webp` and extracted `look-16.webp`; it is never written back to `~/.codex/pets/xiaoman`. The older `look-32.webp` and `look-90.webp` remain provenance only.
+The enhanced `look-96.webp` source is assembled deterministically from a repaired 32-anchor source, 64 generated in-betweens and four selected lower-hemisphere seam repairs. The runtime head atlas is derived from those approved frames with a spatial face mask, neutral eye cover and native-color grade; it never temporally blends adjacent frames. Its metadata, source hashes, prompts, concurrency record and contact sheets live under `work/xiaoman-pet-96/`. The native `public/pet/native/` profile is a byte-for-byte copy of the accepted v2 `pet.json`, `spritesheet.webp` and extracted `look-16.webp`; it is never written back to `~/.codex/pets/xiaoman`. The older `look-32.webp` and `look-90.webp` remain provenance only.
 
 ## Motion and idle behavior
 

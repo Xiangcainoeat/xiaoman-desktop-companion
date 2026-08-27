@@ -67,7 +67,7 @@ if (!gotSingleInstanceLock) app.quit();
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
 const DEFAULT_OVERLAY_WIDTH = 320;
 const DEFAULT_OVERLAY_HEIGHT = 360;
-const CODEX_THREAD_CACHE_MS = 7_000;
+const CODEX_THREAD_CACHE_MS = 2_000;
 const NATIVE_REPLY_ASSUMED_ACTIVE_MS = 45_000;
 
 interface RuntimeState {

@@ -3,6 +3,8 @@ import {
   interpolateLookDirection,
   resolveGazeSmoothingMs,
   resolveGazeTarget,
+  resolveCursorSpeedPxPerSecond,
+  resolveVelocityResponsiveGazeSmoothingMs,
   selectLookDirection,
   shouldTrackCursor,
   smoothAngle,
@@ -49,6 +51,26 @@ describe("gaze geometry", () => {
     expect(resolveGazeSmoothingMs(900, 1400, "lower-tracking")).toBe(400);
     expect(resolveGazeSmoothingMs(900, 1400, "returning")).toBe(360);
     expect(resolveGazeSmoothingMs(240, 1400, "lower-tracking")).toBe(240);
+  });
+
+  it("measures cursor velocity from the latest two screen samples", () => {
+    expect(resolveCursorSpeedPxPerSecond(null, { x: 100, y: 100, at: 1_000 })).toBe(0);
+    expect(resolveCursorSpeedPxPerSecond(
+      { x: 100, y: 100, at: 1_000 },
+      { x: 130, y: 140, at: 1_050 },
+    )).toBe(1_000);
+    expect(resolveCursorSpeedPxPerSecond(
+      { x: 100, y: 100, at: 1_000 },
+      { x: 130, y: 140, at: 1_100 },
+    )).toBe(500);
+  });
+
+  it("responds faster when the cursor is moving quickly", () => {
+    const slow = resolveVelocityResponsiveGazeSmoothingMs(900, 1_400, "tracking", 80);
+    const fast = resolveVelocityResponsiveGazeSmoothingMs(900, 1_400, "tracking", 1_600);
+    expect(slow).toBeGreaterThan(fast);
+    expect(fast).toBeGreaterThanOrEqual(1);
+    expect(resolveVelocityResponsiveGazeSmoothingMs(900, 1_400, "tracking", 0)).toBe(900);
   });
 });
 

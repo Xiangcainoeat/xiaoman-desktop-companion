@@ -43,7 +43,7 @@ export function CodexTasksView({
   useEffect(() => {
     void refresh();
     if (!enabled) return () => { refreshGenerationRef.current += 1; };
-    const interval = window.setInterval(() => void refresh(true), 10_000);
+    const interval = window.setInterval(() => void refresh(true), 5_000);
     return () => {
       refreshGenerationRef.current += 1;
       window.clearInterval(interval);

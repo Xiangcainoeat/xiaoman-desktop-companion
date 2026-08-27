@@ -896,7 +896,7 @@ function normalizeAppServerThread(value: JsonObject): CodexSessionSummary {
   return {
     id,
     sessionId: stringValue(value.sessionId) ?? id,
-    title: name || preview || (cwd ? path.basename(cwd) : "未命名任务"),
+    title: name || (cwd ? path.basename(cwd) : "未命名任务"),
     preview,
     cwd,
     path: filePath ? path.resolve(filePath) : null,
@@ -922,7 +922,7 @@ function stateDbSessionSummary(record: import("./codex-state").CodexStateThreadR
   return {
     id: record.id,
     sessionId: record.sessionId || record.id,
-    title: record.title || record.preview || (record.cwd ? path.basename(record.cwd) : "未命名任务"),
+    title: record.title || (record.cwd ? path.basename(record.cwd) : "未命名任务"),
     preview: record.preview,
     cwd: record.cwd,
     path: record.rolloutPath,
@@ -999,7 +999,9 @@ function mergeLocalStatus(
     ...session,
     sessionId: session.sessionId || local.sessionId,
     preview: session.preview || local.preview,
-    title: session.title === "未命名任务" && local.preview ? local.preview : session.title,
+    // Keep the native title authoritative. Local logs do not contain Codex's
+    // generated name and their preview is usually the first user message.
+    title: session.title,
     cwd: session.cwd ?? local.cwd,
     path: session.path ?? local.filePath,
     createdAt: session.createdAt || local.createdAt,

@@ -1,0 +1,88 @@
+{
+  "algorithm": "head-look-atlas-96-v2-spatial-mask",
+  "alphaSummary": {
+    "emptyFrames": 0,
+    "hiddenRgbPixels": 0
+  },
+  "cell": [
+    192,
+    208
+  ],
+  "columns": 12,
+  "compositing": "spatial-mask-only",
+  "dimensions": [
+    2304,
+    1664
+  ],
+  "format": "RGBA/WebP",
+  "frameCount": 96,
+  "frameHeight": 208,
+  "frameWidth": 192,
+  "mask": {
+    "alphaErosionPx": 9,
+    "directionBbox": [
+      8,
+      14,
+      118,
+      114
+    ],
+    "featherPx": 1.0,
+    "neutralEyeCoverBlurPx": 2.0,
+    "neutralEyeCoverBoxes": [
+      [
+        25,
+        45,
+        74,
+        90
+      ],
+      [
+        62,
+        39,
+        113,
+        88
+      ]
+    ],
+    "shape": "ellipse"
+  },
+  "ok": true,
+  "paletteGrade": {
+    "algorithm": "restrained-native-fur-grade-v1",
+    "offset": [
+      18.0,
+      12.0,
+      12.0
+    ],
+    "preserveBlueEyes": true,
+    "reference": "public/pet/spritesheet.webp",
+    "scale": [
+      0.9,
+      0.92,
+      0.9
+    ]
+  },
+  "registration": {
+    "offset": [
+      -23,
+      -18
+    ],
+    "scale": 1.18,
+    "sourceAnchor": [
+      96,
+      198
+    ],
+    "targetAnchor": [
+      90,
+      216
+    ]
+  },
+  "rgbaSha256": "d4934952c595d985f97af30374021b2f1c90c2acc4726cd99f0f247da941e44f",
+  "rows": 8,
+  "source": {
+    "bodyReference": "public/pet/spritesheet.webp",
+    "directory": "work/xiaoman-pet-96/ordered-frames",
+    "imageCount": 96,
+    "mode": "approved-look-frames"
+  },
+  "stepDegrees": 3.75,
+  "temporalBlend": false
+}

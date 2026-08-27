@@ -1,0 +1,19 @@
+{
+  "version": "1.3.0",
+  "atlas": "public/pet/head-look-96.webp",
+  "metadata": "public/pet/head-look-96.json",
+  "algorithm": "head-look-atlas-96-v2-spatial-mask",
+  "frameCount": 96,
+  "columns": 12,
+  "rows": 8,
+  "stepDegrees": 3.75,
+  "dimensions": [2304, 1664],
+  "compositing": "spatial-mask-only",
+  "temporalBlend": false,
+  "emptyFrames": 0,
+  "hiddenRgbPixels": 0,
+  "outsideMaskPixels": 0,
+  "maxRedPinkEdgePixelsPerFrame": 0,
+  "distinctFrames": 96,
+  "errors": []
+}

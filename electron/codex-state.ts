@@ -99,7 +99,9 @@ function mapStateRow(row: StateRow): CodexStateThreadRecord | null {
   const rolloutPath = resolveRolloutPath(row.rollout_path);
   const cwd = stringValue(row.cwd);
   const preview = compactText(row.preview ?? row.first_user_message, 180);
-  const title = compactText(row.title ?? row.name ?? preview, 120)
+  // `name` is the title Codex derives for the task. `title` is a legacy/raw
+  // field and is frequently just the first user message in current databases.
+  const title = compactText(row.name, 120)
     || (cwd ? path.basename(cwd) : "未命名任务");
   const createdAt = firstPositiveTimestamp(row.created_at_ms, row.created_at);
   const updatedAt = firstPositiveTimestamp(

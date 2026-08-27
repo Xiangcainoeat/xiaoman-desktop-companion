@@ -37,7 +37,7 @@ export function OverlayCodexPanel({ onClose, replyTransport = "native" }: Overla
 
   useEffect(() => {
     void refresh(true);
-    const interval = window.setInterval(() => void refresh(false), 10_000);
+    const interval = window.setInterval(() => void refresh(false), 5_000);
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };

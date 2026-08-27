@@ -3,6 +3,8 @@
 ## 1.3.0 - 2026-08-27
 
 - Replaced the enhanced gaze sheet with 96 independent 3.75° frames and removed renderer-side opacity cross-fading, eliminating the turn-time ghosting path.
+- Added a head-only enhanced gaze layer with a fixed body/action frame, spatial-mask-only compositing and velocity-responsive tracking; fast pointer motion now produces a faster response and inactivity restores the forward idle face.
+- Synchronized native task labels from Codex's generated `name` field and shortened task refresh intervals so automatic renames appear without showing the first prompt.
 - Added explicit lower-hemisphere seam repairs, native-color QA and a reproducible local ImageGen/assembly record under `work/xiaoman-pet-96/`.
 - Added configurable hover jump count (1–5) and configurable mouse-inactivity timeout before gaze returns to the forward idle pose.
 - Replaced the visible scratch/head-touch idle action with a clearly raised-front-paw sequence while retaining the persisted compatibility key.

@@ -17,11 +17,17 @@ describe("PetSprite look rendering contract", () => {
     expect(source).toContain('"look-96.webp"');
   });
 
-  it("renders only one look layer without opacity compositing", () => {
+  it("keeps the enhanced body stable and renders a head-only look layer", () => {
     const layers = source.match(/className="pet-sprite pet-look-layer"/g) ?? [];
     expect(layers).toHaveLength(1);
+    expect(source).toContain('"head-look-96.webp"');
+    expect(source).toContain("pet-head-look-layer");
+    expect(source).toContain("pet-sprite pet-sprite-base");
+    expect(source).toContain("gazeBodyFrameRef");
+    expect(source).toContain("Hold the exact action frame visible when gaze starts");
     expect(source).not.toContain("lookBlend");
     expect(source).not.toContain("secondLookIndex");
+    expect(source).not.toContain("transition: opacity");
   });
 
   it("publishes the 96-frame enhanced profile beside the untouched native profile", () => {

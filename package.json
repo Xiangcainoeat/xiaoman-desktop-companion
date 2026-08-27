@@ -15,6 +15,8 @@
     "verify:idle-atlas": "sh scripts/run_image_python.sh scripts/verify_idle_atlas_30.py",
     "verify:look-96": "sh scripts/run_image_python.sh scripts/verify_look_atlas_96.py public/pet/look-96.webp public/pet/look-96.json --reference work/xiaoman-pet-96/generation-inputs/native-color-reference.png",
     "verify:look-90": "sh scripts/run_image_python.sh scripts/verify_look_atlas_90.py public/pet/look-90.webp public/pet/look-90.json",
+    "build:head-look-96": "sh scripts/run_image_python.sh scripts/build_head_look_atlas_96.py --source-dir work/xiaoman-pet-96/ordered-frames --body-reference public/pet/spritesheet.webp --output public/pet/head-look-96.webp --metadata public/pet/head-look-96.json --contact-sheet work/xiaoman-pet-96/qa/head-look-96-contact-sheet.png",
+    "verify:head-look-96": "sh scripts/run_image_python.sh scripts/verify_head_look_atlas_96.py public/pet/head-look-96.webp public/pet/head-look-96.json --contact-sheet work/xiaoman-pet-96/qa/head-look-96-verify-contact-sheet.png --report work/xiaoman-pet-96/qa/head-look-96-verify-report.json",
     "build": "npm run typecheck && vite build && npm run build:electron",
     "pack:mac": "npm run build && electron-builder --mac dir --arm64",
     "dist:mac": "npm run build && electron-builder --mac dmg zip --arm64"

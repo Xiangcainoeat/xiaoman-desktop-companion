@@ -5,7 +5,7 @@
 The desktop host reuses the accepted Xiaoman Codex atlas as the identity source. Version 1.3 has two selectable profiles:
 
 - `native`: deterministic extraction of the accepted rows 9–10 into `public/pet/native/look-16.webp`; the native `pet.json` and `spritesheet.webp` are byte-preserved copies.
-- `enhanced`: a 96-direction host atlas at 3.75-degree increments, with generated transition frames and explicit lower-hemisphere seam repairs. Runtime rendering selects one frame and never opacity-blends two poses.
+- `enhanced`: approved 96-direction source frames at 3.75-degree increments, plus a runtime head-only atlas derived with a spatial face mask. The body is held on one action frame during gaze; runtime rendering selects one direction and never opacity-blends two poses.
 
 - output: `1536x416`
 - grid: `8x2`, cells `192x208`
@@ -27,6 +27,8 @@ The selected enhanced source and all reusable generation instructions are under
 - deterministic assembler: `scripts/assemble_look_96.py`
 - deterministic atlas builder/verifier: `scripts/build_look_atlas_96.py` and `scripts/verify_look_atlas_96.py`
 - verifier/contact sheets: `qa/look-96-verify-report.json` and `qa/look-96-contact-sheet.png`
+- head-only runtime builder/verifier: `scripts/build_head_look_atlas_96.py` and `scripts/verify_head_look_atlas_96.py`
+- head contact sheets/report: `qa/head-look-96-contact-sheet.png`, `qa/head-look-96-verify-contact-sheet.png` and `qa/head-look-96-verify-report.json`
 - job and concurrency records: `imagegen-jobs.json` and `concurrency.json`
 
 The final sheet is mixed by design: 32 repaired anchors plus 64 generated
@@ -35,6 +37,12 @@ selected lower-hemisphere cells replace the weakest transitions without
 altering unrelated frames.
 The atlas QA report records the exact hashes and source mapping. No endpoint,
 credential or private photo path is included.
+
+The head atlas is intentionally a separate runtime artifact. Each cell contains
+only the registered face region with a neutral cover for the base eyes; the
+remaining body pixels are transparent. This makes the enhanced renderer able to
+change gaze without moving the torso, tail or paws. `head-look-96.json` records
+the mask, registration, native-color grade and `temporalBlend: false` contract.
 
 ## Idle action generation
 
@@ -72,5 +80,6 @@ No relay endpoint, API key, original user-photo path or private configuration is
 - `qa-v1.1.1-packaged-reply-success.png` records the final packaged reply acknowledgement.
 - `qa-v1.1.1-packaged-overlay-idle.png` records the packaged overlay idle state using the 30-frame atlas.
 - `qa-v1.1.1-packaged-idle-action.png` records a packaged idle-action frame during runtime playback.
+- `qa-v1.3-head-lock-runtime.png` records the development-window head-only gaze smoke test; the body region is pixel-identical across upper-right and lower-left targets, and the neutral frame returns after inactivity.
 
 Automated checks cover schema migration, phrase sanitization, gaze geometry and phase smoothing, configurable hover count and inactivity timeout, drag threshold/direction, idle action selection, overlay sizing/anchoring, task status mapping, native IPC framing/owner routing, state-db source filtering, command validation, active queueing, owner-not-found CLI resume fallback, idle resume startup failures, profile asset selection and 96-atlas structure/color QA.

@@ -66,6 +66,19 @@ cells, `3.75°` steps, no empty frames, no hidden RGB and no double-exposure
 alpha ratios. The final runtime atlas and metadata are already checked in; the
 command above is a reproducibility path, not a runtime dependency.
 
+The runtime enhanced profile derives a head-only atlas from the approved
+directions. It uses a deterministic spatial mask and a fixed registration so
+the body remains on the exact action frame visible when gaze starts:
+
+```bash
+npm run build:head-look-96
+npm run verify:head-look-96
+```
+
+Expected head contract: `2304x1664`, `12x8`, 96 non-empty RGBA cells,
+`spatial-mask-only` compositing, no temporal blend, no hidden RGB and no
+red/pink edge spill. The native profile does not load this atlas.
+
 ## Rebuilding idle actions
 
 The selected ImageGen sources are `work/idle-actions-30-generated-lick.png`,

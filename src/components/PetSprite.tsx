@@ -9,8 +9,9 @@ import {
 import { STANDARD_ATLAS_FRAME_COUNTS } from "../shared/domain";
 import { HOVER_JUMP_FPS, HOVER_JUMP_FRAME_COUNT } from "../shared/motion";
 import {
-  resolveGazeSmoothingMs,
   resolveGazeTarget,
+  resolveCursorSpeedPxPerSecond,
+  resolveVelocityResponsiveGazeSmoothingMs,
   selectLookDirection,
   shouldTrackCursor,
   shortestAngleDelta,
@@ -18,6 +19,7 @@ import {
 } from "../shared/gaze";
 import { bridge } from "../useCompanion";
 import type { AnimationClock } from "../shared/animation";
+import type { CursorPositionSample } from "../shared/gaze";
 import type { CompanionSettings, PetMotion, PetProfile, PetState } from "../shared/types";
 
 interface PetSpriteProps {
@@ -137,6 +139,7 @@ export function PetSprite({
   const [settled, setSettled] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [lookIndex, setLookIndex] = useState<number | null>(null);
+  const [lookVisible, setLookVisible] = useState(false);
   const [lookMetadata, setLookMetadata] = useState<LookAtlasMetadata>(
     () => LOOK_ATLAS_FALLBACKS[settings.petProfile],
   );
@@ -146,10 +149,14 @@ export function PetSprite({
   const settledRef = useRef(false);
   const animationRef = useRef<AnimationSpec | null>(null);
   const lookIndexRef = useRef<number | null>(null);
+  const lookVisibleRef = useRef(false);
+  const gazeBodyFrameRef = useRef(0);
+  const headLookLayerRef = useRef<HTMLDivElement | null>(null);
   const targetAngleRef = useRef(0);
   const currentAngleRef = useRef(0);
   const targetDistanceRef = useRef(0);
-  const lastCursorPositionRef = useRef<{ x: number; y: number } | null>(null);
+  const lastCursorPositionRef = useRef<CursorPositionSample | null>(null);
+  const cursorSpeedRef = useRef(0);
   const lastCursorMoveAtRef = useRef(0);
   const lookingRef = useRef(false);
 
@@ -268,9 +275,12 @@ export function PetSprite({
     [lookMetadata.frameHeight, lookMetadata.frameWidth, size],
   );
   const displayFrame = Math.max(0, Math.min(frame, animation.frames - 1));
-  const framePosition = useMemo(
-    () => atlasFramePosition(animation, displayFrame),
-    [animation, displayFrame],
+  const bodyFrame = settings.petProfile === "enhanced" && lookVisible
+    ? Math.max(0, Math.min(gazeBodyFrameRef.current, animation.frames - 1))
+    : displayFrame;
+  const bodyFramePosition = useMemo(
+    () => atlasFramePosition(animation, bodyFrame),
+    [animation, bodyFrame],
   );
 
   const baseSprite = useMemo(() => {
@@ -282,19 +292,28 @@ export function PetSprite({
         ? "url('./pet/idle-actions-30.webp')"
         : `url('${root}/spritesheet.webp')`,
       backgroundSize: `${size * animation.columns}px ${dimensions.height * animation.atlasRows}px`,
-      backgroundPosition: `${-framePosition.column * size}px ${-framePosition.row * dimensions.height}px`,
+      backgroundPosition: `${-bodyFramePosition.column * size}px ${-bodyFramePosition.row * dimensions.height}px`,
     };
-  }, [animation, dimensions.height, dimensions.width, framePosition, settings.petProfile, size]);
+  }, [animation, bodyFramePosition, dimensions.height, dimensions.width, settings.petProfile, size]);
 
   useEffect(() => {
     const canLook = settings.gazeEnabled && !gazeSuppressed && !motion && !reducedMotion && LOOK_STATES.has(state);
 
     const setLooking = (active: boolean) => {
       const changed = lookingRef.current !== active;
+      if (active && !lookingRef.current && settings.petProfile === "enhanced") {
+        // Hold the exact action frame visible when gaze starts. The head layer
+        // can then move independently without the torso breathing underneath.
+        gazeBodyFrameRef.current = frameRef.current;
+      }
       lookingRef.current = active;
+      if (lookVisibleRef.current !== active) {
+        lookVisibleRef.current = active;
+        setLookVisible(active);
+      }
       if (!active && lookIndexRef.current !== null) {
         lookIndexRef.current = null;
-        setLookIndex(null);
+        if (settings.petProfile === "native") setLookIndex(null);
       }
       if (changed) onGazeActivityChange?.(active);
     };
@@ -308,7 +327,10 @@ export function PetSprite({
       );
       if (lookIndexRef.current !== index) {
         lookIndexRef.current = index;
-        setLookIndex(index);
+        if (settings.petProfile === "native") setLookIndex(index);
+        else if (headLookLayerRef.current) {
+          headLookLayerRef.current.style.backgroundPosition = `${-(index % lookMetadata.columns) * size}px ${-Math.floor(index / lookMetadata.columns) * dimensions.height}px`;
+        }
       }
       setLooking(true);
     };
@@ -318,6 +340,7 @@ export function PetSprite({
       currentAngleRef.current = 0;
       targetAngleRef.current = 0;
       lastCursorPositionRef.current = null;
+      cursorSpeedRef.current = 0;
       lastCursorMoveAtRef.current = 0;
       return;
     }
@@ -325,10 +348,15 @@ export function PetSprite({
     const stopCursor = bridge.onCursor((payload) => {
       const now = performance.now();
       const previous = lastCursorPositionRef.current;
+      const sample: CursorPositionSample = { x: payload.x, y: payload.y, at: now };
+      const instantaneousSpeed = resolveCursorSpeedPxPerSecond(previous, sample);
       if (!previous || Math.hypot(payload.x - previous.x, payload.y - previous.y) >= 0.9) {
         lastCursorMoveAtRef.current = now;
       }
-      lastCursorPositionRef.current = { x: payload.x, y: payload.y };
+      lastCursorPositionRef.current = sample;
+      cursorSpeedRef.current = previous
+        ? cursorSpeedRef.current + (instantaneousSpeed - cursorSpeedRef.current) * 0.55
+        : 0;
 
       const centerX = payload.windowWidth / 2;
       const centerY = payload.windowHeight - dimensions.height * 0.61;
@@ -368,11 +396,22 @@ export function PetSprite({
       const smoothingPhase = shouldTrack
         ? (lowerTarget ? "lower-tracking" : "tracking")
         : "returning";
+      const cursorAge = lastCursorMoveAtRef.current > 0
+        ? Math.max(0, time - lastCursorMoveAtRef.current)
+        : Number.POSITIVE_INFINITY;
+      const velocity = shouldTrack
+        ? cursorSpeedRef.current * Math.exp(-Math.min(cursorAge, 800) / 140)
+        : 0;
       currentAngleRef.current = smoothAngle(
         currentAngleRef.current,
         desiredAngle,
         elapsed,
-        resolveGazeSmoothingMs(settings.gazeSmoothingMs, settings.gazeIdleResetMs, smoothingPhase),
+        resolveVelocityResponsiveGazeSmoothingMs(
+          settings.gazeSmoothingMs,
+          settings.gazeIdleResetMs,
+          smoothingPhase,
+          velocity,
+        ),
       );
 
       if (shouldTrack) {
@@ -407,19 +446,25 @@ export function PetSprite({
     settings.gazeRange,
     settings.gazeSmoothingMs,
     lookMetadata.frameCount,
+    lookMetadata.columns,
+    settings.petProfile,
     size,
     state,
   ]);
 
   const lookAssetRoot = settings.petProfile === "native" ? "./pet/native" : "./pet";
   const lookAssetName = settings.petProfile === "native" ? "look-16.webp" : "look-96.webp";
-  const lookLayerStyle = (index: number) => ({
+  const lookLayerStyle = (index: number, assetName = lookAssetName) => ({
     width: dimensions.width,
     height: dimensions.height,
-    backgroundImage: `url('${lookAssetRoot}/${lookAssetName}')`,
+    backgroundImage: `url('${lookAssetRoot}/${assetName}')`,
     backgroundSize: `${size * lookMetadata.columns}px ${dimensions.height * lookMetadata.rows}px`,
     backgroundPosition: `${-(index % lookMetadata.columns) * size}px ${-Math.floor(index / lookMetadata.columns) * dimensions.height}px`,
   });
+  const headLookLayerStyle = {
+    ...lookLayerStyle(lookIndexRef.current ?? 0, "head-look-96.webp"),
+    visibility: lookVisible ? "visible" as const : "hidden" as const,
+  };
 
   const decorated = ["hungry", "eating", "happy", "affectionate", "sleepy", "sleeping", "playful", "celebrating", "reminder"].includes(state);
 
@@ -430,12 +475,20 @@ export function PetSprite({
       role="img"
       aria-label={`小满：${state}`}
     >
-      {lookIndex === null ? (
-        <div className="pet-sprite pet-sprite-base" style={baseSprite} aria-hidden="true" />
-      ) : (
+      {settings.petProfile === "native" && lookIndex !== null ? (
         <div
           className="pet-sprite pet-look-layer"
           style={lookLayerStyle(lookIndex)}
+          aria-hidden="true"
+        />
+      ) : (
+        <div className="pet-sprite pet-sprite-base" style={baseSprite} aria-hidden="true" />
+      )}
+      {settings.petProfile === "enhanced" && (
+        <div
+          ref={headLookLayerRef}
+          className={`pet-sprite pet-head-look-layer ${lookVisible ? "is-visible" : ""}`}
+          style={headLookLayerStyle}
           aria-hidden="true"
         />
       )}

@@ -8,6 +8,10 @@ the byte-preserved Codex profile.
 
 - `public/pet/look-96.webp`: 12 columns x 8 rows, 96 independent RGBA frames.
 - `public/pet/look-96.json`: frame dimensions, 3.75 degree step and QA summary.
+- `public/pet/head-look-96.webp`: the enhanced runtime head-only atlas derived
+  from the approved look frames with a spatial mask and separate registration.
+- `public/pet/head-look-96.json`: head mask, registration, native-color grade
+  and no-temporal-blend QA contract.
 - `public/pet/idle-actions-30.webp`: the accepted lick/blink rows plus a
   30-frame raised-front-paw row block.
 - No renderer opacity cross-fade or frame blending is used.
@@ -56,5 +60,8 @@ agents were inactive.
 ## QA
 
 `qa/look-96-contact-sheet.png` and `qa/look-96-verify-report.json` are generated
-from the checked-in runtime atlas. The verifier checks dimensions, frame count,
-empty cells, hidden RGB, mid-alpha exposure and native cream-fur color distance.
+from the checked-in source atlas. The head contact sheet and verify report are
+generated from `head-look-96.webp`. The head verifier checks dimensions, frame
+count, empty cells, hidden RGB, pixels outside the registered face mask,
+red/pink edge spill and distinct direction cells. The head atlas deliberately
+uses spatial masks only; its metadata records `temporalBlend: false`.

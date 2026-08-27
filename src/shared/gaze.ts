@@ -17,6 +17,12 @@ export interface CursorTrackingInput {
 
 export type GazeSmoothingPhase = "tracking" | "lower-tracking" | "returning";
 
+export interface CursorPositionSample {
+  x: number;
+  y: number;
+  at: number;
+}
+
 export function normalizeAngle(value: number): number {
   return ((value % 360) + 360) % 360;
 }
@@ -90,6 +96,34 @@ export function resolveGazeSmoothingMs(
   if (phase === "lower-tracking") return Math.min(configured, Math.max(1, idleResetMs) / 3.5);
   if (phase === "returning") return Math.min(configured, 360);
   return configured;
+}
+
+/** Convert the latest two screen samples into an instantaneous pointer speed. */
+export function resolveCursorSpeedPxPerSecond(
+  previous: CursorPositionSample | null,
+  next: CursorPositionSample,
+): number {
+  if (!previous) return 0;
+  const elapsedMs = next.at - previous.at;
+  if (!Number.isFinite(elapsedMs) || elapsedMs <= 0) return 0;
+  const distance = Math.hypot(next.x - previous.x, next.y - previous.y);
+  if (!Number.isFinite(distance)) return 0;
+  return (distance / elapsedMs) * 1000;
+}
+
+/** Reduce the tracking time constant as the pointer moves faster. */
+export function resolveVelocityResponsiveGazeSmoothingMs(
+  configuredMs: number,
+  idleResetMs: number,
+  phase: GazeSmoothingPhase,
+  speedPxPerSecond: number,
+): number {
+  const base = resolveGazeSmoothingMs(configuredMs, idleResetMs, phase);
+  const speed = Number.isFinite(speedPxPerSecond) ? Math.max(0, speedPxPerSecond) : 0;
+  // Ignore tiny hand jitter, then reach the fastest response around a brisk
+  // pointer movement. The base setting remains unchanged while the pointer is still.
+  const response = Math.min(1, Math.max(0, (speed - 40) / 700));
+  return Math.max(1, base * (1 - response * 0.995));
 }
 
 export function shouldTrackCursor(input: CursorTrackingInput): boolean {
