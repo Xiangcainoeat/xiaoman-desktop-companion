@@ -55,6 +55,7 @@
     "nativeProfileHashes": "release/qa/native-profile-hashes.json",
     "nativeReplySmokeTest": "release/qa/native-reply-smoke-test.md",
     "gazeSmokeTest": "release/qa/gaze-head-lock-smoke-test.md",
+    "runtimeCapture": "work/qa-v1.3.1-full-body-gaze-runtime.png",
     "contactSheet": "work/xiaoman-pet-96/qa/look-96-contact-sheet.png",
     "seamSheet": "work/xiaoman-pet-96/generation-inputs/seam-pairs-15-23.png",
     "look96": {

@@ -33,5 +33,8 @@ fresh capture showed the forward idle body. The task view simultaneously
 displayed native Codex generated names such as `hatch-pet-users-zk-codex-skills`
 rather than the first prompt.
 
+The four-direction capture montage is stored at
+`work/qa-v1.3.1-full-body-gaze-runtime.png`.
+
 The smoke test moves only the system pointer and reads rendered state. It does
 not send a message to a real Codex task.

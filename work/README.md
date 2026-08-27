@@ -81,5 +81,6 @@ No relay endpoint, API key, original user-photo path or private configuration is
 - `qa-v1.1.1-packaged-overlay-idle.png` records the packaged overlay idle state using the 30-frame atlas.
 - `qa-v1.1.1-packaged-idle-action.png` records a packaged idle-action frame during runtime playback.
 - `qa-v1.3-head-lock-runtime.png` records the superseded development-window head-only experiment; it is retained as historical evidence and is not the current runtime contract.
+- `qa-v1.3.1-full-body-gaze-runtime.png` records the current enhanced full-body gaze captures at top, right, left and bottom targets.
 
 Automated checks cover schema migration, phrase sanitization, gaze geometry and phase smoothing, configurable hover count and inactivity timeout, drag threshold/direction, idle action selection, overlay sizing/anchoring, task status mapping, native IPC framing/owner routing, state-db source filtering, command validation, active queueing, owner-not-found CLI resume fallback, idle resume startup failures, profile asset selection and 96-atlas structure/color QA.
