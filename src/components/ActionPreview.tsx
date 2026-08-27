@@ -128,6 +128,7 @@ export function ActionPreview({
       </div>
       <div className="action-preview-stage">
         <PetSprite
+          key={playback.cycle}
           state={sprite.state}
           settings={settings}
           size={180}

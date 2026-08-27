@@ -38,6 +38,10 @@ describe("ActionPreview renderer contract", () => {
     expect(source).toContain("settings");
   });
 
+  it("uses each playback cycle as the production PetSprite identity", () => {
+    expect(source).toContain("key={playback.cycle}");
+  });
+
   it("returns special actions to explicit idle after a cycle and restarts replacements", () => {
     const initial: ActionPreviewPlayback = {
       selectedAction: "idle",
