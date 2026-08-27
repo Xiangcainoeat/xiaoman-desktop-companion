@@ -60,6 +60,7 @@ export interface DesktopBubble {
   radius: number;
   bornAt: number;
   expiresAt: number;
+  ageMs?: number;
 }
 
 

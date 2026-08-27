@@ -33,6 +33,22 @@ describe("desktop bubble creation", () => {
     expect(Math.abs(bubble.vx)).toBeGreaterThan(0);
     expect(bubble.vy).toBeLessThan(0);
   });
+
+  it("caps the radius to the available safe half-size in undersized bounds", () => {
+    const bubble = createDesktopBubble("small-bubble", { width: 60, height: 50 }, () => 0.99, 3_000);
+
+    expect(bubble.radius).toBe(25);
+    expect(bubble.x - bubble.radius).toBeGreaterThanOrEqual(0);
+    expect(bubble.x + bubble.radius).toBeLessThanOrEqual(60);
+    expect(bubble.y - bubble.radius).toBeGreaterThanOrEqual(0);
+    expect(bubble.y + bubble.radius).toBeLessThanOrEqual(50);
+  });
+
+  it("rejects bounds that cannot contain the minimum bubble radius", () => {
+    expect(() => createDesktopBubble("impossible-bubble", { width: 47, height: 100 }, () => 0.5, 3_000)).toThrow(
+      RangeError,
+    );
+  });
 });
 
 describe("desktop bubble motion", () => {
@@ -52,6 +68,37 @@ describe("desktop bubble motion", () => {
     expect(at60Hz).not.toBeNull();
     expect(at30Hz!.x).toBeCloseTo(at60Hz!.x, 5);
     expect(at30Hz!.y).toBeCloseTo(at60Hz!.y, 5);
+  });
+
+  it("tracks per-frame age cumulatively and recycles at the same 20-second deadline at 30Hz and 60Hz", () => {
+    const lifetimeBounds = { width: 100_000, height: 100_000 };
+    const initial = {
+      ...createDesktopBubble("lifetime-bubble", lifetimeBounds, () => 0.25, 0),
+      x: 50_000,
+      y: 50_000,
+      vx: 40,
+      vy: 20,
+    };
+
+    const run = (frameCount: number, frameMs: number) => {
+      let current: DesktopBubble | null = initial;
+      let halfway: DesktopBubble | null = null;
+      for (let frame = 0; frame < frameCount; frame += 1) {
+        if (frame === frameCount / 2) halfway = current;
+        current = current ? advanceDesktopBubble(current, frameMs, lifetimeBounds) : null;
+      }
+      return { halfway, current };
+    };
+
+    const at30Hz = run(600, 1_000 / 30);
+    const at60Hz = run(1_200, 1_000 / 60);
+
+    expect(at30Hz.halfway).not.toBeNull();
+    expect(at60Hz.halfway).not.toBeNull();
+    expect(at30Hz.halfway!.x).toBeCloseTo(at60Hz.halfway!.x, 5);
+    expect(at30Hz.halfway!.y).toBeCloseTo(at60Hz.halfway!.y, 5);
+    expect(at30Hz.current).toBeNull();
+    expect(at60Hz.current).toBeNull();
   });
 
   it("reflects from the safe bounds and recycles an expired bubble", () => {
