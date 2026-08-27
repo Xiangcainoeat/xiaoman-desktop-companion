@@ -4,6 +4,19 @@
 
 This checklist covers the new local care economy, the inactivity sleep loop, the three mini-games, and the separation between `桌宠功能`, `养成照料`, `互动游戏` and `偏好设置`. It also records the compatibility boundary: the native Codex pet profile and native task reply path remain independent.
 
+## Latest packaged smoke
+
+Run against the freshly rebuilt unsigned arm64 package on 2026-08-28:
+
+- [x] The overlay exposes `快捷回复 Codex 任务`, `喂鱼干`, `打开养成`, `打开互动` and `打开控制中心`.
+- [x] `打开养成` opens a separate compact `养成照料` window with status meters, food/gift controls, bathing, jobs and quests.
+- [x] `打开互动` opens a separate compact `互动` window with bubble-session, petting and game handoff controls.
+- [x] Starting the bubble session from the compact window renders four clickable bubbles in the transparent overlay; clicking one changes the score from 0 to 1 and removes the hit bubble.
+- [x] `打开更多游戏` routes to the existing center window's `和小满玩游戏` view without creating a second center window.
+- [x] The packaged `app.asar` contains `dist/pet/sleeping-30.webp`, `dist/pet/sleeping-30.json`, `dist/pet/care-actions-30.webp` and `dist/pet/care-actions-30.json`.
+
+The full manual checklist below remains the acceptance matrix for longer-lived care, sleep and native-Codex scenarios; items not exercised by this smoke run remain intentionally unchecked.
+
 ## Automated checks
 
 Run from the repository root:
