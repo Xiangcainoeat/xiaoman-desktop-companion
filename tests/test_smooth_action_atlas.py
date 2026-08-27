@@ -71,6 +71,22 @@ class SmoothActionAtlasContractTest(unittest.TestCase):
         self.assertGreater(report["bboxViolations"], 0)
         self.assertGreater(report["mattePixels"], 0)
 
+    def test_validate_ignores_opaque_warm_fur_but_flags_semitransparent_red_pink_edges(self) -> None:
+        from build_idle_atlas_30 import validate_action_sequence
+
+        opaque_warm_fur = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        opaque_warm_fur.putpixel((16, 16), (214, 174, 142, 255))
+        semitransparent_red_pink = Image.new("RGBA", (32, 32), (0, 0, 0, 0))
+        semitransparent_red_pink.putpixel((16, 16), (220, 100, 180, 128))
+
+        opaque_report = validate_action_sequence([opaque_warm_fur], reference_rgb=(214, 174, 142), safe_inset=0)
+        semitransparent_report = validate_action_sequence(
+            [semitransparent_red_pink], reference_rgb=(214, 174, 142), safe_inset=0
+        )
+
+        self.assertEqual(opaque_report["edgePixels"], 0)
+        self.assertGreater(semitransparent_report["edgePixels"], 0)
+
     def test_verify_propagates_sequence_failure_when_pixels_are_valid(self) -> None:
         import verify_care_atlas_30
 

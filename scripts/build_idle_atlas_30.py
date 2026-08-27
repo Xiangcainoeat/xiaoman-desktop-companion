@@ -408,7 +408,7 @@ def validate_action_sequence(
         boundary = visible & (~_shift(visible.astype(np.uint8), 1, 0).astype(bool) | ~_shift(visible.astype(np.uint8), -1, 0).astype(bool))
         boundary |= visible & (~_shift(visible.astype(np.uint8), 0, 1).astype(bool) | ~_shift(visible.astype(np.uint8), 0, -1).astype(bool))
         red, green, blue = [pixels[..., index].astype(int) for index in range(3)]
-        edge_pixels += int(np.count_nonzero(boundary & ((green - np.maximum(red, blue) > 10) | ((red > 150) & (blue > 120) & (red - green > 25)))))
+        edge_pixels += int(np.count_nonzero(boundary & ((green - np.maximum(red, blue) > 10) | ((alpha < ALPHA_OPAQUE) & (red > 150) & (blue > 120) & (red - green > 25)))))
         matte_pixels += int(np.count_nonzero(hidden_rgb | matte))
         ys, xs = np.where(visible)
         if not len(xs) or xs.min() < safe[0] or ys.min() < safe[1] or xs.max() + 1 > safe[2] or ys.max() + 1 > safe[3]:
