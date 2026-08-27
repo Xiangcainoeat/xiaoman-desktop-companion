@@ -20,6 +20,12 @@ export interface ActionPreviewAction {
   label: string;
 }
 
+export interface ActionPreviewPlayback {
+  selectedAction: ActionPreviewActionId;
+  playingAction: ActionPreviewActionId | null;
+  cycle: number;
+}
+
 const DEFAULT_ACTIONS: ActionPreviewAction[] = [
   { id: "idle", label: "待机" },
   { id: "idle-lick", label: "舔嘴" },
@@ -57,6 +63,32 @@ function spriteForAction(action: ActionPreviewActionId): {
   return { state: "idle", motion: action };
 }
 
+export function startActionPreview(
+  playback: ActionPreviewPlayback,
+  action: ActionPreviewActionId,
+): ActionPreviewPlayback {
+  return {
+    selectedAction: action,
+    playingAction: action,
+    cycle: playback.cycle + 1,
+  };
+}
+
+export function finishActionPreview(playback: ActionPreviewPlayback): ActionPreviewPlayback {
+  return {
+    selectedAction: "idle",
+    playingAction: null,
+    cycle: playback.cycle,
+  };
+}
+
+export function previewSpriteForPlayback(playback: ActionPreviewPlayback): {
+  state: PetSpriteState;
+  motion: PetSpriteMotion | null;
+} {
+  return spriteForAction(playback.playingAction ?? playback.selectedAction);
+}
+
 export function ActionPreview({
   settings,
   actions = DEFAULT_ACTIONS,
@@ -66,17 +98,24 @@ export function ActionPreview({
   actions?: readonly ActionPreviewAction[];
   onClose: () => void;
 }) {
-  const [selectedAction, setSelectedAction] = useState<ActionPreviewActionId>("idle");
-  const [playingAction, setPlayingAction] = useState<ActionPreviewActionId | null>(null);
+  const [playback, setPlayback] = useState<ActionPreviewPlayback>({
+    selectedAction: "idle",
+    playingAction: null,
+    cycle: 0,
+  });
 
   useEffect(() => {
-    if (!playingAction) return undefined;
-    const timer = window.setTimeout(() => setPlayingAction(null), ACTION_DURATION_MS[playingAction]);
+    if (!playback.playingAction) return undefined;
+    const { cycle, playingAction } = playback;
+    const timer = window.setTimeout(() => {
+      setPlayback((current) => current.cycle === cycle && current.playingAction === playingAction
+        ? finishActionPreview(current)
+        : current);
+    }, ACTION_DURATION_MS[playingAction]);
     return () => window.clearTimeout(timer);
-  }, [playingAction]);
+  }, [playback.cycle, playback.playingAction]);
 
-  const activeAction = playingAction ?? selectedAction;
-  const sprite = useMemo(() => spriteForAction(activeAction), [activeAction]);
+  const sprite = useMemo(() => previewSpriteForPlayback(playback), [playback]);
 
   return (
     <section className="action-preview" aria-label="动作预览">
@@ -92,7 +131,7 @@ export function ActionPreview({
           state={sprite.state}
           settings={settings}
           size={180}
-          motion={playingAction ? sprite.motion : null}
+          motion={playback.playingAction ? sprite.motion : null}
           gazeSuppressed
         />
       </div>
@@ -101,12 +140,9 @@ export function ActionPreview({
           <button
             key={action.id}
             type="button"
-            className={selectedAction === action.id ? "is-selected" : ""}
-            aria-pressed={selectedAction === action.id}
-            onClick={() => {
-              setSelectedAction(action.id);
-              setPlayingAction(action.id);
-            }}
+            className={playback.selectedAction === action.id ? "is-selected" : ""}
+            aria-pressed={playback.selectedAction === action.id}
+            onClick={() => setPlayback((current) => startActionPreview(current, action.id))}
           >
             {action.label}
           </button>
