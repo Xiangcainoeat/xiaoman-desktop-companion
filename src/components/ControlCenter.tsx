@@ -8,6 +8,7 @@ import {
   Eye,
   LayoutDashboard,
   ListChecks,
+  Power,
   Settings,
   Utensils,
 } from "lucide-react";
@@ -110,6 +111,16 @@ export function ControlCenter() {
             <button className="secondary-button" type="button" onClick={() => bridge.toggleOverlay()}>
               <Eye size={16} />
               {snapshot.settings.overlayVisible ? "隐藏小满" : "显示小满"}
+            </button>
+            <button
+              className="secondary-button app-quit-button"
+              type="button"
+              title="退出小满桌面伴侣"
+              aria-label="退出小满桌面伴侣"
+              onClick={() => bridge.quitApp()}
+            >
+              <Power size={16} aria-hidden="true" />
+              <span>退出小满</span>
             </button>
           </div>
         </header>

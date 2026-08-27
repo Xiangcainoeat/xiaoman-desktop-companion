@@ -382,6 +382,7 @@ function createMockApi(): XiaomanApi {
       message: message.trim() ? "浏览器预览仅模拟回复，未调用 Codex；请使用 Electron 应用" : "请输入回复内容",
     }),
     showQuickWindow: (_mode: QuickViewMode) => undefined,
+    quitApp: () => undefined,
     setOverlayTaskPanel: () => undefined,
     showCenter: (tab?: CenterTab) => {
       if (!tab) return;

@@ -11,6 +11,7 @@
 - Added a switchable local-games page with rock-paper-scissors, fish catching and bubble popping; game settlements are bounded to affection and experience.
 - Added original fish and bubble target bitmap assets, deterministic extraction, care/sleep atlas verification and the `verify:care-atlas` command.
 - Preserved the native Codex profile, native task routing and explicit CLI compatibility boundary.
+- Added a visible `退出小满` command in the control center, preferences and overlay actions, backed by trusted Electron IPC; the tray and context-menu exits remain available.
 
 ## 1.3.1 - 2026-08-27
 

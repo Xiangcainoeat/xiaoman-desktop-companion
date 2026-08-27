@@ -1968,6 +1968,8 @@ function showOverlayContextMenu(): void {
     { type: "separator" },
     { label: "打开控制中心", click: () => showCenter() },
     { label: "隐藏小满", click: () => toggleOverlay() },
+    { type: "separator" },
+    { label: "退出小满桌面伴侣", click: () => app.quit() },
   ];
   Menu.buildFromTemplate(template).popup({ window: overlayWindow ?? undefined });
 }
@@ -2252,6 +2254,10 @@ function registerIpcHandlers(): void {
     assertTrustedSender(event.sender, event.senderFrame);
     if (mode !== "care" && mode !== "interaction") throw new Error("快捷窗口模式无效");
     showQuickWindow(mode);
+  });
+  ipcMain.on("app:quit", (event) => {
+    assertTrustedSender(event.sender, event.senderFrame);
+    app.quit();
   });
   ipcMain.on("overlay:hit-regions", (event, report: unknown) => {
     // Hit reports are high-frequency fire-and-forget messages; reject foreign senders without throwing in the main process.

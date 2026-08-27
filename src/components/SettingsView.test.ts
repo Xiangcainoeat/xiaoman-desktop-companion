@@ -22,4 +22,9 @@ describe("SettingsView ownership contract", () => {
     expect(source).toContain('value: "cli", label: "CLI 兼容"');
     expect(source).toContain('value: "native", label: "原生 Codex"');
   });
+
+  it("exposes a visible application exit command", () => {
+    expect(source).toContain("退出小满");
+    expect(source).toContain("bridge.quitApp()");
+  });
 });

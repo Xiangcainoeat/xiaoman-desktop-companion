@@ -161,6 +161,21 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
               <span className="fixed-status">本机保存</span>
             </SettingsRow>
           </SettingsSection>
+
+          <SettingsSection eyebrow="应用" title="应用控制">
+            <SettingsRow icon={<Power size={18} />} label="退出小满" value="关闭桌面伴侣和所有窗口">
+              <button
+                className="secondary-button settings-quit-button"
+                type="button"
+                title="退出小满桌面伴侣"
+                aria-label="退出小满桌面伴侣"
+                onClick={() => bridge.quitApp()}
+              >
+                <Power size={16} aria-hidden="true" />
+                <span>退出小满</span>
+              </button>
+            </SettingsRow>
+          </SettingsSection>
         </div>
       </div>
     </div>

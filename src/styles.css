@@ -115,6 +115,10 @@ select:focus-visible {
   background: #fff4f4;
 }
 
+.icon-button.danger {
+  color: var(--danger);
+}
+
 .primary-button,
 .secondary-button,
 .text-button {
@@ -155,6 +159,20 @@ select:focus-visible {
 .secondary-button:hover {
   border-color: #aeb7b0;
   background: #f8faf8;
+}
+
+.app-quit-button,
+.settings-quit-button {
+  border-color: #e2bcbc;
+  color: var(--danger);
+  background: #fffafa;
+}
+
+.app-quit-button:hover,
+.settings-quit-button:hover {
+  border-color: #c97979;
+  color: #9f2f2f;
+  background: #fff3f3;
 }
 
 .text-button {

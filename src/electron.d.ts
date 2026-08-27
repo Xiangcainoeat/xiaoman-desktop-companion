@@ -50,6 +50,7 @@ export interface XiaomanApi {
   setOverlayTaskPanel(open: boolean): void;
   showCenter(tab?: CenterTab): void;
   showQuickWindow(mode: QuickViewMode): void;
+  quitApp(): void;
   toggleOverlay(): void;
   moveOverlayBy(deltaX: number, deltaY: number): void;
   setOverlayMouseMode(mode: "passthrough" | "interactive"): void;

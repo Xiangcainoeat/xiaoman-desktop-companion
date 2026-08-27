@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Code2, Fish, Gamepad2, Heart, PanelTopOpen } from "lucide-react";
+import { Code2, Fish, Gamepad2, Heart, PanelTopOpen, Power } from "lucide-react";
 import {
   chooseIdleMotion,
   hoverJumpDurationMs,
@@ -475,6 +475,18 @@ export function Overlay() {
           }}
         >
           <PanelTopOpen size={18} />
+        </button>
+        <button
+          className="icon-button overlay-action danger"
+          type="button"
+          title="退出小满桌面伴侣"
+          aria-label="退出小满桌面伴侣"
+          onClick={(event) => {
+            event.stopPropagation();
+            bridge.quitApp();
+          }}
+        >
+          <Power size={18} />
         </button>
       </div>
       <div className="overlay-need-meter" title={`饱食度 ${Math.round(snapshot.stats.fullness)}`}>

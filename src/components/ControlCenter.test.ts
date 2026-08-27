@@ -28,4 +28,14 @@ describe("direct games navigation", () => {
     expect(mainSource).toContain('center:select-tab');
     expect(mainSource).toContain('showCenter(tab');
   });
+
+  it("keeps the visible quit command wired through the trusted app bridge", () => {
+    expect(centerSource).toContain("退出小满");
+    expect(centerSource).toContain("bridge.quitApp()");
+    expect(typeSource).toContain("quitApp");
+    expect(preloadSource).toContain('quitApp:');
+    expect(bridgeSource).toContain("quitApp:");
+    expect(mainSource).toContain('ipcMain.on("app:quit"');
+    expect(mainSource).toContain("assertTrustedSender(event.sender, event.senderFrame)");
+  });
 });

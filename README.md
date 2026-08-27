@@ -110,7 +110,7 @@ npm run dist:mac
 the system `python3`, and the Codex bundled runtime; the desktop app itself
 does not require Python, numpy, or Pillow.
 
-生成的应用和安装包位于 `release/`。详细资料见：
+生成的应用和安装包位于 `release/`。安装到 macOS 的 `/Applications` 后，控制中心顶栏、偏好设置的“应用控制”区和桌宠悬停操作列都提供明确的“退出小满”入口；菜单栏和右键菜单仍保留退出项。详细资料见：
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - [docs/STATES.md](docs/STATES.md)

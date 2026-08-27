@@ -245,6 +245,7 @@ contextBridge.exposeInMainWorld("xiaoman", {
   setOverlayTaskPanel: (open: boolean): void => ipcRenderer.send("overlay:task-panel", open),
   showCenter: (tab?: CenterTab): void => ipcRenderer.send("center:show", tab),
   showQuickWindow: (mode: QuickViewMode): void => ipcRenderer.send("quick:show", mode),
+  quitApp: (): void => ipcRenderer.send("app:quit"),
   toggleOverlay: (): void => ipcRenderer.send("overlay:toggle"),
   moveOverlayBy: (deltaX: number, deltaY: number): void => ipcRenderer.send("overlay:move-by", deltaX, deltaY),
   setOverlayMouseMode: (mode: "passthrough" | "interactive"): void => ipcRenderer.send("overlay:mouse-mode", mode),
