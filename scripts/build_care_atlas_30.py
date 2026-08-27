@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -83,10 +84,72 @@ def _extract_source_rows(source: Image.Image) -> list[list[Image.Image]]:
 
 
 def expand_to_frame_count(frames: list[Image.Image], count: int = FRAMES) -> list[Image.Image]:
-    """Resample a source sequence by nearest temporal index, preserving poses."""
+    """Expand source poses with deterministic registered, alpha-aware blending."""
     if not frames:
         raise ValueError("cannot expand an empty source sequence")
-    return [frames[min(len(frames) - 1, round(index * (len(frames) - 1) / max(1, count - 1)))] for index in range(count)]
+    if count <= 0:
+        return []
+    if len(frames) == count:
+        return [frame.copy() for frame in frames]
+    if len(frames) == 1:
+        return [frames[0].copy() for _ in range(count)]
+
+    registered = _register_interpolation_frames(frames)
+    expanded: list[Image.Image] = []
+    for index in range(count):
+        position = index * (len(registered) - 1) / max(1, count - 1)
+        lower = math.floor(position)
+        upper = min(len(registered) - 1, lower + 1)
+        amount = position - lower
+        expanded.append(_blend_premultiplied(registered[lower], registered[upper], amount))
+    return expanded
+
+
+def _as_clean_rgba(frame: Image.Image) -> Image.Image:
+    if "A" in frame.getbands():
+        rgba = np.asarray(frame.convert("RGBA"), dtype=np.uint8).copy()
+    else:
+        rgba = np.asarray(chroma_to_alpha(frame), dtype=np.uint8).copy()
+    rgba[rgba[..., 3] == 0, :3] = 0
+    return Image.fromarray(rgba, "RGBA")
+
+
+def _register_interpolation_frames(frames: list[Image.Image]) -> list[Image.Image]:
+    """Place varying-size source crops on one shared baseline-aligned canvas."""
+    rgba_frames = [_as_clean_rgba(frame) for frame in frames]
+    boxes = [frame.getchannel("A").point(lambda value: 255 if value >= ALPHA_VISIBLE else 0).getbbox() for frame in rgba_frames]
+    if any(box is None for box in boxes):
+        raise ValueError("cannot interpolate a source frame without visible pixels")
+    canvas_width = max(frame.width for frame in rgba_frames)
+    canvas_height = max(frame.height for frame in rgba_frames)
+    registered: list[Image.Image] = []
+    for frame, box in zip(rgba_frames, boxes):
+        assert box is not None
+        subject = frame.crop(box)
+        canvas = Image.new("RGBA", (canvas_width, canvas_height), (0, 0, 0, 0))
+        canvas.alpha_composite(subject, ((canvas_width - subject.width) // 2, canvas_height - subject.height))
+        registered.append(canvas)
+    return registered
+
+
+def _blend_premultiplied(first: Image.Image, second: Image.Image, amount: float) -> Image.Image:
+    """Blend one clean RGBA frame without colored transparent fringes."""
+    left = np.asarray(first.convert("RGBA"), dtype=np.float32)
+    right = np.asarray(second.convert("RGBA"), dtype=np.float32)
+    weight = min(1.0, max(0.0, float(amount)))
+    left_alpha = left[..., 3:4] / 255.0
+    right_alpha = right[..., 3:4] / 255.0
+    alpha = left_alpha * (1.0 - weight) + right_alpha * weight
+    premultiplied = (
+        left[..., :3] * left_alpha * (1.0 - weight)
+        + right[..., :3] * right_alpha * weight
+    )
+    rgb = np.zeros_like(premultiplied)
+    np.divide(premultiplied, alpha, out=rgb, where=alpha > 1e-6)
+    output = np.concatenate((rgb, alpha * 255.0), axis=2)
+    output = np.rint(np.clip(output, 0, 255)).astype(np.uint8)
+    output[output[..., 3] == 0, :3] = 0
+    return Image.fromarray(output, "RGBA")
 
 
 def _atlas_frame(atlas: Image.Image, row: int, index: int) -> Image.Image:
@@ -206,7 +269,7 @@ def _clean_green_boundary(frame: Image.Image) -> Image.Image:
 
 def _metadata_document(actions: dict[str, dict[str, object]], atlas: Image.Image, reports: list[dict[str, object]]) -> dict[str, object]:
     return {
-        "algorithm": "xiaoman-care-atlas-30-v1-stable-registration",
+        "algorithm": "xiaoman-care-atlas-30-v2-premultiplied-alpha-interpolation",
         "format": "RGBA/WebP",
         "dimensions": [atlas.width, atlas.height],
         "columns": COLUMNS,

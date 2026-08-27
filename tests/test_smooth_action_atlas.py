@@ -22,7 +22,48 @@ def _source_frame(left: int, top: int, width: int = 24, height: int = 36) -> Ima
     return image
 
 
+def _smooth_source_frames(count: int) -> list[Image.Image]:
+    frames: list[Image.Image] = []
+    for index in range(count):
+        pixels = np.zeros((208, 192, 4), dtype=np.uint8)
+        left = 48
+        top = 108
+        width = 44 + index * 2
+        pixels[top:top + 52, left:left + width] = (214, 174, 142, 255)
+        pixels[0, 0] = (9, 9, 9, 0)
+        frames.append(Image.fromarray(pixels, "RGBA"))
+    return frames
+
+
 class SmoothActionAtlasContractTest(unittest.TestCase):
+    def test_expand_interpolates_ten_source_poses_into_thirty_distinct_rgba_frames(self) -> None:
+        from build_care_atlas_30 import expand_to_frame_count
+        from build_idle_atlas_30 import validate_action_sequence
+
+        expanded = expand_to_frame_count(_smooth_source_frames(10), 30)
+
+        report = validate_action_sequence(expanded, reference_rgb=(214, 174, 142), safe_inset=8)
+        self.assertLess(report["duplicateRatio"], 0.1)
+        self.assertTrue(any(
+            np.any((np.asarray(frame.getchannel("A")) > 0) & (np.asarray(frame.getchannel("A")) < 255))
+            for frame in expanded
+        ))
+        for frame in expanded:
+            self.assertEqual(frame.mode, "RGBA")
+            self.assertEqual(frame.size, (192, 208))
+            rgba = np.asarray(frame)
+            self.assertEqual(np.count_nonzero((rgba[..., 3] == 0) & np.any(rgba[..., :3] != 0, axis=2)), 0)
+
+    def test_expand_keeps_an_already_thirty_frame_sequence_unchanged(self) -> None:
+        from build_care_atlas_30 import expand_to_frame_count
+
+        source = _smooth_source_frames(30)
+        expanded = expand_to_frame_count(source, 30)
+
+        self.assertEqual([frame.mode for frame in expanded], ["RGBA"] * 30)
+        self.assertEqual([frame.size for frame in expanded], [(192, 208)] * 30)
+        self.assertEqual([frame.tobytes() for frame in expanded], [frame.tobytes() for frame in source])
+
     def test_normalize_uses_common_registration_and_cleans_transparent_rgb(self) -> None:
         from build_idle_atlas_30 import CELL_HEIGHT, CELL_WIDTH, normalize_action_frames
 
