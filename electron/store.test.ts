@@ -22,7 +22,7 @@ describe("CompanionStore recovery", () => {
     const loaded = store.load();
     const backup = readdirSync(directory).find((name) => name.startsWith("xiaoman-data.json.invalid-"));
 
-    expect(loaded.version).toBe(2);
+    expect(loaded.version).toBe(3);
     expect(backup).toBeTruthy();
     expect(readFileSync(path.join(directory, backup!), "utf8")).toBe("{not-json");
   });
@@ -33,7 +33,7 @@ describe("CompanionStore recovery", () => {
     writeFileSync(path.join(directory, "xiaoman-data.json"), JSON.stringify({ version: 99 }), "utf8");
 
     const store = new CompanionStore(directory);
-    expect(store.load()).toMatchObject({ version: 2 });
+    expect(store.load()).toMatchObject({ version: 3 });
     expect(readdirSync(directory).some((name) => name.endsWith(".bak"))).toBe(true);
   });
 
@@ -43,6 +43,6 @@ describe("CompanionStore recovery", () => {
     const store = new CompanionStore(directory);
     const data = createDefaultData(100);
     store.save(data);
-    expect(JSON.parse(readFileSync(path.join(directory, "xiaoman-data.json"), "utf8"))).toMatchObject({ version: 2 });
+    expect(JSON.parse(readFileSync(path.join(directory, "xiaoman-data.json"), "utf8"))).toMatchObject({ version: 3 });
   });
 });

@@ -98,7 +98,7 @@ describe("version 2 persistence migration", () => {
       settings: { ...old.settings, gazeEnabled: false } as typeof old.settings,
       idlePhrases: undefined,
     });
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(3);
     expect(migrated.stats.affection).toBe(88);
     expect(migrated.settings.gazeEnabled).toBe(false);
     expect(migrated.settings.gazeRange).toBe("full-360");
@@ -134,8 +134,46 @@ describe("version 2 persistence migration", () => {
     expect(normalized.appRules).toEqual([]);
   });
 
-  it("rejects future schema versions instead of silently resetting them", () => {
-    expect(() => normalizePersistedData({ version: 3 })).toThrow("Unsupported companion data version");
+  it("accepts v2 data and adds the v3 care defaults", () => {
+    const migrated = normalizePersistedData({
+      ...createDefaultData(100),
+      version: 2,
+      stats: { ...createDefaultData(100).stats, fullness: 61 },
+    });
+    expect(migrated.version).toBe(3);
+    expect(migrated.stats.fullness).toBe(61);
+    expect(migrated.stats.cleanliness).toBe(78);
+    expect(migrated.stats.experience).toBe(0);
+    expect(migrated.stats.level).toBe(1);
+    expect(migrated.inventory.food["fish-snack"]).toBe(8);
+    expect(migrated.inventory.giftBoxes).toBe(1);
+    expect(migrated.activeJob).toBeNull();
+    expect(migrated.sleepReason).toBeNull();
+    expect(migrated.codexRewardLedger).toEqual([]);
+    expect(migrated.dailyQuests).toHaveLength(5);
+  });
+
+  it("accepts v3 data and normalizes malformed care fields", () => {
+    const normalized = normalizePersistedData({
+      ...createDefaultData(),
+      version: 3,
+      stats: { ...createDefaultData().stats, cleanliness: 999, experience: "bad", level: -2 },
+      inventory: { food: { "fish-snack": 100000, milk: "bad" }, giftBoxes: -4 },
+      dailyQuests: "bad",
+      codexRewardLedger: ["a", 2, "a"],
+    });
+    expect(normalized.stats.cleanliness).toBe(100);
+    expect(normalized.stats.experience).toBe(0);
+    expect(normalized.stats.level).toBe(1);
+    expect(normalized.inventory.food["fish-snack"]).toBe(9999);
+    expect(normalized.inventory.food.milk).toBe(0);
+    expect(normalized.inventory.giftBoxes).toBe(0);
+    expect(normalized.dailyQuests).toHaveLength(5);
+    expect(normalized.codexRewardLedger).toEqual(["a"]);
+  });
+
+  it("rejects versions newer than v3", () => {
+    expect(() => normalizePersistedData({ version: 4 })).toThrow("Unsupported companion data version");
   });
 });
 
