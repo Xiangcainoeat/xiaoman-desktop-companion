@@ -50,6 +50,18 @@
 - [ ] Group settings sections into two independent vertical columns and add stable responsive styling.
 - [ ] Run focused tests and capture desktop/narrow screenshots for visual review.
 
+### Task 3B: Overlay Task Panel Readability
+
+**Files:**
+- Modify: `src/components/OverlayCodexPanel.tsx`
+- Modify: `src/styles.css`
+- Test: `src/components/OverlayCodexPanel.test.tsx` or an existing render test location
+
+- [ ] Add failing structural assertions for stable task/status columns and accessible reply input labeling.
+- [ ] Run the focused test and verify RED.
+- [ ] Increase left-panel typography and line heights, shorten the textarea, expand list space, and separate left/right overlay regions without changing BrowserWindow dimensions.
+- [ ] Capture a packaged overlay screenshot and verify no task row, divider, bubble, control, or pet area overlaps.
+
 ### Task 4: Single-Layer 96-Direction Runtime
 
 **Files:**

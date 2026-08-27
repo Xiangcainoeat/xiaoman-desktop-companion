@@ -42,6 +42,15 @@ This update changes only the standalone Xiaoman desktop companion and its releas
 - Preserve all current controls, labels, keyboard behavior, and responsive collapse to one column.
 - Controls must have stable widths and labels must not collide with segmented controls or sliders.
 
+## Overlay Task Panel Readability
+
+- Keep the overall overlay/task-panel window dimensions unchanged.
+- Increase the left task panel's task-title, metadata, status, selected-task, reply-status, and input text sizes with matching line-height increases.
+- Reduce the reply textarea height so the task list gains vertical space; the input remains large enough for a short multi-line reply.
+- Prevent the left panel, right speech bubble, action rail, and pet area from crossing or visually sharing borders.
+- Keep long task titles ellipsized and maintain stable status columns so larger text does not overlap.
+- Ensure the selected task and compose divider do not cover the last visible task row.
+
 ## Pointer And Context Menu State
 
 - Only a primary-button pointer down may arm desktop-pet dragging.
@@ -62,4 +71,4 @@ This update changes only the standalone Xiaoman desktop companion and its releas
 - Unit tests cover single-layer frame selection, 96-frame metadata, hysteresis, right-click drag rejection, drag reset events, reply eligibility, native operation selection, and sanitized reply logging.
 - Atlas verification checks dimensions, 96 unique direction slots, alpha occupancy, duplicate silhouettes, baseline/scale drift, edge spill, and reference-color distance.
 - Visual QA includes a labeled 12x8 contact sheet, seam frames around 0/360 degrees, lower-quadrant frames, and raised-paw sequence.
-- Browser and packaged Electron QA cover settings layout at desktop and narrow widths, context-menu round trip, 30/60 Hz gaze, and task reply success/error messages.
+- Browser and packaged Electron QA cover settings layout at desktop and narrow widths, overlay task-panel typography and non-overlap, context-menu round trip, 30/60 Hz gaze, and task reply success/error messages.
