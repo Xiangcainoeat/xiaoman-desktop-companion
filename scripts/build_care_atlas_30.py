@@ -193,8 +193,8 @@ def _clean_green_boundary(frame: Image.Image) -> Image.Image:
     return Image.fromarray(np.clip(rgba, 0, 255).astype(np.uint8), "RGBA")
 
 
-def _write_metadata(path: Path, actions: dict[str, dict[str, object]], atlas: Image.Image, reports: list[dict[str, object]]) -> None:
-    metadata = {
+def _metadata_document(actions: dict[str, dict[str, object]], atlas: Image.Image, reports: list[dict[str, object]]) -> dict[str, object]:
+    return {
         "algorithm": "xiaoman-care-atlas-30-v1-stable-registration",
         "format": "RGBA/WebP",
         "dimensions": [atlas.width, atlas.height],
@@ -207,7 +207,12 @@ def _write_metadata(path: Path, actions: dict[str, dict[str, object]], atlas: Im
         "actions": actions,
         "frames": reports,
     }
+
+
+def _write_metadata(path: Path, actions: dict[str, dict[str, object]], atlas: Image.Image, reports: list[dict[str, object]]) -> dict[str, object]:
+    metadata = _metadata_document(actions, atlas, reports)
     path.write_text(json.dumps(metadata, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
+    return metadata
 
 
 def _contact_sheet(atlas: Image.Image, path: Path) -> None:
@@ -265,12 +270,23 @@ def build_assets(sleep_source: Path, care_source: Path, output_dir: Path) -> dic
     qa_dir = output_dir.parent.parent / "work/xiaoman-care-assets"
     _contact_sheet(sleep_atlas, qa_dir / "sleeping-30-contact-sheet.png")
     _contact_sheet(care_atlas, qa_dir / "care-actions-30-contact-sheet.png")
-    _write_metadata(output_dir / "sleeping-30.json", {"sleep": {"atlasFramePosition": {"row": 0, "frames": 30, "columns": 10}}}, sleep_atlas, sleep_reports)
-    _write_metadata(output_dir / "care-actions-30.json", {
+    sleep_metadata = _write_metadata(output_dir / "sleeping-30.json", {"sleep": {"atlasFramePosition": {"row": 0, "frames": 30, "columns": 10}}}, sleep_atlas, sleep_reports)
+    care_metadata = _write_metadata(output_dir / "care-actions-30.json", {
         "bath": {"atlasFramePosition": {"row": 0, "frames": 30, "columns": 10}},
         "feed": {"atlasFramePosition": {"row": 3, "frames": 30, "columns": 10}},
         "gift": {"atlasFramePosition": {"row": 3, "frames": 30, "columns": 10}},
     }, care_atlas, care_reports)
+    # Validate the encoded outputs and emitted metadata through the same gate
+    # used by the standalone verifier before reporting a successful build.
+    from verify_care_atlas_30 import verify
+
+    built_reports = (
+        verify(Image.open(sleep_path).convert("RGBA"), sleep_metadata, "sleep"),
+        verify(Image.open(care_path).convert("RGBA"), care_metadata, "care"),
+    )
+    failures = [report for report in built_reports if not report["ok"]]
+    if failures:
+        raise ValueError(f"built care atlas failed verification: {failures[0]['errors']}")
     return {"reports": {"sleeping-30": sleep_reports, "care-actions-30": care_reports}}
 
 
