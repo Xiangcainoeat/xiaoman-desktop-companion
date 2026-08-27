@@ -83,7 +83,6 @@ def contamination_metrics(frame: Image.Image) -> dict[str, int]:
     magenta = boundary & (red >= 150) & (blue >= 150) & (red - green > 30) & (blue - green > 30)
     red_pink = (
         boundary
-        & (alpha < MID_ALPHA_MAX)
         & (red >= 150)
         & (red - green > 18)
         & (blue - green > 8)

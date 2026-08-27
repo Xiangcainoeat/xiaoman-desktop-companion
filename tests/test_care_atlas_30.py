@@ -177,6 +177,26 @@ class CareAtlas30ContractTest(unittest.TestCase):
             self.assertFalse(report["ok"], label)
             self.assertTrue(any(label in error for error in report["errors"]), report["errors"])
 
+    def test_verifier_rejects_opaque_red_pink_edge_contamination(self) -> None:
+        import verify_care_atlas_30
+
+        atlas = Image.open(ROOT / "public/pet/care-actions-30.webp").convert("RGBA")
+        metadata = self._metadata("care-actions-30.json")
+        frame = self._atlas_frame(atlas, 0, 0)
+        alpha = np.asarray(frame.getchannel("A"))
+        boundary = (alpha >= 10) & (
+            np.roll(alpha < 10, 1, axis=0) | np.roll(alpha < 10, -1, axis=0)
+            | np.roll(alpha < 10, 1, axis=1) | np.roll(alpha < 10, -1, axis=1)
+        )
+        boundary[[0, -1], :] = False
+        boundary[:, [0, -1]] = False
+        x, y = (int(value) for value in np.argwhere(boundary)[0][::-1])
+        mutated = atlas.copy()
+        mutated.putpixel((x, y), (255, 40, 120, 255))
+        report = verify_care_atlas_30.verify(mutated, metadata, "care")
+        self.assertFalse(report["ok"])
+        self.assertTrue(any("red-pink edge contamination" in error for error in report["errors"]), report["errors"])
+
     def test_verifier_rejects_hidden_rgb_and_nontransparent_corners(self) -> None:
         import verify_care_atlas_30
 

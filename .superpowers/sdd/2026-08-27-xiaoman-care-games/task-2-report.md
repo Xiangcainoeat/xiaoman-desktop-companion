@@ -2,7 +2,7 @@
 
 ## Status
 
-Implemented and committed as `feat: add Xiaoman sleep and care atlases`.
+Task 2 review hardening is implemented. The atlas pixels and metadata outputs remain byte-for-byte unchanged from the original Task 2 asset commit; this fix tightens validation and test coverage.
 
 ## Inputs and extraction
 
@@ -18,6 +18,10 @@ Implemented and committed as `feat: add Xiaoman sleep and care atlases`.
 - Added a final green-spill cleanup that removes matte-colored visible pixels, clears hidden RGB, and preserves the native cream/brown palette.
 - Generated temporary high-resolution contact sheets under `work/xiaoman-care-assets/` and inspected both atlases visually.
 - Final focused audit found zero visible pixels on cell side edges and zero pixels with green dominance above the spill threshold in sleep row 0 or care rows 0 and 3.
+- The verifier now validates supplied metadata rather than inferring it: exact atlas dimensions, cell dimensions, column/row counts, total frame counts, frame-entry counts, action names, and every `atlasFramePosition` row/length/column value.
+- The verifier checks all 30 frames starting at row 0 for bath/sleep and all 30 frames starting at row 3 for feed/gift, including non-empty content and transparent corners.
+- Pixel diagnostics separately report and reject mid-alpha contamination plus green, magenta, and red-pink edge contamination. A single suspicious pixel is a failure; clean production atlases report zero for every category.
+- The builder performs a round-trip verification of the encoded WebP files against the metadata it emits before completing a build.
 
 ## Outputs
 
@@ -28,8 +32,9 @@ Implemented and committed as `feat: add Xiaoman sleep and care atlases`.
 
 ## Tests and verification
 
-- `sh scripts/run_image_python.sh -m unittest tests/test_care_atlas_30.py`: 5 tests passed.
+- `sh scripts/run_image_python.sh -m unittest tests/test_care_atlas_30.py`: 11 tests passed, including malformed metadata, hidden RGB, opaque corners, mid-alpha colors, green/magenta/red-pink edges, both atlas palettes, and all required care rows.
 - `sh scripts/run_image_python.sh scripts/verify_care_atlas_30.py public/pet/sleeping-30.webp public/pet/sleeping-30.json`: passed, 30/30 frames valid, zero errors.
 - `sh scripts/run_image_python.sh scripts/verify_care_atlas_30.py public/pet/care-actions-30.webp public/pet/care-actions-30.json`: passed, 60 checked bath/feed-gift cells valid, zero errors.
+- SHA-256 comparisons against the original Task 2 commit confirm unchanged `sleeping-30.webp`, `care-actions-30.webp`, `sleeping-30.json`, and `care-actions-30.json`.
 
-The worktree already contained unrelated shared TypeScript/domain changes from the surrounding feature work; they were not modified or included in this Task 2 commit.
+The worktree contains unrelated TypeScript, Electron, and renderer changes from the surrounding feature work; they were not modified or included in the atlas verification fix.
