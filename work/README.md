@@ -2,10 +2,10 @@
 
 ## Identity and gaze profiles
 
-The desktop host reuses the accepted Xiaoman Codex atlas as the identity source. Version 1.3 has two selectable profiles:
+The desktop host reuses the accepted Xiaoman Codex atlas as the identity source. Version 1.3.1 has two selectable profiles:
 
 - `native`: deterministic extraction of the accepted rows 9–10 into `public/pet/native/look-16.webp`; the native `pet.json` and `spritesheet.webp` are byte-preserved copies.
-- `enhanced`: approved 96-direction source frames at 3.75-degree increments, plus a runtime head-only atlas derived with a spatial face mask. The body is held on one action frame during gaze; runtime rendering selects one direction and never opacity-blends two poses.
+- `enhanced`: approved 96-direction source frames at 3.75-degree increments. Runtime rendering selects one complete full-body direction frame and never opacity-blends two poses.
 
 - output: `1536x416`
 - grid: `8x2`, cells `192x208`
@@ -27,8 +27,8 @@ The selected enhanced source and all reusable generation instructions are under
 - deterministic assembler: `scripts/assemble_look_96.py`
 - deterministic atlas builder/verifier: `scripts/build_look_atlas_96.py` and `scripts/verify_look_atlas_96.py`
 - verifier/contact sheets: `qa/look-96-verify-report.json` and `qa/look-96-contact-sheet.png`
-- head-only runtime builder/verifier: `scripts/build_head_look_atlas_96.py` and `scripts/verify_head_look_atlas_96.py`
-- head contact sheets/report: `qa/head-look-96-contact-sheet.png`, `qa/head-look-96-verify-contact-sheet.png` and `qa/head-look-96-verify-report.json`
+- historical head-only builder/verifier: `scripts/build_head_look_atlas_96.py` and `scripts/verify_head_look_atlas_96.py` (provenance only; not loaded at runtime)
+- historical head contact sheets/report: `qa/head-look-96-contact-sheet.png`, `qa/head-look-96-verify-contact-sheet.png` and `qa/head-look-96-verify-report.json`
 - job and concurrency records: `imagegen-jobs.json` and `concurrency.json`
 
 The final sheet is mixed by design: 32 repaired anchors plus 64 generated
@@ -38,11 +38,11 @@ altering unrelated frames.
 The atlas QA report records the exact hashes and source mapping. No endpoint,
 credential or private photo path is included.
 
-The head atlas is intentionally a separate runtime artifact. Each cell contains
-only the registered face region with a neutral cover for the base eyes; the
-remaining body pixels are transparent. This makes the enhanced renderer able to
-change gaze without moving the torso, tail or paws. `head-look-96.json` records
-the mask, registration, native-color grade and `temporalBlend: false` contract.
+The full-body `look-96.webp` atlas keeps each gaze direction anatomically
+coherent while `look-96.json` records the shared registration and
+`temporalBlend: false` contract. The head-only experiment and its generated
+artifacts are retained for comparison and future work, but are not loaded by
+the host.
 
 ## Idle action generation
 
@@ -80,6 +80,6 @@ No relay endpoint, API key, original user-photo path or private configuration is
 - `qa-v1.1.1-packaged-reply-success.png` records the final packaged reply acknowledgement.
 - `qa-v1.1.1-packaged-overlay-idle.png` records the packaged overlay idle state using the 30-frame atlas.
 - `qa-v1.1.1-packaged-idle-action.png` records a packaged idle-action frame during runtime playback.
-- `qa-v1.3-head-lock-runtime.png` records the development-window head-only gaze smoke test; the body region is pixel-identical across upper-right and lower-left targets, and the neutral frame returns after inactivity.
+- `qa-v1.3-head-lock-runtime.png` records the superseded development-window head-only experiment; it is retained as historical evidence and is not the current runtime contract.
 
 Automated checks cover schema migration, phrase sanitization, gaze geometry and phase smoothing, configurable hover count and inactivity timeout, drag threshold/direction, idle action selection, overlay sizing/anchoring, task status mapping, native IPC framing/owner routing, state-db source filtering, command validation, active queueing, owner-not-found CLI resume fallback, idle resume startup failures, profile asset selection and 96-atlas structure/color QA.

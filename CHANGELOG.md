@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.3.1 - 2026-08-27
+
+- Reverted enhanced gaze rendering to the complete 96-direction body atlas so the head, neck, torso, paws and tail remain one coherent pose.
+- Kept velocity-responsive cursor tracking, 30/60Hz selection, deadzone handling, inactivity reset and native Codex title synchronization unchanged.
+- Retained the generated head-only atlas as provenance only; the runtime no longer loads it.
+
 ## 1.3.0 - 2026-08-27
 
 - Replaced the enhanced gaze sheet with 96 independent 3.75° frames and removed renderer-side opacity cross-fading, eliminating the turn-time ghosting path.

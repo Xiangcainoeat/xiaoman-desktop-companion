@@ -6,8 +6,6 @@
       "spritesheet": "spritesheet.webp",
       "lookAtlas": "look-96.webp",
       "lookMetadata": "look-96.json",
-      "headLookAtlas": "head-look-96.webp",
-      "headLookMetadata": "head-look-96.json",
       "directionCount": 96,
       "stepDegrees": 3.75
     },

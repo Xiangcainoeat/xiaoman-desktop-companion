@@ -66,18 +66,22 @@ cells, `3.75°` steps, no empty frames, no hidden RGB and no double-exposure
 alpha ratios. The final runtime atlas and metadata are already checked in; the
 command above is a reproducibility path, not a runtime dependency.
 
-The runtime enhanced profile derives a head-only atlas from the approved
-directions. It uses a deterministic spatial mask and a fixed registration so
-the body remains on the exact action frame visible when gaze starts:
+The runtime enhanced profile uses the complete approved 96-direction body
+atlas. Each selected cell contains the coherent head, neck, torso, paws and
+tail pose, so the gaze renderer does not splice a separate neck or face layer:
 
 ```bash
-npm run build:head-look-96
-npm run verify:head-look-96
+npm run verify:look-96
 ```
 
-Expected head contract: `2304x1664`, `12x8`, 96 non-empty RGBA cells,
-`spatial-mask-only` compositing, no temporal blend, no hidden RGB and no
-red/pink edge spill. The native profile does not load this atlas.
+Expected enhanced contract: `2304x1664`, `12x8`, 96 non-empty RGBA cells,
+`3.75°` steps, no temporal blend, no hidden RGB and no double-exposure alpha.
+The native profile does not load the enhanced atlas.
+
+The experimental `build_head_look_atlas_96.py` and
+`verify_head_look_atlas_96.py` scripts, together with their generated assets,
+remain in the repository as historical provenance. They are not part of the
+runtime profile and are not required to build the application.
 
 ## Rebuilding idle actions
 

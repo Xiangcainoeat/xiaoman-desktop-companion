@@ -139,7 +139,6 @@ export function PetSprite({
   const [settled, setSettled] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [lookIndex, setLookIndex] = useState<number | null>(null);
-  const [lookVisible, setLookVisible] = useState(false);
   const [lookMetadata, setLookMetadata] = useState<LookAtlasMetadata>(
     () => LOOK_ATLAS_FALLBACKS[settings.petProfile],
   );
@@ -149,9 +148,6 @@ export function PetSprite({
   const settledRef = useRef(false);
   const animationRef = useRef<AnimationSpec | null>(null);
   const lookIndexRef = useRef<number | null>(null);
-  const lookVisibleRef = useRef(false);
-  const gazeBodyFrameRef = useRef(0);
-  const headLookLayerRef = useRef<HTMLDivElement | null>(null);
   const targetAngleRef = useRef(0);
   const currentAngleRef = useRef(0);
   const targetDistanceRef = useRef(0);
@@ -275,12 +271,9 @@ export function PetSprite({
     [lookMetadata.frameHeight, lookMetadata.frameWidth, size],
   );
   const displayFrame = Math.max(0, Math.min(frame, animation.frames - 1));
-  const bodyFrame = settings.petProfile === "enhanced" && lookVisible
-    ? Math.max(0, Math.min(gazeBodyFrameRef.current, animation.frames - 1))
-    : displayFrame;
-  const bodyFramePosition = useMemo(
-    () => atlasFramePosition(animation, bodyFrame),
-    [animation, bodyFrame],
+  const framePosition = useMemo(
+    () => atlasFramePosition(animation, displayFrame),
+    [animation, displayFrame],
   );
 
   const baseSprite = useMemo(() => {
@@ -292,28 +285,19 @@ export function PetSprite({
         ? "url('./pet/idle-actions-30.webp')"
         : `url('${root}/spritesheet.webp')`,
       backgroundSize: `${size * animation.columns}px ${dimensions.height * animation.atlasRows}px`,
-      backgroundPosition: `${-bodyFramePosition.column * size}px ${-bodyFramePosition.row * dimensions.height}px`,
+      backgroundPosition: `${-framePosition.column * size}px ${-framePosition.row * dimensions.height}px`,
     };
-  }, [animation, bodyFramePosition, dimensions.height, dimensions.width, settings.petProfile, size]);
+  }, [animation, dimensions.height, dimensions.width, framePosition, settings.petProfile, size]);
 
   useEffect(() => {
     const canLook = settings.gazeEnabled && !gazeSuppressed && !motion && !reducedMotion && LOOK_STATES.has(state);
 
     const setLooking = (active: boolean) => {
       const changed = lookingRef.current !== active;
-      if (active && !lookingRef.current && settings.petProfile === "enhanced") {
-        // Hold the exact action frame visible when gaze starts. The head layer
-        // can then move independently without the torso breathing underneath.
-        gazeBodyFrameRef.current = frameRef.current;
-      }
       lookingRef.current = active;
-      if (lookVisibleRef.current !== active) {
-        lookVisibleRef.current = active;
-        setLookVisible(active);
-      }
       if (!active && lookIndexRef.current !== null) {
         lookIndexRef.current = null;
-        if (settings.petProfile === "native") setLookIndex(null);
+        setLookIndex(null);
       }
       if (changed) onGazeActivityChange?.(active);
     };
@@ -327,10 +311,7 @@ export function PetSprite({
       );
       if (lookIndexRef.current !== index) {
         lookIndexRef.current = index;
-        if (settings.petProfile === "native") setLookIndex(index);
-        else if (headLookLayerRef.current) {
-          headLookLayerRef.current.style.backgroundPosition = `${-(index % lookMetadata.columns) * size}px ${-Math.floor(index / lookMetadata.columns) * dimensions.height}px`;
-        }
+        setLookIndex(index);
       }
       setLooking(true);
     };
@@ -446,8 +427,6 @@ export function PetSprite({
     settings.gazeRange,
     settings.gazeSmoothingMs,
     lookMetadata.frameCount,
-    lookMetadata.columns,
-    settings.petProfile,
     size,
     state,
   ]);
@@ -461,10 +440,6 @@ export function PetSprite({
     backgroundSize: `${size * lookMetadata.columns}px ${dimensions.height * lookMetadata.rows}px`,
     backgroundPosition: `${-(index % lookMetadata.columns) * size}px ${-Math.floor(index / lookMetadata.columns) * dimensions.height}px`,
   });
-  const headLookLayerStyle = {
-    ...lookLayerStyle(lookIndexRef.current ?? 0, "head-look-96.webp"),
-    visibility: lookVisible ? "visible" as const : "hidden" as const,
-  };
 
   const decorated = ["hungry", "eating", "happy", "affectionate", "sleepy", "sleeping", "playful", "celebrating", "reminder"].includes(state);
 
@@ -475,20 +450,12 @@ export function PetSprite({
       role="img"
       aria-label={`小满：${state}`}
     >
-      {settings.petProfile === "native" && lookIndex !== null ? (
+      {lookIndex === null ? (
+        <div className="pet-sprite pet-sprite-base" style={baseSprite} aria-hidden="true" />
+      ) : (
         <div
           className="pet-sprite pet-look-layer"
           style={lookLayerStyle(lookIndex)}
-          aria-hidden="true"
-        />
-      ) : (
-        <div className="pet-sprite pet-sprite-base" style={baseSprite} aria-hidden="true" />
-      )}
-      {settings.petProfile === "enhanced" && (
-        <div
-          ref={headLookLayerRef}
-          className={`pet-sprite pet-head-look-layer ${lookVisible ? "is-visible" : ""}`}
-          style={headLookLayerStyle}
           aria-hidden="true"
         />
       )}

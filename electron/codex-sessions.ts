@@ -809,7 +809,7 @@ async function requestAppServerProcess(
             clientInfo: {
               name: "xiaoman_desktop_companion",
               title: "Xiaoman Desktop Companion",
-              version: "1.3.0",
+              version: "1.3.1",
             },
             capabilities: {
               optOutNotificationMethods: [
