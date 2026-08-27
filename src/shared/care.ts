@@ -7,11 +7,16 @@ const FOOD_EFFECTS: Record<FoodId, { name: string; fullness: number; energy: num
   salmon: { name: "三文鱼片", fullness: 38, energy: 6, affection: 4 },
 };
 
-const JOBS: Record<JobId, { duration: number; reward: RewardBundle }> = {
+export const JOBS: Record<JobId, { duration: number; reward: RewardBundle }> = {
   "desk-organizer": { duration: 10 * 60_000, reward: { food: { "fish-snack": 1 }, giftBoxes: 0, experience: 8 } },
   "code-helper": { duration: 25 * 60_000, reward: { food: { "fish-snack": 2 }, giftBoxes: 0, experience: 18 } },
   "delivery-run": { duration: 45 * 60_000, reward: { food: { milk: 1, "tuna-bites": 1 }, giftBoxes: 0, experience: 30 } },
 };
+
+export function canonicalJobReward(jobId: JobId): RewardBundle {
+  const reward = JOBS[jobId].reward;
+  return { food: { ...reward.food }, giftBoxes: reward.giftBoxes, experience: reward.experience };
+}
 
 function result(data: PersistedData, message?: string): CareOperationResult {
   return message ? { ok: true, data, message } : { ok: true, data };
@@ -74,7 +79,7 @@ export function startPetJob(data: PersistedData, jobId: JobId, now: number): Car
   const started = {
     ...data,
     stats: { ...data.stats, energy: data.stats.energy - 4, lastUpdatedAt: now },
-    activeJob: { id: jobId, startedAt: now, completesAt: now + job.duration, reward: job.reward },
+    activeJob: { id: jobId, startedAt: now, completesAt: now + job.duration, reward: canonicalJobReward(jobId) },
   };
   return result(started, "开始打工啦");
 }

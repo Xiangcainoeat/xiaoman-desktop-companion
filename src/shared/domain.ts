@@ -1,4 +1,5 @@
 import { PET_STATES, SOUND_NAMES } from "./types";
+import { canonicalJobReward } from "./care";
 import { DEFAULT_HOVER_JUMP_COUNT, normalizeHoverJumpCount } from "./motion";
 import type {
   ActivityItem,
@@ -385,7 +386,7 @@ function normalizeJob(value: unknown): ActiveJob | null {
     id: source.id as JobId,
     startedAt: numberValue(source.startedAt, 0, 0, Number.MAX_SAFE_INTEGER),
     completesAt: numberValue(source.completesAt, 0, 0, Number.MAX_SAFE_INTEGER),
-    reward: normalizeReward(source.reward),
+    reward: canonicalJobReward(source.id as JobId),
   };
 }
 

@@ -38,3 +38,13 @@ Implemented and verified Task 1 in the `xiaoman-care-and-games` worktree.
 ## Notes
 
 The unrelated untracked `work/xiaoman-care-assets/` directory was left untouched and was not included in the commit.
+
+## Review Fix
+
+Persisted `ActiveJob.reward` values are now ignored during normalization. After validating the persisted `JobId`, `normalizeJob` obtains a cloned reward from the canonical fixed job definition in `src/shared/care.ts`. A regression test inflates persisted salmon, gift-box, and experience values and verifies completion grants only the canonical desk-organizer reward.
+
+Verification after the fix:
+
+- `npm test -- --run tests/domain.test.ts tests/care.test.ts tests/sleep.test.ts tests/games.test.ts`: 4 files passed, 26 tests passed.
+- `npm run typecheck`: passed for renderer, Electron, and test TypeScript projects.
+- `git diff --check`: passed.

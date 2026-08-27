@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { applyBath, applyFeed, completePetJob, grantCodexCompletionReward, openGiftBox, startPetJob } from "../src/shared/care";
-import { createDefaultData } from "../src/shared/domain";
+import { createDefaultData, normalizePersistedData } from "../src/shared/domain";
 
 describe("care operations", () => {
   it("feeds using the requested food effect and consumes one item", () => {
@@ -41,6 +41,28 @@ describe("care operations", () => {
       const completed = completePetJob(started.data, 1000 + 10 * 60_000 + 1);
       expect(completed.ok).toBe(true);
       if (completed.ok) expect(completed.data.inventory.food["fish-snack"]).toBe(9);
+    }
+  });
+
+  it("ignores an inflated persisted job reward and grants only the canonical reward", () => {
+    const base = createDefaultData(1000);
+    const normalized = normalizePersistedData({
+      ...base,
+      version: 3,
+      activeJob: {
+        id: "desk-organizer",
+        startedAt: 1000,
+        completesAt: 1001,
+        reward: { food: { salmon: 9999 }, giftBoxes: 9999, experience: 999999 },
+      },
+    });
+
+    const completed = completePetJob(normalized, 1002);
+    expect(completed.ok).toBe(true);
+    if (completed.ok) {
+      expect(completed.data.inventory.food).toEqual({ "fish-snack": 9, milk: 0, "tuna-bites": 0, salmon: 0 });
+      expect(completed.data.inventory.giftBoxes).toBe(1);
+      expect(completed.data.stats.experience).toBe(8);
     }
   });
 
