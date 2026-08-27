@@ -9,6 +9,16 @@ export interface AtlasFrameSpec {
   columns: number;
 }
 
+export interface AnimationSpec {
+  frames: number;
+  fps: number;
+  atlas?: "standard" | "idle" | "sleeping" | "care";
+  row?: number;
+  columns?: number;
+  atlasRows?: number;
+  loop?: boolean;
+}
+
 export interface LookAtlasMetadata {
   frameCount: number;
   columns: number;
@@ -107,6 +117,25 @@ export function advanceAnimationClock(
     frame: (currentFrame + frameAdvance) % frameCount,
     remainderMs: progress - frameAdvance,
   };
+}
+
+export function advanceFrameByDelta(
+  clock: AnimationClock,
+  elapsedMs: number,
+  spec: Pick<AnimationSpec, "frames" | "fps">,
+): { clock: AnimationClock; frameChanged: boolean; looped: boolean } {
+  const nextClock = advanceAnimationClock(clock, elapsedMs, spec.fps, spec.frames);
+  const safeElapsedMs = Number.isFinite(elapsedMs)
+    ? Math.min(MAX_ELAPSED_MS, Math.max(0, elapsedMs))
+    : 0;
+  const remainder = Number.isFinite(clock.remainderMs) && clock.remainderMs >= 0
+    ? clock.remainderMs
+    : 0;
+  const frameAdvance = Math.floor(remainder + (safeElapsedMs * spec.fps) / 1000);
+  const currentFrame = Number.isInteger(clock.frame) ? clock.frame : 0;
+  const frameChanged = nextClock.frame !== currentFrame;
+  const looped = frameAdvance > 0 && currentFrame + frameAdvance >= spec.frames;
+  return { clock: nextClock, frameChanged, looped };
 }
 
 export function atlasFramePosition(

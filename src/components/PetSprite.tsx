@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Bath, BellRing, Fish, Heart, Moon, Sparkles, Utensils } from "lucide-react";
 import {
-  advanceAnimationClock,
   atlasFramePosition,
   parseLookAtlasMetadata,
   type LookAtlasMetadata,
 } from "../shared/animation";
+import { SpritePlayer } from "./SpritePlayer";
 import { STANDARD_ATLAS_FRAME_COUNTS } from "../shared/domain";
 import { HOVER_JUMP_FPS, HOVER_JUMP_FRAME_COUNT } from "../shared/motion";
 import {
@@ -18,7 +18,7 @@ import {
   smoothAngle,
 } from "../shared/gaze";
 import { bridge } from "../useCompanion";
-import type { AnimationClock } from "../shared/animation";
+import type { AnimationSpec } from "../shared/animation";
 import type { CursorPositionSample } from "../shared/gaze";
 import type { CompanionSettings, PetMotion, PetProfile, PetState } from "../shared/types";
 
@@ -36,7 +36,7 @@ interface PetSpriteProps {
   onGazeActivityChange?: (active: boolean) => void;
 }
 
-interface AnimationSpec {
+interface PetAnimationSpec extends AnimationSpec {
   atlas: "standard" | "idle" | "sleeping" | "care";
   row: number;
   frames: number;
@@ -87,7 +87,7 @@ const STATE_FPS: Record<PetState, number> = {
   reminder: 2.8,
 };
 
-const MOTION_SPEC: Record<PetMotion, AnimationSpec> = {
+const MOTION_SPEC: Record<PetMotion, PetAnimationSpec> = {
   "running-right": { atlas: "standard", row: 1, frames: 8, fps: 7.4, columns: 8, atlasRows: 11 },
   "running-left": { atlas: "standard", row: 2, frames: 8, fps: 7.4, columns: 8, atlasRows: 11 },
   jumping: {
@@ -103,7 +103,7 @@ const MOTION_SPEC: Record<PetMotion, AnimationSpec> = {
   "idle-scratch": { atlas: "idle", row: 6, frames: 30, fps: 5.1, columns: 10, atlasRows: 9 },
 };
 
-const CARE_MOTION_SPEC: Record<CareMotion, AnimationSpec> = {
+const CARE_MOTION_SPEC: Record<CareMotion, PetAnimationSpec> = {
   "care-bath": { atlas: "care", row: 0, frames: 30, fps: 5.2, columns: 10, atlasRows: 6 },
   "care-feed": { atlas: "care", row: 3, frames: 30, fps: 5.2, columns: 10, atlasRows: 6 },
 };
@@ -150,18 +150,14 @@ export function PetSprite({
   gazeSuppressed = false,
   onGazeActivityChange,
 }: PetSpriteProps) {
-  const [frame, setFrame] = useState(0);
   const [settled, setSettled] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [lookIndex, setLookIndex] = useState<number | null>(null);
   const [lookMetadata, setLookMetadata] = useState<LookAtlasMetadata>(
     () => LOOK_ATLAS_FALLBACKS[settings.petProfile],
   );
-  const animationClockRef = useRef<AnimationClock>({ frame: 0, remainderMs: 0 });
-  const frameRef = useRef(0);
   const loopsRef = useRef(0);
   const settledRef = useRef(false);
-  const animationRef = useRef<AnimationSpec | null>(null);
   const lookIndexRef = useRef<number | null>(null);
   const targetAngleRef = useRef(0);
   const currentAngleRef = useRef(0);
@@ -198,15 +194,12 @@ export function PetSprite({
   }, [settings.petProfile]);
 
   useEffect(() => {
-    animationClockRef.current = { frame: 0, remainderMs: 0 };
-    frameRef.current = 0;
     loopsRef.current = 0;
     settledRef.current = false;
-    setFrame((value) => value === 0 ? value : 0);
     setSettled((value) => value ? false : value);
   }, [motion, state]);
 
-  const animation = useMemo<AnimationSpec>(() => {
+  const animation = useMemo<PetAnimationSpec>(() => {
     if (motion && !(settings.petProfile === "native" && (motion.startsWith("idle-") || motion.startsWith("care-")))) {
       return motion.startsWith("care-")
         ? CARE_MOTION_SPEC[motion as CareMotion]
@@ -245,66 +238,12 @@ export function PetSprite({
     };
   }, [motion, settled, settings.petProfile, state]);
 
-  animationRef.current = animation;
   settledRef.current = settled;
-
-  useEffect(() => {
-    if (reducedMotion) {
-      animationClockRef.current = { frame: 0, remainderMs: 0 };
-      loopsRef.current = 0;
-      if (frameRef.current !== 0) {
-        frameRef.current = 0;
-        setFrame(0);
-      }
-      return;
-    }
-
-    let animationFrame = 0;
-    let previousTime: number | null = null;
-    let previousTickTime: number | null = null;
-    const animate = (time: number) => {
-      if (previousTime === null) {
-        previousTime = time;
-        previousTickTime = time;
-      } else if (time - (previousTickTime ?? time) >= 1000 / settings.animationFrameRate - 1) {
-        const elapsed = time - previousTime;
-        previousTime = time;
-        previousTickTime = time;
-        const spec = animationRef.current;
-        if (spec) {
-          const previousFrame = animationClockRef.current.frame;
-          const nextClock = advanceAnimationClock(animationClockRef.current, elapsed, spec.fps, spec.frames);
-          animationClockRef.current = nextClock;
-          if (nextClock.frame !== previousFrame) {
-            if (nextClock.frame === 0) {
-              loopsRef.current += 1;
-              if (!motion && state !== "idle" && !settledRef.current && loopsRef.current >= 3) {
-                settledRef.current = true;
-                setSettled(true);
-              }
-            }
-            frameRef.current = nextClock.frame;
-            setFrame(nextClock.frame);
-          }
-        }
-      }
-      animationFrame = requestAnimationFrame(animate);
-    };
-
-    animationFrame = requestAnimationFrame(animate);
-    return () => cancelAnimationFrame(animationFrame);
-  }, [motion, reducedMotion, settings.animationFrameRate, state]);
 
   const dimensions = useMemo(
     () => ({ width: size, height: Math.round((size * lookMetadata.frameHeight) / lookMetadata.frameWidth) }),
     [lookMetadata.frameHeight, lookMetadata.frameWidth, size],
   );
-  const displayFrame = Math.max(0, Math.min(frame, animation.frames - 1));
-  const framePosition = useMemo(
-    () => atlasFramePosition(animation, displayFrame),
-    [animation, displayFrame],
-  );
-
   const baseSprite = useMemo(() => {
     const root = settings.petProfile === "native" ? "./pet/native" : "./pet";
     return {
@@ -318,9 +257,8 @@ export function PetSprite({
             ? "url('./pet/care-actions-30.webp')"
             : `url('${root}/spritesheet.webp')`,
       backgroundSize: `${size * animation.columns}px ${dimensions.height * animation.atlasRows}px`,
-      backgroundPosition: `${-framePosition.column * size}px ${-framePosition.row * dimensions.height}px`,
     };
-  }, [animation, dimensions.height, dimensions.width, framePosition, settings.petProfile, size]);
+  }, [animation, dimensions.height, dimensions.width, settings.petProfile, size]);
 
   useEffect(() => {
     const canLook = settings.gazeEnabled
@@ -489,7 +427,20 @@ export function PetSprite({
       aria-label={`小满：${state}`}
     >
       {lookIndex === null ? (
-        <div className="pet-sprite pet-sprite-base" style={baseSprite} aria-hidden="true" />
+        <SpritePlayer
+          className="pet-sprite pet-sprite-base"
+          spec={animation}
+          frameRate={settings.animationFrameRate}
+          paused={reducedMotion}
+          onLoop={() => {
+            loopsRef.current += 1;
+            if (!motion && state !== "idle" && !settledRef.current && loopsRef.current >= 3) {
+              settledRef.current = true;
+              setSettled(true);
+            }
+          }}
+          style={baseSprite}
+        />
       ) : (
         <div
           className="pet-sprite pet-look-layer"
