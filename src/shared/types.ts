@@ -42,6 +42,26 @@ export type PetMotion =
   | "idle-blink"
   | "idle-scratch";
 
+export type QuickViewMode = "care" | "interaction";
+
+export interface DesktopInteractionStatus {
+  active: boolean;
+  sessionId: string | null;
+  startedAt: number | null;
+  score: number;
+}
+
+export interface DesktopBubble {
+  id: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  radius: number;
+  bornAt: number;
+  expiresAt: number;
+}
+
 
 export type CodexThreadStatus = "active" | "waiting" | "idle" | "not-loaded" | "error" | "unknown";
 
