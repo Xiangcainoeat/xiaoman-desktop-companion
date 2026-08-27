@@ -17,6 +17,7 @@ from build_idle_atlas_30 import (
     despill_edges,
     normalize_action_frames,
     validate_action_sequence,
+    DEFAULT_SAFE_INSET,
 )
 
 
@@ -135,7 +136,7 @@ def _sequence_contract(frames: list[Image.Image]) -> dict[str, object]:
         for frame in frames
     ], axis=0)
     reference = np.median(pixels, axis=0) if len(pixels) else (0, 0, 0)
-    return validate_action_sequence(frames, reference, 8)
+    return validate_action_sequence(frames, reference, DEFAULT_SAFE_INSET)
 
 
 def _trim_edge_fragments(frame: Image.Image) -> Image.Image:
@@ -303,9 +304,21 @@ def build_assets(sleep_source: Path, care_source: Path, output_dir: Path) -> dic
         verify(Image.open(sleep_path).convert("RGBA"), sleep_metadata, "sleep"),
         verify(Image.open(care_path).convert("RGBA"), care_metadata, "care"),
     )
-    failures = [report for report in built_reports if not report["ok"]]
+    failures: list[dict[str, object]] = []
+    for report in built_reports:
+        sequence = report.get("sequence")
+        sequence_failed = (
+            not isinstance(sequence, dict)
+            or any(not isinstance(result, dict) or result.get("ok") is not True for result in sequence.values())
+        )
+        if not report.get("ok") or sequence_failed:
+            failures.append(report)
     if failures:
-        raise ValueError(f"built care atlas failed verification: {failures[0]['errors']}")
+        first = failures[0]
+        raise ValueError(
+            f"built care atlas failed verification: {first.get('errors', [])}; "
+            f"sequence={first.get('sequence', {})}"
+        )
     return {"reports": {"sleeping-30": sleep_reports, "care-actions-30": care_reports}}
 
 

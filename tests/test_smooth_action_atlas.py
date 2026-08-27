@@ -1,6 +1,9 @@
+import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 import numpy as np
 from PIL import Image
@@ -45,6 +48,12 @@ class SmoothActionAtlasContractTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             normalize_action_frames([_source_frame(0, 0, 90, 90)], safe_inset=80)
 
+    def test_normalize_rejects_bottom_only_inset_that_conflicts_with_baseline(self) -> None:
+        from build_idle_atlas_30 import normalize_action_frames
+
+        with self.assertRaises(ValueError):
+            normalize_action_frames([_source_frame(24, 12, 30, 40)], safe_inset=(0, 0, 0, 16))
+
     def test_validate_reports_contract_metrics_and_rejects_duplicate_sequence(self) -> None:
         from build_idle_atlas_30 import validate_action_sequence
 
@@ -61,6 +70,53 @@ class SmoothActionAtlasContractTest(unittest.TestCase):
         self.assertGreater(report["duplicateRatio"], 0.1)
         self.assertGreater(report["bboxViolations"], 0)
         self.assertGreater(report["mattePixels"], 0)
+
+    def test_verify_propagates_sequence_failure_when_pixels_are_valid(self) -> None:
+        import verify_care_atlas_30
+
+        atlas = Image.new("RGBA", (1920, 624), (0, 0, 0, 0))
+        frame = Image.new("RGBA", (192, 208), (0, 0, 0, 0))
+        for y in range(80, 180):
+            for x in range(60, 130):
+                frame.putpixel((x, y), (214, 174, 142, 255))
+        for index in range(30):
+            atlas.alpha_composite(frame, ((index % 10) * 192, (index // 10) * 208))
+        metadata = json.loads((ROOT / "public/pet/sleeping-30.json").read_text())
+
+        report = verify_care_atlas_30.verify(atlas, metadata, "sleep")
+
+        self.assertFalse(any("pixel" in error for error in report["errors"]))
+        self.assertFalse(report["sequence"]["sleep"]["ok"])
+        self.assertTrue(any(error.startswith("sequence") for error in report["errors"]))
+        self.assertFalse(report["ok"])
+
+    def test_build_assets_rejects_sequence_failure_even_when_pixel_report_is_clean(self) -> None:
+        import build_care_atlas_30
+        import verify_care_atlas_30
+
+        def clean_pixels_but_bad_sequence(*_args: object) -> dict[str, object]:
+            return {"ok": True, "errors": [], "sequence": {"sleep": {"ok": False}}}
+
+        def contact_sheet(path: Path, rows: int, columns: int) -> None:
+            image = Image.new("RGB", (300, 300), (18, 238, 28))
+            for row in range(rows):
+                y = row * 100 + 20
+                for column in range(columns):
+                    x = column * 30
+                    for pixel_y in range(y, y + 60):
+                        for pixel_x in range(x, x + 10):
+                            image.putpixel((pixel_x, pixel_y), (214, 174, 142))
+            image.save(path)
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            sleep_source = root / "sleep.png"
+            care_source = root / "care.png"
+            contact_sheet(sleep_source, 3, 8)
+            contact_sheet(care_source, 3, 10)
+            with patch.object(verify_care_atlas_30, "verify", clean_pixels_but_bad_sequence):
+                with self.assertRaisesRegex(ValueError, "sequence"):
+                    build_care_atlas_30.build_assets(sleep_source, care_source, root / "output")
 
 
 if __name__ == "__main__":

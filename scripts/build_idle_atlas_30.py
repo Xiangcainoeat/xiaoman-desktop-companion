@@ -28,6 +28,8 @@ BACKGROUND_COLOR_TOLERANCE = 64
 ALPHA_VISIBLE = 10
 ALPHA_OPAQUE = 245
 ALGORITHM_ID = "idle-atlas-30-v2-stable-registration"
+BASELINE_Y = 202
+DEFAULT_SAFE_INSET = (8, 8, 8, 0)
 
 
 def _shift(array: np.ndarray, dx: int, dy: int, fill: int | float = 0) -> np.ndarray:
@@ -276,7 +278,7 @@ def _matte_regression() -> dict[str, bool]:
 def normalize_action_frames(
     source_frames: list[Image.Image],
     scale_multiplier: float = 1.0,
-    safe_inset: int | tuple[int, int, int, int] = 8,
+    safe_inset: int | tuple[int, int, int, int] = DEFAULT_SAFE_INSET,
 ) -> tuple[list[Image.Image], dict[str, object]]:
     """Normalize action motion around a shared neutral subject size.
 
@@ -321,7 +323,7 @@ def normalize_action_frames(
     )
     scaled_union_size = (max(1, round(union_width * scale)), max(1, round(union_height * scale)))
     registration_left = (CELL_WIDTH - scaled_union_size[0]) // 2
-    registration_top = 202 - scaled_union_size[1]
+    registration_top = BASELINE_Y - scaled_union_size[1]
     safe_box = (
         inset[0], inset[1], CELL_WIDTH - inset[2], CELL_HEIGHT - inset[3],
     )
@@ -329,7 +331,7 @@ def normalize_action_frames(
         registration_left < safe_box[0]
         or registration_top < safe_box[1]
         or registration_left + scaled_union_size[0] > safe_box[2]
-        or registration_top + scaled_union_size[1] > max(safe_box[3], 202)
+        or registration_top + scaled_union_size[1] > safe_box[3]
     ):
         raise ValueError(f"union foreground exceeds safe inset {inset}: {scaled_union_size}")
 
@@ -344,7 +346,16 @@ def normalize_action_frames(
         frame = Image.new("RGBA", (CELL_WIDTH, CELL_HEIGHT), (0, 0, 0, 0))
         offset_x = round((bounds[0] - union_bbox[0]) * scale)
         x = registration_left + offset_x
-        y = 202 - foreground.height
+        y = BASELINE_Y - foreground.height
+        if (
+            x < safe_box[0]
+            or y < safe_box[1]
+            or x + foreground.width > safe_box[2]
+            or y + foreground.height > safe_box[3]
+        ):
+            raise ValueError(
+                f"frame placement {(x, y, x + foreground.width, y + foreground.height)} exceeds safe inset {inset}"
+            )
         _composite_clipped(frame, foreground, (x, y))
         cleaned = despill_edges(frame)
         pixels = np.asarray(cleaned).copy()
@@ -358,7 +369,7 @@ def normalize_action_frames(
         "sharedRegistration": True,
         "unionBBox": list(union_bbox),
         "safeInset": list(inset),
-        "baseline": 202,
+        "baseline": BASELINE_Y,
         "neutralReferenceSize": [NEUTRAL_TARGET_WIDTH, NEUTRAL_TARGET_HEIGHT],
         "neutralSubjectSize": list(neutral_size),
         "backgroundPixelsRemoved": sum(item["backgroundPixelsRemoved"] for item in matte_stats),
@@ -376,7 +387,7 @@ def _safe_box(safe_inset: int | tuple[int, int, int, int], size: tuple[int, int]
 def validate_action_sequence(
     frames: list[Image.Image],
     reference_rgb: Image.Image | np.ndarray | tuple[int, int, int],
-    safe_inset: int | tuple[int, int, int, int] = 8,
+    safe_inset: int | tuple[int, int, int, int] = DEFAULT_SAFE_INSET,
 ) -> dict[str, object]:
     """Return deterministic action quality metrics without modifying frames."""
     if not frames:
@@ -522,7 +533,11 @@ def build_atlas(sources: dict[str, Path]) -> tuple[Image.Image, dict[str, object
         action_frame_reports: list[dict[str, int | str]] = []
         signatures = [_color_signature(frame) for frame in normalized_frames]
         continuity = _continuity_metrics(normalized_frames, signatures)
-        sequence_contract = validate_action_sequence(normalized_frames, np.median(np.stack(signatures), axis=0), 8)
+        sequence_contract = validate_action_sequence(
+            normalized_frames,
+            np.median(np.stack(signatures), axis=0),
+            DEFAULT_SAFE_INSET,
+        )
         for index, frame in enumerate(normalized_frames):
             row = action_index * ROWS_PER_ACTION + index // COLUMNS
             column = index % COLUMNS

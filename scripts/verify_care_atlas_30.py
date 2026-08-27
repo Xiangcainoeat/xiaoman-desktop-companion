@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 
 from build_care_atlas_30 import ALPHA_VISIBLE, CELL_HEIGHT, CELL_WIDTH, COLUMNS, FRAMES
-from build_idle_atlas_30 import validate_action_sequence
+from build_idle_atlas_30 import DEFAULT_SAFE_INSET, validate_action_sequence
 
 
 EXPECTED = {
@@ -268,7 +268,10 @@ def verify(atlas: Image.Image, metadata: object = None, kind: str | None = None)
             for frame in action_frames
         ], axis=0)
         reference = np.median(opaque, axis=0) if len(opaque) else (0, 0, 0)
-        sequence_reports[action] = validate_action_sequence(action_frames, reference, 8)
+        sequence_reports[action] = validate_action_sequence(action_frames, reference, DEFAULT_SAFE_INSET)
+        if not sequence_reports[action]["ok"]:
+            sequence_errors = sequence_reports[action].get("errors", ["contract failure"])
+            errors.append(f"sequence {action} failed: {', '.join(str(error) for error in sequence_errors)}")
     return {
         "ok": not errors,
         "kind": kind,
