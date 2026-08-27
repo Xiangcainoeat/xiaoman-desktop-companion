@@ -53,4 +53,21 @@ describe("advanceFrameByDelta", () => {
       remainderMs: 0,
     });
   });
+
+  it("normalizes invalid inputs through the legacy clock API too", () => {
+    const invalidClocks = [
+      { frame: -2, remainderMs: -0.5 },
+      { frame: 99, remainderMs: 1.5 },
+    ];
+
+    for (const clock of invalidClocks) {
+      expect(advanceAnimationClock(clock, 0, spec.fps, spec.frames)).toEqual({
+        frame: 0,
+        remainderMs: 0,
+      });
+      expect(advanceAnimationClock(clock, 0, spec.fps, spec.frames)).toEqual(
+        advanceFrameByDelta(clock, 0, spec).clock,
+      );
+    }
+  });
 });

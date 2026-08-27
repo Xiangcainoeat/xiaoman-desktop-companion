@@ -54,6 +54,17 @@ function assertPositiveInteger(value: number, name: string): void {
   }
 }
 
+function normalizeAnimationClock(clock: AnimationClock, frameCount: number): AnimationClock {
+  return {
+    frame: Number.isInteger(clock.frame) && clock.frame >= 0 && clock.frame < frameCount
+      ? clock.frame
+      : 0,
+    remainderMs: Number.isFinite(clock.remainderMs) && clock.remainderMs >= 0 && clock.remainderMs < 1
+      ? clock.remainderMs
+      : 0,
+  };
+}
+
 export function createLookAtlasMetadata(input: LookAtlasMetadataInput): LookAtlasMetadata {
   assertPositiveInteger(input.frameCount, "Look atlas frame count");
   assertPositiveInteger(input.columns, "Look atlas column count");
@@ -109,13 +120,11 @@ export function advanceAnimationClock(
   assertPositiveFinite(fps, "Animation fps");
   assertPositiveInteger(frameCount, "Animation frame count");
 
+  const normalizedClock = normalizeAnimationClock(clock, frameCount);
   const safeElapsedMs = normalizeAnimationDelta(elapsedMs);
-  const remainder = Number.isFinite(clock.remainderMs) && clock.remainderMs >= 0
-    ? clock.remainderMs
-    : 0;
-  const progress = remainder + (safeElapsedMs * fps) / 1000;
+  const progress = normalizedClock.remainderMs + (safeElapsedMs * fps) / 1000;
   const frameAdvance = Math.floor(progress);
-  const currentFrame = Number.isInteger(clock.frame) ? clock.frame : 0;
+  const currentFrame = normalizedClock.frame;
 
   return {
     frame: (currentFrame + frameAdvance) % frameCount,
@@ -131,14 +140,7 @@ export function advanceFrameByDelta(
   assertPositiveFinite(spec.fps, "Animation fps");
   assertPositiveInteger(spec.frames, "Animation frame count");
 
-  const normalizedClock: AnimationClock = {
-    frame: Number.isInteger(clock.frame) && clock.frame >= 0 && clock.frame < spec.frames
-      ? clock.frame
-      : 0,
-    remainderMs: Number.isFinite(clock.remainderMs) && clock.remainderMs >= 0 && clock.remainderMs < 1
-      ? clock.remainderMs
-      : 0,
-  };
+  const normalizedClock = normalizeAnimationClock(clock, spec.frames);
   const safeElapsedMs = normalizeAnimationDelta(elapsedMs);
   const nextClock = advanceAnimationClock(normalizedClock, safeElapsedMs, spec.fps, spec.frames);
   const frameAdvance = Math.floor(normalizedClock.remainderMs + (safeElapsedMs * spec.fps) / 1000);
