@@ -3,6 +3,7 @@
 Date: 2026-08-28
 Worktree: `/Users/zk/.config/superpowers/worktrees/xiaoman-desktop-companion-release/xiaoman-care-and-games`
 Branch: `feature/xiaoman-care-and-games`
+Implementation commit: `a1a1ca991262cf2b324a7386de13fe19e30f526b`
 
 ## Scope and decision
 
