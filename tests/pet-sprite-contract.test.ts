@@ -45,4 +45,22 @@ describe("PetSprite look rendering contract", () => {
       stepDegrees: 22.5,
     });
   });
+
+  it("uses complete-body sleep and care atlases with metadata rows", () => {
+    expect(source).toContain("'./pet/sleeping-30.webp'");
+    expect(source).toContain("'./pet/care-actions-30.webp'");
+    expect(source).toContain('atlasFramePosition');
+    expect(source).toContain('row: 0, frames: 30, fps:');
+    expect(source).toContain('row: 3, frames: 30, fps:');
+    expect(source).toContain('state === "bathing"');
+    expect(source).not.toContain("opacity: animation");
+    expect(source).not.toContain("head-look");
+  });
+
+  it("preserves the native full-body standard fallback", () => {
+    expect(source).toContain('settings.petProfile === "native"');
+    expect(source).toContain('animation.atlas === "care"');
+    expect(source).toContain('animation.atlas === "sleeping"');
+    expect(source).toContain('motion.startsWith("idle-")');
+  });
 });

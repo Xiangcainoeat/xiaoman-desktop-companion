@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   CircleOff,
   Code2,
+  Eye,
   Fish,
   Gamepad2,
   Heart,
@@ -12,11 +13,13 @@ import {
   Sparkles,
   Zap,
 } from "lucide-react";
+import { useState } from "react";
 import { STATE_LABELS } from "../shared/domain";
 import type { AppSnapshot, InteractionAction } from "../shared/types";
 import { bridge } from "../useCompanion";
 import { EmptyState, StatBar } from "./Controls";
 import { PetSprite } from "./PetSprite";
+import { ActionPreview } from "./ActionPreview";
 
 function statusText(status: string): string {
   if (status === "watching" || status === "available") return "已连接";
@@ -29,14 +32,14 @@ function formatActivityTime(at: number): string {
   return new Intl.DateTimeFormat("zh-CN", { hour: "2-digit", minute: "2-digit" }).format(date);
 }
 
-export function OverviewView({ snapshot }: { snapshot: AppSnapshot }) {
+export function OverviewView({ snapshot, onOpenCare }: { snapshot: AppSnapshot; onOpenCare?: () => void }) {
+  const [showActionPreview, setShowActionPreview] = useState(false);
   const actions: Array<{
     action: InteractionAction;
     label: string;
     icon: React.ReactNode;
     className: string;
   }> = [
-    { action: "feed", label: "喂鱼干", icon: <Fish size={19} />, className: "quick-feed" },
     { action: "pet", label: "摸摸", icon: <Heart size={19} />, className: "quick-pet" },
     { action: "play", label: "一起玩", icon: <Gamepad2 size={19} />, className: "quick-play" },
     {
@@ -64,6 +67,7 @@ export function OverviewView({ snapshot }: { snapshot: AppSnapshot }) {
           <StatBar icon={<Bone size={16} />} label="饱食度" value={snapshot.stats.fullness} tone="coral" />
           <StatBar icon={<Heart size={16} />} label="好感度" value={snapshot.stats.affection} tone="green" />
           <StatBar icon={<Zap size={16} />} label="精力" value={snapshot.stats.energy} tone="blue" />
+          <StatBar icon={<Sparkles size={16} />} label="清洁度" value={snapshot.stats.cleanliness} tone="green" />
         </div>
       </section>
 
@@ -87,6 +91,18 @@ export function OverviewView({ snapshot }: { snapshot: AppSnapshot }) {
             </button>
           ))}
         </div>
+        <button className="preview-trigger" type="button" onClick={() => setShowActionPreview(true)}>
+          <Eye size={17} />
+          <span>动作预览</span>
+        </button>
+        <div className="overview-care-handoff">
+          <span className="overview-care-icon"><Fish size={18} /></span>
+          <span><strong>养成照料</strong><small>{snapshot.inventory.food["fish-snack"]} 份小鱼干 · 清洁度 {Math.round(snapshot.stats.cleanliness)}</small></span>
+          <button className="secondary-button" type="button" disabled={!onOpenCare} onClick={onOpenCare}>打开照料</button>
+        </div>
+        {showActionPreview && (
+          <ActionPreview settings={snapshot.settings} onClose={() => setShowActionPreview(false)} />
+        )}
       </section>
 
       <div className="overview-columns">

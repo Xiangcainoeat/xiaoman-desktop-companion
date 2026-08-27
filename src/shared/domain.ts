@@ -1,4 +1,5 @@
 import { PET_STATES, SOUND_NAMES } from "./types";
+import { canonicalJobReward, QUEST_DEFINITIONS } from "./care";
 import { DEFAULT_HOVER_JUMP_COUNT, normalizeHoverJumpCount } from "./motion";
 import type {
   ActivityItem,
@@ -8,6 +9,12 @@ import type {
   PetState,
   PetStats,
   Reminder,
+  ActiveJob,
+  DailyQuest,
+  FoodId,
+  Inventory,
+  JobId,
+  QuestKind,
 } from "./types";
 
 // The source Codex atlas has transparent tail cells on several standard rows.
@@ -21,7 +28,9 @@ export const STATE_LABELS: Record<PetState, string> = {
   ready: "完成啦",
   failed: "出了点问题",
   hungry: "有点饿",
+  dirty: "该洗澡啦",
   eating: "正在吃饭",
+  bathing: "洗澡中",
   happy: "心情很好",
   affectionate: "喜欢你",
   sleepy: "有点困",
@@ -66,7 +75,32 @@ export const DEFAULT_SETTINGS: CompanionSettings = {
   monitorCodex: true,
   monitorApps: true,
   startAtLogin: false,
+  autoSleepEnabled: false,
+  autoSleepAfterMin: 15,
+  gameModeEnabled: true,
 };
+
+export const FOOD_IDS: FoodId[] = ["fish-snack", "milk", "tuna-bites", "salmon"];
+function dateKey(now: number): string {
+  const date = new Date(now);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+export function createDailyQuests(now = Date.now()): DailyQuest[] {
+  return QUEST_DEFINITIONS.map((definition, index) => ({
+    id: `${dateKey(now)}-${definition.kind}-${index}`,
+    kind: definition.kind,
+    title: definition.title,
+    target: 1,
+    progress: 0,
+    reward: { food: { ...definition.reward.food }, giftBoxes: definition.reward.giftBoxes, experience: definition.reward.experience },
+    claimed: false,
+  }));
+}
+
+export function createDefaultInventory(): Inventory {
+  return { food: { "fish-snack": 8, milk: 0, "tuna-bites": 0, salmon: 0 }, giftBoxes: 1 };
+}
 
 export const DEFAULT_IDLE_PHRASES = [
   "我在这儿",
@@ -114,7 +148,7 @@ export function makeId(prefix: string): string {
 
 export function createDefaultData(now = Date.now()): PersistedData {
   return {
-    version: 2,
+    version: 3,
     stats: {
       fullness: 76,
       affection: 42,
@@ -124,6 +158,9 @@ export function createDefaultData(now = Date.now()): PersistedData {
       lastPettedAt: null,
       meals: 0,
       interactions: 0,
+      cleanliness: 78,
+      experience: 0,
+      level: 1,
     },
     reminders: [],
     appRules: DEFAULT_APP_RULES.map((rule) => ({ ...rule })),
@@ -137,6 +174,12 @@ export function createDefaultData(now = Date.now()): PersistedData {
       lastEnergyNoticeAt: null,
       lastLongWorkNoticeAt: null,
     },
+    inventory: createDefaultInventory(),
+    activeJob: null,
+    dailyQuestDate: dateKey(now),
+    dailyQuests: createDailyQuests(now),
+    sleepReason: null,
+    codexRewardLedger: [],
   };
 }
 
@@ -152,6 +195,7 @@ export function decayStats(stats: PetStats, sleeping: boolean, now = Date.now())
     ...stats,
     fullness: clampStat(stats.fullness - elapsedMinutes / 24),
     affection: clampStat(stats.affection - elapsedMinutes / (60 * 18)),
+    cleanliness: clampStat(stats.cleanliness - (sleeping ? 0 : elapsedMinutes / 45)),
     energy: clampStat(stats.energy + (sleeping ? elapsedMinutes / 7 : -elapsedMinutes / 52)),
     lastUpdatedAt: now,
   };
@@ -166,6 +210,7 @@ export function deriveAmbientState(
   if (codexBusy) return "working";
   if (sleeping) return "sleeping";
   if (stats.fullness <= 22) return "hungry";
+  if (stats.cleanliness < 18) return "dirty";
   if (stats.energy <= 18) return "sleepy";
   return appRuleState ?? "idle";
 }
@@ -286,6 +331,9 @@ export function normalizeCompanionSettings(value: unknown): CompanionSettings {
     monitorCodex: booleanValue(source.monitorCodex, DEFAULT_SETTINGS.monitorCodex),
     monitorApps: booleanValue(source.monitorApps, DEFAULT_SETTINGS.monitorApps),
     startAtLogin: booleanValue(source.startAtLogin, DEFAULT_SETTINGS.startAtLogin),
+    autoSleepEnabled: booleanValue(source.autoSleepEnabled, DEFAULT_SETTINGS.autoSleepEnabled),
+    autoSleepAfterMin: integerValue(source.autoSleepAfterMin, DEFAULT_SETTINGS.autoSleepAfterMin, 5, 180),
+    gameModeEnabled: booleanValue(source.gameModeEnabled, DEFAULT_SETTINGS.gameModeEnabled),
   };
 }
 
@@ -300,6 +348,46 @@ function normalizeStats(value: unknown, defaults: PetStats): PetStats {
     lastPettedAt: nullableNumber(source.lastPettedAt),
     meals: integerValue(source.meals, defaults.meals, 0, Number.MAX_SAFE_INTEGER),
     interactions: integerValue(source.interactions, defaults.interactions, 0, Number.MAX_SAFE_INTEGER),
+    cleanliness: numberValue(source.cleanliness, defaults.cleanliness, 0, 100),
+    experience: integerValue(source.experience, defaults.experience, 0, Number.MAX_SAFE_INTEGER),
+    level: integerValue(source.level, defaults.level, 1, Number.MAX_SAFE_INTEGER),
+  };
+}
+
+function normalizeInventory(value: unknown, defaults: Inventory): Inventory {
+  const source = recordValue(value) ?? {};
+  const foodSource = recordValue(source.food) ?? {};
+  return {
+    food: Object.fromEntries(FOOD_IDS.map((id) => [id, integerValue(foodSource[id], defaults.food[id], 0, 9999)])) as Record<FoodId, number>,
+    giftBoxes: integerValue(source.giftBoxes, defaults.giftBoxes, 0, 9999),
+  };
+}
+
+function normalizeJob(value: unknown): ActiveJob | null {
+  const source = recordValue(value);
+  if (!source || !["desk-organizer", "code-helper", "delivery-run"].includes(source.id as string)) return null;
+  return {
+    id: source.id as JobId,
+    startedAt: numberValue(source.startedAt, 0, 0, Number.MAX_SAFE_INTEGER),
+    completesAt: numberValue(source.completesAt, 0, 0, Number.MAX_SAFE_INTEGER),
+    reward: canonicalJobReward(source.id as JobId),
+  };
+}
+
+function normalizeQuest(value: unknown): DailyQuest | null {
+  const source = recordValue(value);
+  const kinds: QuestKind[] = ["feed", "bathe", "play", "work", "codex-complete", "open-gift"];
+  if (!source || typeof source.id !== "string" || !kinds.includes(source.kind as QuestKind)) return null;
+  const definition = QUEST_DEFINITIONS.find((item) => item.kind === source.kind);
+  if (!definition) return null;
+  return {
+    id: textValue(source.id, "quest", 120),
+    kind: source.kind as QuestKind,
+    title: definition.title,
+    target: definition.target,
+    progress: integerValue(source.progress, 0, 0, definition.target),
+    reward: { food: { ...definition.reward.food }, giftBoxes: definition.reward.giftBoxes, experience: definition.reward.experience },
+    claimed: booleanValue(source.claimed, false),
   };
 }
 
@@ -372,13 +460,22 @@ export function normalizePersistedData(value: unknown): PersistedData {
   if (value === null || value === undefined) return defaults;
   const source = recordValue(value);
   if (!source) throw new TypeError("Persisted companion data must be an object");
-  if (source.version !== 1 && source.version !== 2) {
+  if (source.version !== 1 && source.version !== 2 && source.version !== 3) {
     throw new RangeError(`Unsupported companion data version: ${String(source.version)}`);
   }
   const position = recordValue(source.overlayPosition);
   const proactive = recordValue(source.proactive) ?? {};
+  const dailyQuestDate = typeof source.dailyQuestDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(source.dailyQuestDate)
+    ? source.dailyQuestDate
+    : dateKey(Date.now());
+  const quests = Array.isArray(source.dailyQuests)
+    ? source.dailyQuests.map(normalizeQuest).filter((item): item is DailyQuest => item !== null)
+    : [];
+  const ledger = Array.isArray(source.codexRewardLedger)
+    ? [...new Set(source.codexRewardLedger.filter((item): item is string => typeof item === "string").map((item) => item.slice(0, 240)))].slice(-120)
+    : [];
   return {
-    version: 2,
+    version: 3,
     stats: normalizeStats(source.stats, defaults.stats),
     reminders: Array.isArray(source.reminders)
       ? source.reminders.map(normalizeReminder).filter((item): item is Reminder => item !== null)
@@ -402,5 +499,11 @@ export function normalizePersistedData(value: unknown): PersistedData {
       lastEnergyNoticeAt: nullableNumber(proactive.lastEnergyNoticeAt),
       lastLongWorkNoticeAt: nullableNumber(proactive.lastLongWorkNoticeAt),
     },
+    inventory: normalizeInventory(source.inventory, defaults.inventory),
+    activeJob: normalizeJob(source.activeJob),
+    dailyQuestDate,
+    dailyQuests: quests.length === 5 ? quests : createDailyQuests(),
+    sleepReason: source.sleepReason === "manual" || source.sleepReason === "inactivity" ? source.sleepReason : null,
+    codexRewardLedger: ledger,
   };
 }

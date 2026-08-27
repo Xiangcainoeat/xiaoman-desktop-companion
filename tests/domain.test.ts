@@ -31,8 +31,15 @@ describe("pet stat decay", () => {
     const data = createDefaultData(0);
     const next = decayStats(data.stats, false, 60 * 60_000);
     expect(next.fullness).toBeLessThan(data.stats.fullness);
+    expect(next.cleanliness).toBeLessThan(data.stats.cleanliness);
     expect(next.energy).toBeLessThan(data.stats.energy);
     expect(next.lastUpdatedAt).toBe(60 * 60_000);
+  });
+
+  it("does not spend cleanliness while sleeping", () => {
+    const data = createDefaultData(0);
+    const next = decayStats(data.stats, true, 60 * 60_000);
+    expect(next.cleanliness).toBe(data.stats.cleanliness);
   });
 
   it("restores energy while sleeping", () => {
@@ -52,6 +59,12 @@ describe("ambient state priority", () => {
   it("surfaces sleeping and hunger before app state", () => {
     expect(deriveAmbientState(stats, true, false, "focused")).toBe("sleeping");
     expect(deriveAmbientState({ ...stats, fullness: 20 }, false, false, "focused")).toBe("hungry");
+  });
+
+  it("surfaces the bath reminder when cleanliness is low", () => {
+    expect(deriveAmbientState({ ...stats, cleanliness: 17 }, false, false, null)).toBe("dirty");
+    expect(deriveAmbientState({ ...stats, cleanliness: 17 }, false, true, null)).toBe("working");
+    expect(deriveAmbientState({ ...stats, cleanliness: 17 }, true, false, null)).toBe("sleeping");
   });
 });
 
@@ -98,7 +111,7 @@ describe("version 2 persistence migration", () => {
       settings: { ...old.settings, gazeEnabled: false } as typeof old.settings,
       idlePhrases: undefined,
     });
-    expect(migrated.version).toBe(2);
+    expect(migrated.version).toBe(3);
     expect(migrated.stats.affection).toBe(88);
     expect(migrated.settings.gazeEnabled).toBe(false);
     expect(migrated.settings.gazeRange).toBe("full-360");
@@ -134,8 +147,70 @@ describe("version 2 persistence migration", () => {
     expect(normalized.appRules).toEqual([]);
   });
 
-  it("rejects future schema versions instead of silently resetting them", () => {
-    expect(() => normalizePersistedData({ version: 3 })).toThrow("Unsupported companion data version");
+  it("accepts v2 data and adds the v3 care defaults", () => {
+    const migrated = normalizePersistedData({
+      ...createDefaultData(100),
+      version: 2,
+      stats: { ...createDefaultData(100).stats, fullness: 61 },
+    });
+    expect(migrated.version).toBe(3);
+    expect(migrated.stats.fullness).toBe(61);
+    expect(migrated.stats.cleanliness).toBe(78);
+    expect(migrated.stats.experience).toBe(0);
+    expect(migrated.stats.level).toBe(1);
+    expect(migrated.inventory.food["fish-snack"]).toBe(8);
+    expect(migrated.inventory.giftBoxes).toBe(1);
+    expect(migrated.activeJob).toBeNull();
+    expect(migrated.sleepReason).toBeNull();
+    expect(migrated.codexRewardLedger).toEqual([]);
+    expect(migrated.dailyQuests).toHaveLength(5);
+  });
+
+  it("accepts v3 data and normalizes malformed care fields", () => {
+    const normalized = normalizePersistedData({
+      ...createDefaultData(),
+      version: 3,
+      stats: { ...createDefaultData().stats, cleanliness: 999, experience: "bad", level: -2 },
+      inventory: { food: { "fish-snack": 100000, milk: "bad" }, giftBoxes: -4 },
+      dailyQuests: "bad",
+      codexRewardLedger: ["a", 2, "a"],
+    });
+    expect(normalized.stats.cleanliness).toBe(100);
+    expect(normalized.stats.experience).toBe(0);
+    expect(normalized.stats.level).toBe(1);
+    expect(normalized.inventory.food["fish-snack"]).toBe(9999);
+    expect(normalized.inventory.food.milk).toBe(0);
+    expect(normalized.inventory.giftBoxes).toBe(0);
+    expect(normalized.dailyQuests).toHaveLength(5);
+    expect(normalized.codexRewardLedger).toEqual(["a"]);
+  });
+
+  it("restores canonical daily quest rewards instead of trusting persisted reward fields", () => {
+    const data = createDefaultData(100);
+    const quest = data.dailyQuests[0];
+    const normalized = normalizePersistedData({
+      ...data,
+      version: 3,
+      dailyQuests: [{
+        ...quest,
+        title: "伪造任务",
+        target: 999,
+        progress: 999,
+        reward: { food: { salmon: 9999 }, giftBoxes: 9999, experience: 999999 },
+      }, ...data.dailyQuests.slice(1)],
+    });
+
+    expect(normalized.dailyQuests[0]).toMatchObject({
+      kind: "feed",
+      title: "喂小满一次",
+      target: 1,
+      progress: 1,
+      reward: { food: { "fish-snack": 2 }, giftBoxes: 0, experience: 0 },
+    });
+  });
+
+  it("rejects versions newer than v3", () => {
+    expect(() => normalizePersistedData({ version: 4 })).toThrow("Unsupported companion data version");
   });
 });
 

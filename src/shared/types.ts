@@ -5,7 +5,9 @@ export const PET_STATES = [
   "ready",
   "failed",
   "hungry",
+  "dirty",
   "eating",
+  "bathing",
   "happy",
   "affectionate",
   "sleepy",
@@ -23,6 +25,11 @@ export const SOUND_NAMES = ["none", "meow", "purr", "chime", "crunch", "pop", "a
 export type SoundName = (typeof SOUND_NAMES)[number];
 
 export type InteractionAction = "feed" | "pet" | "play" | "sleep" | "wake" | "celebrate";
+export type FoodId = "fish-snack" | "milk" | "tuna-bites" | "salmon";
+export type JobId = "desk-organizer" | "code-helper" | "delivery-run";
+export type QuestKind = "feed" | "bathe" | "play" | "work" | "codex-complete" | "open-gift";
+export type SleepReason = "manual" | "inactivity" | null;
+export type GameId = "rock-paper-scissors" | "fish-catch" | "bubble-pop";
 export type ReminderRepeat = "once" | "daily" | "weekdays" | "weekly";
 export type GazeRange = "upper-180" | "full-360";
 export type PetProfile = "enhanced" | "native";
@@ -34,6 +41,7 @@ export type PetMotion =
   | "idle-lick"
   | "idle-blink"
   | "idle-scratch";
+
 
 export type CodexThreadStatus = "active" | "waiting" | "idle" | "not-loaded" | "error" | "unknown";
 
@@ -76,7 +84,49 @@ export interface PetStats {
   lastPettedAt: number | null;
   meals: number;
   interactions: number;
+  cleanliness: number;
+  experience: number;
+  level: number;
 }
+
+export interface Inventory {
+  food: Record<FoodId, number>;
+  giftBoxes: number;
+}
+
+export interface RewardBundle {
+  food: Partial<Record<FoodId, number>>;
+  giftBoxes: number;
+  experience: number;
+}
+
+export interface ActiveJob {
+  id: JobId;
+  startedAt: number;
+  completesAt: number;
+  reward: RewardBundle;
+}
+
+export interface DailyQuest {
+  id: string;
+  kind: QuestKind;
+  title: string;
+  target: number;
+  progress: number;
+  reward: RewardBundle;
+  claimed: boolean;
+}
+
+export interface GameSettlement {
+  gameId: GameId;
+  score: number;
+  affection: number;
+  experience: number;
+}
+
+export type CareOperationResult =
+  | { ok: true; data: PersistedData; message?: string }
+  | { ok: false; message: string };
 
 export interface Reminder {
   id: string;
@@ -135,6 +185,9 @@ export interface CompanionSettings {
   monitorCodex: boolean;
   monitorApps: boolean;
   startAtLogin: boolean;
+  autoSleepEnabled: boolean;
+  autoSleepAfterMin: number;
+  gameModeEnabled: boolean;
 }
 
 export interface ActivityItem {
@@ -156,7 +209,7 @@ export interface MonitoringStatus {
 }
 
 export interface PersistedData {
-  version: 2;
+  version: 3;
   stats: PetStats;
   reminders: Reminder[];
   appRules: AppRule[];
@@ -170,6 +223,12 @@ export interface PersistedData {
     lastEnergyNoticeAt: number | null;
     lastLongWorkNoticeAt: number | null;
   };
+  inventory: Inventory;
+  activeJob: ActiveJob | null;
+  dailyQuestDate: string;
+  dailyQuests: DailyQuest[];
+  sleepReason: SleepReason;
+  codexRewardLedger: string[];
 }
 
 export interface AppSnapshot extends PersistedData {

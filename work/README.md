@@ -2,7 +2,7 @@
 
 ## Identity and gaze profiles
 
-The desktop host reuses the accepted Xiaoman Codex atlas as the identity source. Version 1.3.1 has two selectable profiles:
+The desktop host reuses the accepted Xiaoman Codex atlas as the identity source. Version 1.4.0 has two selectable profiles:
 
 - `native`: deterministic extraction of the accepted rows 9–10 into `public/pet/native/look-16.webp`; the native `pet.json` and `spritesheet.webp` are byte-preserved copies.
 - `enhanced`: approved 96-direction source frames at 3.75-degree increments. Runtime rendering selects one complete full-body direction frame and never opacity-blends two poses.
@@ -65,6 +65,18 @@ The lick, blink and raised-front-paw source sheets were created through the user
   `work/idle-actions-30-background-check.png`
 
 No relay endpoint, API key, original user-photo path or private configuration is included in this repository.
+
+## Care, sleep and game assets
+
+Version 1.4.0 adds a separate local care loop and three small games. The visual sources and deterministic post-processing records are kept under `work/xiaoman-care-assets/`:
+
+- `sleep-source.png` and `sleeping-prompt.md` are the complete curled-body sleep source; `public/pet/sleeping-30.webp` is the validated 10x3, 30-frame runtime atlas.
+- `care-source.png` and `care-prompt.md` contain the bath/feed action source; `public/pet/care-actions-30.webp` is the validated 10x6 atlas, with bath frames at row 0 and feed/gift frames at row 3.
+- `game-fish-source.png` and `game-bubble-source.png` are the generated game illustrations. `scripts/extract_game_targets.py` removes the plain background, preserves alpha and emits `public/game/fish-target.png` and `public/game/bubble-target.png`.
+- `*-verify-report.json` and contact sheets record frame occupancy, transparent corners, hidden RGB and green-edge checks. Re-run both care checks with `npm run verify:care-atlas`.
+- `game-fish-prompt.md`, `game-bubble-prompt.md` and `concurrency.json` preserve the reusable prompt and the combined image-generation/agent concurrency boundary. Source generation was run serially through the local `relay-imagegen` CLI; the configured combined maximum is 6.
+
+The care economy is intentionally separate from ordinary desktop interaction. Feeding consumes inventory; Codex completion, jobs, daily quests and gift boxes are reward sources; games grant only bounded affection and experience. The native Codex pet files remain outside this workflow and are never rewritten.
 
 ## Product QA
 

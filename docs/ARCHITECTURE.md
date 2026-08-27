@@ -22,7 +22,7 @@ Transient reminders and direct interactions can temporarily override background 
 
 1. Active Codex task
 2. Explicit sleep
-3. Hunger or low energy
+3. Hunger, low cleanliness or low energy
 4. Matching foreground application rule
 5. Idle
 
@@ -51,6 +51,26 @@ The enhanced `look-96.webp` source is assembled deterministically from a repaire
 - Random speech is selected from a normalized list of at most 40 unique phrases, each at most 80 characters.
 - Overlay dimensions derive from the 150–340px pet size and preserve the lower-right screen anchor.
 
+## Care and progression
+
+The care domain is shared pure TypeScript rather than renderer-owned state. A feed operation validates and consumes one inventory item before applying that food's bounded stat effects. Bathing increases cleanliness and uses the dedicated 30-frame care atlas. Jobs, gift boxes, daily quests and Codex completion rewards all return a new `PersistedData` value; the main process is the only writer and appends one activity record per successful operation.
+
+The progression economy has deliberately separate sources and sinks:
+
+- fish snacks are food and are consumed only by feeding;
+- real Codex completions grant one fish snack and may grant one gift box, keyed by `threadId:turnId`;
+- jobs and daily quests grant fixed food, gift boxes or experience;
+- opening a gift box consumes the box and rolls one food item at fixed weights;
+- games grant only bounded affection and experience.
+
+This keeps ordinary click interactions and care operations from double-counting inventory or rewards. Inventory quantities are capped at 9999, experience derives the persisted level, and malformed saved rewards are replaced with canonical job/quest values during normalization.
+
+Cleanliness decreases only across elapsed awake time. Once it falls below 18, the ambient state becomes `dirty`; Codex work, reminders, explicit interactions and sleep retain their existing priority. Schema version 3 persists inventory, active job, daily quests, sleep reason and the bounded Codex reward ledger.
+
+## Sleep and games
+
+When enabled, the main process polls Electron's system idle seconds once per second. It enters inactivity sleep only when there is no active Codex task, high-priority reminder, job or game. The enhanced profile uses `sleeping-30.webp` for a complete curled-body loop; the native profile falls back to its untouched standard atlas. A game session is renderer-local, but its active flag and bounded settlement cross the typed IPC boundary. The main process rejects a settlement unless the game mode is enabled and a session is active, then clears the flag after a successful settlement.
+
 ## Codex task controls
 
 In native mode, task identity comes from the newest local Codex `state_*.sqlite` database. The query is read-only, excludes archived rows, `exec`, subagent sources and subagent thread sources, and does not union arbitrary JSONL files. If the state database is unavailable, the service may ask the existing app-server for the same filtered authority; it never falls back to an unrelated log list in native mode. The renderer receives only title, project label, status, reply capability and update time.
@@ -63,7 +83,7 @@ The optional CLI compatibility channel retains the older operations: active or w
 
 ## Persistence
 
-`CompanionStore` writes JSON through a temporary file followed by an atomic rename. The file mode is `0600`. Schema version 2 migrates version-1 data while preserving stats, reminders, rules, activity, startup preference and overlay position. Every nested field is normalized at runtime. Malformed or unsupported future data is renamed to an `.invalid-*.bak` file before defaults are created, preventing silent overwrite of the only recoverable copy.
+`CompanionStore` writes JSON through a temporary file followed by an atomic rename. The file mode is `0600`. Schema versions 1 and 2 migrate to version 3 while preserving stats, reminders, rules, activity, startup preference and overlay position; new care defaults are added without modifying the native Codex pet files. Every nested field is normalized at runtime. Malformed or unsupported future data is renamed to an `.invalid-*.bak` file before defaults are created, preventing silent overwrite of the only recoverable copy.
 
 ## Integration boundary
 

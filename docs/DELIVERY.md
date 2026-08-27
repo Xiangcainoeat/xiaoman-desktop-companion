@@ -9,6 +9,7 @@ electron/                 Electron main process and local integrations
 src/                      React UI, overlay, shared domain and interaction logic
 public/pet/                Runtime artwork, enhanced 96-direction body atlas and idle atlas
 public/pet/native/         Byte-preserved native Codex profile resources
+public/game/               Original fish and bubble targets for local games
 scripts/                  Deterministic atlas assembly and packaging hooks
 tests/                    Unit tests
 work/                     Prompts, generated sources, validation and QA evidence
@@ -30,14 +31,18 @@ Large DMG/ZIP files should be attached as GitHub Release assets with `release/SH
 
 ## Installable outputs
 
-- `release/Xiaoman-Desktop-Companion-1.3.1-arm64.dmg`
-- `release/Xiaoman-Desktop-Companion-1.3.1-arm64.zip`
-- `release/xiaoman-desktop-companion-source-v1.3.1.zip`
+- `release/Xiaoman-Desktop-Companion-1.4.0-arm64.dmg`
+- `release/Xiaoman-Desktop-Companion-1.4.0-arm64.zip`
+- `release/xiaoman-desktop-companion-source-v1.4.0.zip`
 - `codex-pet/release/xiaoman-codex-install.zip`
 
 The desktop host targets Apple Silicon and macOS 13 or later. It is ad-hoc/unsigned for local distribution and is not notarized. The native Codex package does not require the host and continues to work when the host is absent or closed.
 
 The host has two independent pet profiles. `enhanced` loads the complete `public/pet/look-96.webp` body atlas plus the host idle-action atlas; each gaze direction is one coherent full-body frame. `native` loads `public/pet/native/pet.json`, `spritesheet.webp` and `look-16.webp`; the hashes are recorded in `release/qa/native-profile-hashes.json`. Switching profiles changes only host rendering. It does not install, replace or mutate the two files under `~/.codex/pets/xiaoman`.
+
+Version 1.4.0 adds the local care economy: four inventory-backed foods, cleanliness and bathing, one active job with offline settlement, five daily quests, weighted gift boxes, idempotent Codex completion rewards and three bounded mini-games. The control center keeps these in separate `养成照料` and `互动游戏` views; `概览` shows only a read-only summary and handoff.
+
+The care and sleep atlases are deterministic 30-frame RGBA resources. Run `npm run verify:care-atlas` to validate dimensions, transparency, frame occupancy and edge contamination. Game target sources and the extraction script are retained under `work/xiaoman-care-assets/` and `scripts/extract_game_targets.py`; the application itself does not require Python or Pillow.
 
 The default Codex reply channel is native IPC. It discovers the exact owner of the selected thread through `~/.codex/ipc/ipc.sock` and sends the text to that existing window. CLI queue/resume remains available only after selecting `CLI 兼容` in settings. Native reply smoke-test scope and the known platform boundary are recorded in `release/qa/native-reply-smoke-test.md`.
 
@@ -49,6 +54,7 @@ npm run typecheck
 npm test
 npm run dist:mac
 npm run verify:look-96
+npm run verify:care-atlas
 ```
 
 See `work/README.md` for image-generation provenance and deterministic atlas reproduction.

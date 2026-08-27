@@ -24,7 +24,7 @@ npm run pack:mac     # Unpacked arm64 .app
 npm run dist:mac     # Unsigned arm64 DMG and ZIP
 ```
 
-`build:electron` deletes stale `dist-electron/` output before compilation and excludes Electron test files from the packaged main process.
+`build:electron` deletes stale `dist-electron/` output before compilation and excludes Electron test files from the packaged main process. `verify:care-atlas` checks both the curled sleeping atlas and the bath/feed atlas; it uses the same bundled-Python launcher as the existing idle/look checks.
 
 ## Rebuilding the gaze atlases
 
@@ -110,9 +110,13 @@ The prior `look-32.webp` and `look-90.webp` pipelines remain in `work/` and
 `public/pet/` for historical provenance only; no runtime profile loads them
 directly.
 
+## Care and game assets
+
+The care loop uses `public/pet/sleeping-30.webp` and `public/pet/care-actions-30.webp`, each assembled and validated as fixed 192x208 cells. `public/game/fish-target.png` and `public/game/bubble-target.png` are cleaned transparent bitmap targets extracted deterministically from the local generated sources. Prompts, source images, reports and concurrency notes are kept in `work/xiaoman-care-assets/`.
+
 ## Testing a local build
 
-Browser mock QA covers forms, profile toggles, feature controls, task composition and responsive control-center layouts. Native QA additionally verifies transparent-window alpha, 30/60Hz cursor tracking, 96/native profile asset selection, configurable hover count, configurable inactivity reset, lower-quadrant continuity, owner-routed native IPC replies, owner-not-found CLI fallback, repeated sends, filtered task identity, explicit CLI queue/resume compatibility, system notifications and packaged resources.
+Browser mock QA covers forms, profile toggles, care inventory/actions, job and quest controls, game lifecycle, feature/settings ownership, task composition and responsive control-center layouts. Native QA additionally verifies transparent-window alpha, 30/60Hz cursor tracking, 96/native profile asset selection, configurable hover count, configurable inactivity reset, lower-quadrant continuity, owner-routed native IPC replies, owner-not-found CLI fallback, repeated sends, filtered task identity, explicit CLI queue/resume compatibility, system notifications, care/sleep assets and packaged resources.
 
 ## Distribution
 

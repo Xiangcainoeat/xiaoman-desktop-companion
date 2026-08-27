@@ -6,6 +6,9 @@ import type {
   CodexReplyResult,
   CodexThreadListResult,
   CursorPayload,
+  FoodId,
+  GameId,
+  JobId,
   InteractionAction,
   ReminderInput,
   SoundName,
@@ -14,6 +17,15 @@ import type {
 export interface XiaomanApi {
   getSnapshot(): Promise<AppSnapshot>;
   interact(action: InteractionAction): Promise<AppSnapshot>;
+  feedFood(foodId: FoodId): Promise<AppSnapshot>;
+  bathePet(): Promise<AppSnapshot>;
+  openGiftBox(): Promise<AppSnapshot>;
+  startPetJob(jobId: JobId): Promise<AppSnapshot>;
+  collectPetJob(): Promise<AppSnapshot>;
+  cancelPetJob(): Promise<AppSnapshot>;
+  claimDailyQuest(questId: string): Promise<AppSnapshot>;
+  setGameActive(active: boolean): void;
+  completeGame(gameId: GameId, score: number): Promise<AppSnapshot>;
   saveReminder(input: ReminderInput): Promise<AppSnapshot>;
   removeReminder(id: string): Promise<AppSnapshot>;
   toggleReminder(id: string): Promise<AppSnapshot>;
