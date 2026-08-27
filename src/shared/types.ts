@@ -30,6 +30,12 @@ export type JobId = "desk-organizer" | "code-helper" | "delivery-run";
 export type QuestKind = "feed" | "bathe" | "play" | "work" | "codex-complete" | "open-gift";
 export type SleepReason = "manual" | "inactivity" | null;
 export type GameId = "rock-paper-scissors" | "fish-catch" | "bubble-pop";
+
+export interface GameStartResult {
+  accepted: boolean;
+  message?: string;
+}
+
 export type ReminderRepeat = "once" | "daily" | "weekdays" | "weekly";
 export type GazeRange = "upper-180" | "full-360";
 export type PetProfile = "enhanced" | "native";

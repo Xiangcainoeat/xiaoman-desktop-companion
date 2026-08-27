@@ -24,4 +24,11 @@ describe("GamesView source contract", () => {
     expect(source).not.toContain("bridge.feedFood");
     expect(source).not.toContain("bridge.updateSettings");
   });
+
+  it("claims game ownership before entering a game and blocks desktop bubble conflicts", () => {
+    expect(source).toContain("startGameSession");
+    expect(source).toContain("desktopInteractionActive");
+    expect(source).toContain("startingId");
+    expect(source).toContain("setSelectedId");
+  });
 });

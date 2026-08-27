@@ -3299,6 +3299,12 @@ select:focus-visible {
   margin-top: 14px;
 }
 
+.game-definition-card .primary-button:disabled {
+  color: var(--muted);
+  background: #f1f3f1;
+  cursor: wait;
+}
+
 .games-disabled-message,
 .game-shell-message {
   display: flex;
@@ -3313,6 +3319,19 @@ select:focus-visible {
   color: var(--muted);
   background: rgba(255, 255, 255, 0.55);
   font-size: 13px;
+}
+
+.games-disabled-message {
+  flex-direction: column;
+  text-align: center;
+}
+
+.games-start-notice {
+  margin: 12px 0 0;
+  color: var(--danger);
+  font-size: 12px;
+  line-height: 18px;
+  overflow-wrap: anywhere;
 }
 
 .games-disabled-message strong,

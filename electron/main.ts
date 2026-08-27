@@ -72,6 +72,7 @@ import {
   type DesktopInteractionStatus,
   type FoodId,
   type GameId,
+  type GameStartResult,
   type GameSettlement,
   type JobId,
   type InteractionAction,
@@ -1071,6 +1072,23 @@ function setGameActive(active: boolean): boolean {
   return true;
 }
 
+function startGameSession(): GameStartResult {
+  expireDesktopBubbleSessionIfNeeded();
+  if (!data.settings.gameModeEnabled) {
+    return { accepted: false, message: "小游戏模式已关闭" };
+  }
+  if (desktopSessionState.status.active) {
+    return { accepted: false, message: "桌面泡泡互动正在进行" };
+  }
+  if (gameActive) {
+    return { accepted: false, message: "已有游戏正在进行" };
+  }
+  const accepted = setGameActive(true);
+  return accepted
+    ? { accepted: true }
+    : { accepted: false, message: "当前已有其他互动正在进行" };
+}
+
 function clearDesktopSessionExpiryTimer(): void {
   if (desktopSessionExpiryTimer) clearTimeout(desktopSessionExpiryTimer);
   desktopSessionExpiryTimer = null;
@@ -1795,6 +1813,10 @@ function registerIpcHandlers(): void {
   ipcMain.on("game:set-active", (event, active: unknown) => {
     assertTrustedSender(event.sender, event.senderFrame);
     if (typeof active === "boolean") setGameActive(active);
+  });
+  ipcMain.handle("game:start", (event) => {
+    assertTrustedInvoke(event);
+    return startGameSession();
   });
   ipcMain.handle("game:complete", (event, gameId: GameId, score: number) => {
     assertTrustedInvoke(event);

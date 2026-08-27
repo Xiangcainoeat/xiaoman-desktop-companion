@@ -9,6 +9,7 @@ import type {
   CursorPayload,
   FoodId,
   GameId,
+  GameStartResult,
   JobId,
   InteractionAction,
   QuickViewMode,
@@ -27,6 +28,7 @@ contextBridge.exposeInMainWorld("xiaoman", {
   cancelPetJob: (): Promise<AppSnapshot> => ipcRenderer.invoke("care:cancel-pet-job"),
   claimDailyQuest: (questId: string): Promise<AppSnapshot> => ipcRenderer.invoke("care:claim-daily-quest", questId),
   setGameActive: (active: boolean): void => ipcRenderer.send("game:set-active", active),
+  startGameSession: (): Promise<GameStartResult> => ipcRenderer.invoke("game:start"),
   completeGame: (gameId: GameId, score: number): Promise<AppSnapshot> => ipcRenderer.invoke("game:complete", gameId, score),
   startDesktopBubbleSession: (): Promise<AppSnapshot> => ipcRenderer.invoke("desktop-bubble:start"),
   hitDesktopBubble: (sessionId: string, bubbleId: string): Promise<AppSnapshot> =>

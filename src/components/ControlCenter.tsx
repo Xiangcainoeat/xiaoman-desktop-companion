@@ -113,7 +113,12 @@ export function ControlCenter() {
         <div className="content-scroll">
           {tab === "features" && <FeaturesView snapshot={snapshot} />}
           {tab === "care" && <CareView snapshot={snapshot} />}
-          {tab === "games" && <GamesView enabled={snapshot.settings.gameModeEnabled} />}
+          {tab === "games" && (
+            <GamesView
+              enabled={snapshot.settings.gameModeEnabled}
+              desktopInteractionActive={snapshot.desktopInteraction.active}
+            />
+          )}
           {tab === "codex" && (
             <CodexTasksView
               enabled={snapshot.settings.codexSessionControls}

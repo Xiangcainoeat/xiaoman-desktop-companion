@@ -12,6 +12,7 @@ import type {
   DesktopInteractionStatus,
   FoodId,
   GameId,
+  GameStartResult,
   JobId,
   InteractionAction,
   QuickViewMode,
@@ -218,6 +219,14 @@ function createMockApi(): XiaomanApi {
     collectPetJob: async () => runCare({ kind: "complete-job" }, "celebrating", "打工奖励到账", "chime", "领取打工奖励"),
     cancelPetJob: async () => runCare({ kind: "cancel-job" }, "idle", "已取消打工", "none", "取消打工"),
     claimDailyQuest: async (questId: string) => runCare({ kind: "claim-quest", questId }, "celebrating", "领取成功", "chime", "领取每日任务奖励"),
+    startGameSession: async (): Promise<GameStartResult> => {
+      expireDesktopSessionAndPublishIfNeeded();
+      if (!current.settings.gameModeEnabled) return { accepted: false, message: "小游戏模式已关闭" };
+      if (current.desktopInteraction.active) return { accepted: false, message: "桌面泡泡互动正在进行" };
+      if (gameActive) return { accepted: false, message: "已有游戏正在进行" };
+      gameActive = true;
+      return { accepted: true };
+    },
     setGameActive: (active: boolean) => {
       expireDesktopSessionAndPublishIfNeeded();
       if (current.desktopInteraction.active) return;
@@ -403,7 +412,7 @@ function createMockApi(): XiaomanApi {
 let mockApi: XiaomanApi | null = null;
 
 export function getBridge(): XiaomanApi {
-  if (window.xiaoman) return window.xiaoman;
+  if (typeof window !== "undefined" && window.xiaoman) return window.xiaoman;
   mockApi ??= createMockApi();
   return mockApi;
 }

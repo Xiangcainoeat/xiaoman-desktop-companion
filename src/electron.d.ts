@@ -9,6 +9,7 @@ import type {
   QuickViewMode,
   FoodId,
   GameId,
+  GameStartResult,
   JobId,
   InteractionAction,
   ReminderInput,
@@ -26,6 +27,7 @@ export interface XiaomanApi {
   cancelPetJob(): Promise<AppSnapshot>;
   claimDailyQuest(questId: string): Promise<AppSnapshot>;
   setGameActive(active: boolean): void;
+  startGameSession(): Promise<GameStartResult>;
   completeGame(gameId: GameId, score: number): Promise<AppSnapshot>;
   startDesktopBubbleSession(): Promise<AppSnapshot>;
   hitDesktopBubble(sessionId: string, bubbleId: string): Promise<AppSnapshot>;
