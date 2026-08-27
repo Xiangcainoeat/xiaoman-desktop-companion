@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from build_care_atlas_30 import ALPHA_VISIBLE, CELL_HEIGHT, CELL_WIDTH, COLUMNS, FRAMES
 from build_idle_atlas_30 import DEFAULT_SAFE_INSET, red_pink_hue_mask, validate_action_sequence
@@ -39,6 +39,16 @@ EXPECTED = {
 MID_ALPHA_MAX = 245
 EDGE_CONTAMINATION_LIMIT = 0
 MID_ALPHA_CONTAMINATION_LIMIT = 0
+BACKGROUND_KINDS = ("white", "charcoal", "checkerboard")
+BLACK_RECTANGLE_CHANNEL_LIMIT = 12
+BLACK_RECTANGLE_MIN_PIXELS = 48
+BLACK_RECTANGLE_MIN_WIDTH = 3
+BLACK_RECTANGLE_MIN_HEIGHT = 24
+BLACK_RECTANGLE_FILL_LIMIT = 0.78
+BLACK_BLOCK_MIN_PIXELS = 512
+BLACK_BLOCK_MIN_LONG_SIDE = 48
+BLACK_BLOCK_MIN_SHORT_SIDE = 16
+BLACK_BLOCK_MAX_CHANNEL_RANGE = 8
 # The curled sleep silhouette measures 4365 pixels at its smallest; keep a
 # meaningful floor below that observed minimum while retaining the care floor.
 MIN_VISIBLE_PIXELS_BY_KIND = {
@@ -102,6 +112,180 @@ def contamination_metrics(frame: Image.Image) -> dict[str, int]:
         "midAlphaPixels": int(np.count_nonzero(mid_alpha)),
         "midAlphaContaminationPixels": int(np.count_nonzero(suspicious_mid_alpha)),
     }
+
+
+def make_background(size: tuple[int, int], kind: str) -> Image.Image:
+    """Create the three surfaces used to expose matte and black-box defects."""
+    if kind == "white":
+        return Image.new("RGBA", size, (250, 250, 248, 255))
+    if kind == "charcoal":
+        return Image.new("RGBA", size, (29, 32, 34, 255))
+    if kind == "checkerboard":
+        background = Image.new("RGBA", size, (226, 230, 226, 255))
+        draw = ImageDraw.Draw(background)
+        tile = 24
+        for y in range(0, size[1], tile):
+            for x in range(0, size[0], tile):
+                if (x // tile + y // tile) % 2:
+                    draw.rectangle((x, y, x + tile - 1, y + tile - 1), fill=(196, 202, 197, 255))
+        return background
+    raise ValueError(f"unknown background kind: {kind}")
+
+
+def compact_background_sheet(atlas: Image.Image, output: Path) -> None:
+    """Write a compact visual QA sheet for all required background surfaces."""
+    scale = 0.5
+    thumbnail_size = (round(atlas.width * scale), round(atlas.height * scale))
+    rows = []
+    for kind in BACKGROUND_KINDS:
+        composed = Image.alpha_composite(make_background(atlas.size, kind), atlas.convert("RGBA"))
+        rows.append(composed.resize(thumbnail_size, Image.Resampling.LANCZOS))
+    sheet = Image.new("RGB", (thumbnail_size[0], thumbnail_size[1] * len(rows)), (30, 33, 35))
+    for index, row in enumerate(rows):
+        sheet.paste(row.convert("RGB"), (0, index * thumbnail_size[1]))
+    output.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(output, "PNG")
+
+
+def _black_rectangle_metrics(frame: Image.Image) -> dict[str, object]:
+    """Find opaque, nearly-black components with a filled rectangular shape.
+
+    A cat's dark mask is intentionally allowed to be large, curved, and
+    textured. The failure this catches is an opaque black block created when a
+    transparent interpolated frame loses its alpha, so it must be both nearly
+    uniform and unusually rectangular.
+    """
+    rgba = np.asarray(frame.convert("RGBA"), dtype=np.uint8)
+    opaque_black = (rgba[..., 3] >= 245) & (np.max(rgba[..., :3], axis=2) <= BLACK_RECTANGLE_CHANNEL_LIMIT)
+    height, width = opaque_black.shape
+    seen = np.zeros_like(opaque_black, dtype=bool)
+    rectangles: list[dict[str, object]] = []
+    opaque_black_pixels = int(np.count_nonzero(opaque_black))
+
+    for y, x in zip(*np.where(opaque_black)):
+        if seen[y, x]:
+            continue
+        stack = [(int(y), int(x))]
+        seen[y, x] = True
+        area = 0
+        min_x = max_x = int(x)
+        min_y = max_y = int(y)
+        channel_min = np.full(3, 255, dtype=np.uint8)
+        channel_max = np.zeros(3, dtype=np.uint8)
+        while stack:
+            current_y, current_x = stack.pop()
+            area += 1
+            min_x = min(min_x, current_x)
+            max_x = max(max_x, current_x)
+            min_y = min(min_y, current_y)
+            max_y = max(max_y, current_y)
+            color = rgba[current_y, current_x, :3]
+            channel_min = np.minimum(channel_min, color)
+            channel_max = np.maximum(channel_max, color)
+            for delta_y, delta_x in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+                next_y = current_y + delta_y
+                next_x = current_x + delta_x
+                if (
+                    0 <= next_y < height
+                    and 0 <= next_x < width
+                    and opaque_black[next_y, next_x]
+                    and not seen[next_y, next_x]
+                ):
+                    seen[next_y, next_x] = True
+                    stack.append((next_y, next_x))
+
+        component_width = max_x - min_x + 1
+        component_height = max_y - min_y + 1
+        box_area = component_width * component_height
+        fill_ratio = area / box_area if box_area else 0.0
+        channel_range = int(np.max(channel_max.astype(np.int16) - channel_min.astype(np.int16)))
+        has_rectangle_shape = (
+            area >= BLACK_RECTANGLE_MIN_PIXELS
+            and fill_ratio >= BLACK_RECTANGLE_FILL_LIMIT
+            and (
+                (component_width >= BLACK_RECTANGLE_MIN_WIDTH and component_height >= BLACK_RECTANGLE_MIN_HEIGHT)
+                or (component_width >= BLACK_RECTANGLE_MIN_HEIGHT and component_height >= BLACK_RECTANGLE_MIN_WIDTH)
+            )
+        )
+        # A lost alpha plane can leave a large black region wrapped around the
+        # subject. The cutout makes its fill ratio low, so also reject a large,
+        # nearly uniform component even when it is not a perfect rectangle.
+        has_large_uniform_block = (
+            area >= BLACK_BLOCK_MIN_PIXELS
+            and min(component_width, component_height) >= BLACK_BLOCK_MIN_SHORT_SIDE
+            and max(component_width, component_height) >= BLACK_BLOCK_MIN_LONG_SIDE
+            and channel_range <= BLACK_BLOCK_MAX_CHANNEL_RANGE
+        )
+        if has_rectangle_shape or has_large_uniform_block:
+            rectangles.append({
+                "pixels": area,
+                "bbox": [min_x, min_y, component_width, component_height],
+                "fillRatio": round(fill_ratio, 6),
+                "channelRange": channel_range,
+            })
+
+    return {
+        "opaqueBlackPixels": opaque_black_pixels,
+        "blackRectangles": len(rectangles),
+        "blackRectanglePixels": sum(int(item["pixels"]) for item in rectangles),
+        "rectangles": rectangles,
+    }
+
+
+def _background_checks(atlas: Image.Image) -> dict[str, dict[str, object]]:
+    """Composite every cell on each QA background and inspect its source alpha."""
+    rgba_atlas = atlas.convert("RGBA")
+    atlas_pixels = np.asarray(rgba_atlas, dtype=np.uint8)
+    rows = atlas.height // CELL_HEIGHT
+    checks: dict[str, dict[str, object]] = {}
+    for kind in BACKGROUND_KINDS:
+        composed = Image.alpha_composite(make_background(atlas.size, kind), rgba_atlas)
+        composed_pixels = np.asarray(composed, dtype=np.uint8)
+        black_rectangles = 0
+        black_rectangle_pixels = 0
+        opaque_black_pixels = 0
+        hidden_rgb_pixels = int(np.count_nonzero(
+            (atlas_pixels[..., 3] == 0) & np.any(atlas_pixels[..., :3] != 0, axis=2)
+        ))
+        offending_cells: list[dict[str, int]] = []
+        for row in range(rows):
+            for column in range(COLUMNS):
+                box = (
+                    column * CELL_WIDTH,
+                    row * CELL_HEIGHT,
+                    (column + 1) * CELL_WIDTH,
+                    (row + 1) * CELL_HEIGHT,
+                )
+                source_frame = rgba_atlas.crop(box)
+                source_metrics = _black_rectangle_metrics(source_frame)
+                opaque_black_pixels += int(source_metrics["opaqueBlackPixels"])
+                black_rectangles += int(source_metrics["blackRectangles"])
+                black_rectangle_pixels += int(source_metrics["blackRectanglePixels"])
+                if int(source_metrics["blackRectangles"]):
+                    offending_cells.append({
+                        "row": row,
+                        "column": column,
+                        "blackRectangles": int(source_metrics["blackRectangles"]),
+                    })
+
+        # A real background composite is part of the check, rather than just a
+        # report label. Keep the count separate so a future background color
+        # change cannot silently bypass the visual inspection.
+        composited_black_pixels = int(np.count_nonzero(
+            (atlas_pixels[..., 3] >= 245)
+            & (np.max(composed_pixels[..., :3], axis=2) <= BLACK_RECTANGLE_CHANNEL_LIMIT)
+        ))
+        checks[kind] = {
+            "checkedCells": rows * COLUMNS,
+            "transparentRgbPixels": hidden_rgb_pixels,
+            "opaqueBlackPixels": opaque_black_pixels,
+            "compositedBlackPixels": composited_black_pixels,
+            "blackRectangles": black_rectangles,
+            "blackRectanglePixels": black_rectangle_pixels,
+            "offendingCells": offending_cells,
+            "ok": hidden_rgb_pixels == 0 and black_rectangles == 0,
+        }
+    return checks
 
 
 def _frame(atlas: Image.Image, row: int, index: int) -> Image.Image:
@@ -273,6 +457,16 @@ def verify(atlas: Image.Image, metadata: object = None, kind: str | None = None)
         if not sequence_reports[action]["ok"]:
             sequence_errors = sequence_reports[action].get("errors", ["contract failure"])
             errors.append(f"sequence {action} failed: {', '.join(str(error) for error in sequence_errors)}")
+    background_checks = _background_checks(atlas)
+    for background, result in background_checks.items():
+        if result["transparentRgbPixels"]:
+            errors.append(
+                f"{background} background check found {result['transparentRgbPixels']} transparent pixels retaining RGB"
+            )
+        if result["blackRectangles"]:
+            errors.append(
+                f"{background} background check found {result['blackRectangles']} black rectangle(s)"
+            )
     return {
         "ok": not errors,
         "kind": kind,
@@ -284,6 +478,8 @@ def verify(atlas: Image.Image, metadata: object = None, kind: str | None = None)
         "cell": [CELL_WIDTH, CELL_HEIGHT],
         "frameCount": FRAMES,
         "checkedRows": sorted(expected["row_actions"]),
+        "backgrounds": list(BACKGROUND_KINDS),
+        "backgroundChecks": background_checks,
         "errors": errors,
         "actions": actions,
         "sequence": sequence_reports,

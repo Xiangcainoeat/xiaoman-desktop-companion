@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import math
 from pathlib import Path
 
 import numpy as np
@@ -14,11 +13,13 @@ from PIL import Image, ImageDraw
 from build_idle_atlas_30 import (
     CELL_HEIGHT,
     CELL_WIDTH,
+    _boundary_mask,
     chroma_to_alpha,
     despill_edges,
     normalize_action_frames,
     validate_action_sequence,
     DEFAULT_SAFE_INSET,
+    NATIVE_FUR_REFERENCE_RGB,
 )
 
 
@@ -46,7 +47,91 @@ def _runs(values: np.ndarray, merge_gap: int = 10) -> list[tuple[int, int]]:
     return found
 
 
-def extract_source_frames(source: Image.Image) -> list[Image.Image]:
+def _remove_known_source_edge_prop(frame: Image.Image, *, row: int, column: int) -> Image.Image:
+    """Remove the known blue prop fragment attached to care pose row 2/9.
+
+    The generated gift row's last pose is prop-free, but the preceding pose's
+    blue yarn ball touches its left crop boundary. Only a sufficiently large,
+    lower, edge-touching blue component is eligible; small blue components such
+    as eyes and all other poses remain unchanged. The pixels are keyed back to
+    the sampled matte instead of painted black, so the normal chroma pass can
+    remove them without changing the subject palette.
+    """
+    if (row, column) != (2, 9):
+        return frame.copy()
+
+    original_mode = frame.mode
+    rgba = np.asarray(frame.convert("RGBA"), dtype=np.uint8).copy()
+    red, green, blue = [rgba[..., index].astype(np.int16) for index in range(3)]
+    blue_mask = (blue >= 120) & (blue - red > 30) & (blue - green > 10)
+    soft_blue_mask = (blue >= 20) & (blue - red > 8) & (blue - green > 3)
+    height, width = blue_mask.shape
+    seen = np.zeros_like(blue_mask, dtype=bool)
+    components: list[tuple[list[tuple[int, int]], int, int, int, int]] = []
+    for y, x in zip(*np.where(blue_mask)):
+        if seen[y, x]:
+            continue
+        stack = [(int(y), int(x))]
+        seen[y, x] = True
+        pixels: list[tuple[int, int]] = []
+        min_x = max_x = int(x)
+        min_y = max_y = int(y)
+        while stack:
+            current_y, current_x = stack.pop()
+            pixels.append((current_y, current_x))
+            min_x, max_x = min(min_x, current_x), max(max_x, current_x)
+            min_y, max_y = min(min_y, current_y), max(max_y, current_y)
+            for delta_y in (-1, 0, 1):
+                for delta_x in (-1, 0, 1):
+                    if not delta_x and not delta_y:
+                        continue
+                    next_y = current_y + delta_y
+                    next_x = current_x + delta_x
+                    if (
+                        0 <= next_y < height
+                        and 0 <= next_x < width
+                        and blue_mask[next_y, next_x]
+                        and not seen[next_y, next_x]
+                    ):
+                        seen[next_y, next_x] = True
+                        stack.append((next_y, next_x))
+        components.append((pixels, min_x, max_x, min_y, max_y))
+
+    border = np.concatenate((rgba[0, :, :3], rgba[-1, :, :3], rgba[:, 0, :3], rgba[:, -1, :3]), axis=0)
+    matte = np.rint(np.median(border, axis=0)).astype(np.uint8)
+    known_fragment_bounds: list[tuple[int, int, int, int]] = []
+    for pixels, min_x, max_x, min_y, max_y in components:
+        component_area = len(pixels)
+        component_width = max_x - min_x + 1
+        component_height = max_y - min_y + 1
+        is_known_fragment = (
+            component_area >= 100
+            and min_x == 0
+            and component_width >= 8
+            and component_height >= 16
+            and min_y >= round(height * 0.45)
+        )
+        if is_known_fragment:
+            known_fragment_bounds.append((min_x, max_x, min_y, max_y))
+
+    if known_fragment_bounds:
+        # Anti-aliased edges can split the same foreign prop into small blue
+        # islands. Once the large edge-touching component identifies the prop,
+        # remove only blue pixels in its lower-edge envelope; the y separation
+        # keeps the cat's small blue eyes outside this cleanup region.
+        left = min(bounds[0] for bounds in known_fragment_bounds)
+        right = max(bounds[1] for bounds in known_fragment_bounds) + 2
+        top = min(bounds[2] for bounds in known_fragment_bounds) - 2
+        bottom = height - 1
+        yy, xx = np.indices(blue_mask.shape)
+        fragment_band = soft_blue_mask & (xx >= left) & (xx <= right) & (yy >= top) & (yy <= bottom)
+        rgba[fragment_band, :3] = matte
+
+    result = Image.fromarray(rgba, "RGBA")
+    return result if "A" in original_mode else result.convert("RGB")
+
+
+def extract_source_frames(source: Image.Image, *, tight: bool = False) -> list[Image.Image]:
     """Extract all visible cells from a three-row matte sheet.
 
     Column count is inferred per row, allowing generators to return 8, 9, or
@@ -55,10 +140,10 @@ def extract_source_frames(source: Image.Image) -> list[Image.Image]:
     rgb = np.asarray(source.convert("RGB"), dtype=np.int16)
     red, green, blue = rgb[..., 0], rgb[..., 1], rgb[..., 2]
     foreground = (green < GREEN_THRESHOLD) | (green - np.maximum(red, blue) < GREEN_DOMINANCE)
-    return [frame for row in _extract_source_rows(source) for frame in row]
+    return [frame for row in _extract_source_rows(source, tight=tight) for frame in row]
 
 
-def _extract_source_rows(source: Image.Image) -> list[list[Image.Image]]:
+def _extract_source_rows(source: Image.Image, *, tight: bool = False) -> list[list[Image.Image]]:
     """Return independently cropped subject images for each source row."""
     rgb = np.asarray(source.convert("RGB"), dtype=np.int16)
     red, green, blue = rgb[..., 0], rgb[..., 1], rgb[..., 2]
@@ -75,34 +160,46 @@ def _extract_source_rows(source: Image.Image) -> list[list[Image.Image]]:
             raise ValueError(f"source row {row} contains no detectable subjects")
         row_frames: list[Image.Image] = []
         for left, right in runs:
-            margin_x = max(5, round((right - left) * 0.08))
-            crop_left = max(0, left - margin_x)
-            crop_right = min(source.width, right + margin_x)
-            row_frames.append(source.crop((crop_left, top, crop_right, bottom)).convert("RGB"))
+            if tight:
+                # The activity run is the ownership boundary for this pose. An
+                # extra crop margin used to pull the next pose's tail, prop, or
+                # black seam into the cell whenever neighboring generated poses
+                # were close together. Antialiased edge pixels are recovered by
+                # the matte/registration passes after this deterministic split.
+                crop_left, crop_right = left, right
+            else:
+                margin_x = max(5, round((right - left) * 0.08))
+                crop_left = max(0, left - margin_x)
+                crop_right = min(source.width, right + margin_x)
+            cropped = source.crop((crop_left, top, crop_right, bottom)).convert("RGB")
+            row_frames.append(_remove_known_source_edge_prop(cropped, row=row, column=len(row_frames)))
         source_rows.append(row_frames)
     return source_rows
 
 
 def expand_to_frame_count(frames: list[Image.Image], count: int = FRAMES) -> list[Image.Image]:
-    """Expand source poses with deterministic registered, alpha-aware blending."""
+    """Expand source poses with discrete registered-frame scheduling.
+
+    A generated contact sheet usually contains ten real poses for one care
+    action, while the runtime contract has thirty slots. Cross-pose RGB/alpha
+    tweening creates two silhouettes during the transition, so expansion must
+    choose an already registered source pose instead of synthesizing pixels.
+    Repeating the ordered source cycle keeps every slot populated without
+    introducing an afterimage; the sequence validator still rejects a source
+    set that is intrinsically too repetitive.
+    """
     if not frames:
         raise ValueError("cannot expand an empty source sequence")
     if count <= 0:
         return []
     if len(frames) == count:
         return [frame.copy() for frame in frames]
-    if len(frames) == 1:
-        return [frames[0].copy() for _ in range(count)]
-
     registered = _register_interpolation_frames(frames)
-    expanded: list[Image.Image] = []
-    for index in range(count):
-        position = index * (len(registered) - 1) / max(1, count - 1)
-        lower = math.floor(position)
-        upper = min(len(registered) - 1, lower + 1)
-        amount = position - lower
-        expanded.append(_blend_premultiplied(registered[lower], registered[upper], amount))
-    return expanded
+    if count <= len(registered):
+        indices = [round(index * (len(registered) - 1) / max(1, count - 1)) for index in range(count)]
+    else:
+        indices = [index % len(registered) for index in range(count)]
+    return [registered[index].copy() for index in indices]
 
 
 def _as_clean_rgba(frame: Image.Image) -> Image.Image:
@@ -119,7 +216,7 @@ def _register_interpolation_frames(frames: list[Image.Image]) -> list[Image.Imag
     rgba_frames = [_as_clean_rgba(frame) for frame in frames]
     boxes = [frame.getchannel("A").point(lambda value: 255 if value >= ALPHA_VISIBLE else 0).getbbox() for frame in rgba_frames]
     if any(box is None for box in boxes):
-        raise ValueError("cannot interpolate a source frame without visible pixels")
+        raise ValueError("cannot register a source frame without visible pixels")
     canvas_width = max(frame.width for frame in rgba_frames)
     canvas_height = max(frame.height for frame in rgba_frames)
     registered: list[Image.Image] = []
@@ -130,26 +227,6 @@ def _register_interpolation_frames(frames: list[Image.Image]) -> list[Image.Imag
         canvas.alpha_composite(subject, ((canvas_width - subject.width) // 2, canvas_height - subject.height))
         registered.append(canvas)
     return registered
-
-
-def _blend_premultiplied(first: Image.Image, second: Image.Image, amount: float) -> Image.Image:
-    """Blend one clean RGBA frame without colored transparent fringes."""
-    left = np.asarray(first.convert("RGBA"), dtype=np.float32)
-    right = np.asarray(second.convert("RGBA"), dtype=np.float32)
-    weight = min(1.0, max(0.0, float(amount)))
-    left_alpha = left[..., 3:4] / 255.0
-    right_alpha = right[..., 3:4] / 255.0
-    alpha = left_alpha * (1.0 - weight) + right_alpha * weight
-    premultiplied = (
-        left[..., :3] * left_alpha * (1.0 - weight)
-        + right[..., :3] * right_alpha * weight
-    )
-    rgb = np.zeros_like(premultiplied)
-    np.divide(premultiplied, alpha, out=rgb, where=alpha > 1e-6)
-    output = np.concatenate((rgb, alpha * 255.0), axis=2)
-    output = np.rint(np.clip(output, 0, 255)).astype(np.uint8)
-    output[output[..., 3] == 0, :3] = 0
-    return Image.fromarray(output, "RGBA")
 
 
 def _atlas_frame(atlas: Image.Image, row: int, index: int) -> Image.Image:
@@ -187,19 +264,17 @@ def _edge_contamination(frame: Image.Image) -> int:
     return int(np.count_nonzero(boundary & (green - np.maximum(red, blue) > 10)))
 
 
-def _prepare_frames(source: Image.Image) -> list[Image.Image]:
-    frames = expand_to_frame_count(extract_source_frames(source))
+def _prepare_frames(source: Image.Image, *, tight: bool = False) -> list[Image.Image]:
+    frames = expand_to_frame_count(extract_source_frames(source, tight=tight))
     normalized, _ = normalize_action_frames(frames)
     return [_trim_edge_fragments(_clean_green_boundary(frame)) for frame in normalized]
 
 
 def _sequence_contract(frames: list[Image.Image]) -> dict[str, object]:
-    pixels = np.concatenate([
-        np.asarray(frame.convert("RGBA"))[..., :3][np.asarray(frame.getchannel("A")) >= 245]
-        for frame in frames
-    ], axis=0)
-    reference = np.median(pixels, axis=0) if len(pixels) else (0, 0, 0)
-    return validate_action_sequence(frames, reference, DEFAULT_SAFE_INSET)
+    # Keep props (basins, fish, yarn, and gift wrap) from redefining the
+    # sequence's fur palette. The shared validator still measures every frame
+    # and compares it against this native reference plus its fur signatures.
+    return validate_action_sequence(frames, NATIVE_FUR_REFERENCE_RGB, DEFAULT_SAFE_INSET)
 
 
 def _trim_edge_fragments(frame: Image.Image) -> Image.Image:
@@ -261,6 +336,20 @@ def _clean_green_boundary(frame: Image.Image) -> Image.Image:
     # shadow, so constrain every visible green-dominant pixel as a final pass.
     residual = visible & (green > np.maximum(red, blue))
     green[residual] = np.maximum(red[residual], blue[residual])
+
+    # Removing opaque matte pixels can expose a low-alpha colored fringe that
+    # was not adjacent to transparency in the input mask. Recompute the
+    # boundary after keying so the final frame cannot retain a pink/green halo.
+    red, green, blue = [rgba[..., index] for index in range(3)]
+    final_boundary = _boundary_mask(alpha)
+    final_pink = final_boundary & (alpha < 245) & (
+        (red - green > 18) & (blue - green > 8)
+    )
+    alpha[final_pink] = 0
+    rgba[final_pink, :3] = 0
+    final_green = final_boundary & (green - np.maximum(red, blue) > 10)
+    alpha[final_green] = 0
+    rgba[final_green, :3] = 0
     rgba[..., 3] = alpha
     rgba[alpha < ALPHA_VISIBLE, :3] = 0
     rgba[alpha < ALPHA_VISIBLE, 3] = 0
@@ -269,7 +358,7 @@ def _clean_green_boundary(frame: Image.Image) -> Image.Image:
 
 def _metadata_document(actions: dict[str, dict[str, object]], atlas: Image.Image, reports: list[dict[str, object]]) -> dict[str, object]:
     return {
-        "algorithm": "xiaoman-care-atlas-30-v2-premultiplied-alpha-interpolation",
+        "algorithm": "xiaoman-care-atlas-30-v3-discrete-alpha-registration",
         "format": "RGBA/WebP",
         "dimensions": [atlas.width, atlas.height],
         "columns": COLUMNS,
@@ -306,8 +395,12 @@ def _assemble(frames: list[Image.Image], rows: int) -> tuple[Image.Image, list[d
     atlas = Image.new("RGBA", (ATLAS_WIDTH, CELL_HEIGHT * rows), (0, 0, 0, 0))
     reports: list[dict[str, object]] = []
     for index, frame in enumerate(frames):
-        atlas.alpha_composite(frame, ((index % COLUMNS) * CELL_WIDTH, (index // COLUMNS) * CELL_HEIGHT))
-        reports.append(_frame_report(frame, "sleep" if rows == 3 else "bath", index))
+        # Run the edge cleanup once more at the atlas boundary. Normalization
+        # can expose a low-alpha fringe after resizing, and the encoded atlas
+        # must satisfy the same contract as the in-memory frame.
+        cleaned = despill_edges(_clean_green_boundary(frame))
+        atlas.alpha_composite(cleaned, ((index % COLUMNS) * CELL_WIDTH, (index // COLUMNS) * CELL_HEIGHT))
+        reports.append(_frame_report(cleaned, "sleep" if rows == 3 else "bath", index))
     return atlas, reports
 
 
@@ -316,7 +409,7 @@ def build_assets(sleep_source: Path, care_source: Path, output_dir: Path) -> dic
     with Image.open(sleep_source) as image:
         sleeping_frames = _prepare_frames(image)
     with Image.open(care_source) as image:
-        care_rows = _extract_source_rows(image)
+        care_rows = _extract_source_rows(image, tight=True)
         if any(len(row) < 8 for row in care_rows):
             raise ValueError(f"care source rows need complete subjects, found {[len(row) for row in care_rows]}")
         bath_frames = expand_to_frame_count(care_rows[0])
@@ -350,9 +443,13 @@ def build_assets(sleep_source: Path, care_source: Path, output_dir: Path) -> dic
     care_path = output_dir / "care-actions-30.webp"
     sleep_atlas.save(sleep_path, "WEBP", lossless=True, quality=100, method=6, exact=True)
     care_atlas.save(care_path, "WEBP", lossless=True, quality=100, method=6, exact=True)
+    from verify_care_atlas_30 import compact_background_sheet, verify
+
     qa_dir = output_dir.parent.parent / "work/xiaoman-care-assets"
     _contact_sheet(sleep_atlas, qa_dir / "sleeping-30-contact-sheet.png")
     _contact_sheet(care_atlas, qa_dir / "care-actions-30-contact-sheet.png")
+    compact_background_sheet(sleep_atlas, qa_dir / "sleeping-30-background-check.png")
+    compact_background_sheet(care_atlas, qa_dir / "care-actions-30-background-check.png")
     sleep_metadata = _write_metadata(output_dir / "sleeping-30.json", {"sleep": {"atlasFramePosition": {"row": 0, "frames": 30, "columns": 10}}}, sleep_atlas, sleep_reports)
     care_metadata = _write_metadata(output_dir / "care-actions-30.json", {
         "bath": {"atlasFramePosition": {"row": 0, "frames": 30, "columns": 10}},
@@ -361,8 +458,6 @@ def build_assets(sleep_source: Path, care_source: Path, output_dir: Path) -> dic
     }, care_atlas, care_reports)
     # Validate the encoded outputs and emitted metadata through the same gate
     # used by the standalone verifier before reporting a successful build.
-    from verify_care_atlas_30 import verify
-
     built_reports = (
         verify(Image.open(sleep_path).convert("RGBA"), sleep_metadata, "sleep"),
         verify(Image.open(care_path).convert("RGBA"), care_metadata, "care"),

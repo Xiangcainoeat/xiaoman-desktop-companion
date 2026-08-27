@@ -27,6 +27,12 @@ NEUTRAL_TARGET_HEIGHT = 178
 BACKGROUND_COLOR_TOLERANCE = 64
 ALPHA_VISIBLE = 10
 ALPHA_OPAQUE = 245
+# The accepted native Codex sprite uses a warm cream body. Keep this anchor in
+# the shared validator so generated action props cannot redefine the palette.
+NATIVE_FUR_REFERENCE_RGB = (242.0, 208.0, 171.0)
+FUR_SIGNATURE_SPACE = "normalized-rgb-chroma"
+MIN_FUR_SIGNATURE_SAMPLES = 32
+LOW_ALPHA_FRINGE_LIMIT = 64
 ALGORITHM_ID = "idle-atlas-30-v2-stable-registration"
 BASELINE_Y = 202
 DEFAULT_SAFE_INSET = (8, 8, 8, 0)
@@ -54,6 +60,7 @@ def chroma_to_alpha(image: Image.Image, return_stats: bool = False) -> Image.Ima
     """Remove the sampled green matte while retaining natural subject colors."""
     rgba = np.asarray(image.convert("RGBA"), dtype=np.float32).copy()
     red, green, blue = rgba[..., 0], rgba[..., 1], rgba[..., 2]
+    source_alpha = rgba[..., 3].copy()
     green_dominance = green - np.maximum(red, blue)
 
     # Estimate the matte from the source border. This catches holes between
@@ -73,9 +80,10 @@ def chroma_to_alpha(image: Image.Image, return_stats: bool = False) -> Image.Ima
     # antialiased fur while the later edge pass removes the matte hue.
     key_strength = np.clip((green_dominance - 10.0) / 42.0, 0.0, 1.0)
     key_strength *= np.clip((green - 70.0) / 130.0, 0.0, 1.0)
-    # Start opaque. The key strength is applied only after flood-filling the
-    # border-connected matte below, so enclosed subject colors survive.
-    alpha = np.full(green.shape, 255.0, dtype=np.float32)
+    # Preserve alpha supplied by an earlier compositing/interpolation stage.
+    # RGB contact sheets arrive fully opaque, while registered RGBA frames may
+    # already contain transparent pixels that must not turn into black solids.
+    alpha = source_alpha
 
     # Green pixels in the matte can be slightly uneven. Flooding from the
     # border prevents a naturally colored interior pixel from being keyed.
@@ -154,6 +162,80 @@ def red_pink_edge_contamination_count(frame: Image.Image) -> int:
     return int(np.count_nonzero(boundary & red_pink))
 
 
+def _light_fur_mask(pixels: np.ndarray) -> np.ndarray:
+    """Select Xiaoman's light fur while excluding saturated action props."""
+    rgba = np.asarray(pixels, dtype=np.uint8)
+    rgb = rgba[..., :3].astype(np.float32)
+    alpha = rgba[..., 3]
+    maximum = np.max(rgb, axis=2)
+    minimum = np.min(rgb, axis=2)
+    luminance = rgb[..., 0] * 0.2126 + rgb[..., 1] * 0.7152 + rgb[..., 2] * 0.0722
+    return (
+        (alpha >= ALPHA_OPAQUE)
+        & (luminance >= 125.0)
+        & ((maximum - minimum) <= 120.0)
+        & (rgb[..., 0] >= rgb[..., 2] - 8.0)
+    )
+
+
+def _normalized_rgb_chroma(samples: np.ndarray) -> np.ndarray:
+    values = np.asarray(samples, dtype=np.float32).reshape(-1, 3)
+    totals = values.sum(axis=1, keepdims=True)
+    valid = totals[:, 0] > 1e-6
+    if not np.any(valid):
+        return np.empty((0, 3), dtype=np.float32)
+    return values[valid] / totals[valid] * 255.0
+
+
+def fur_color_signature(frame: Image.Image | np.ndarray) -> np.ndarray | None:
+    """Return a brightness-independent signature for Xiaoman's light fur.
+
+    Action props are intentionally absent from this statistic: blue/cyan
+    materials fail the warm-channel relation and orange props normally exceed
+    the native fur chroma range. A missing signature is a quality failure, not
+    a reason to fall back to the prop colors.
+    """
+    pixels = np.asarray(frame.convert("RGBA") if isinstance(frame, Image.Image) else frame, dtype=np.uint8)
+    samples = pixels[..., :3][_light_fur_mask(pixels)]
+    if len(samples) < MIN_FUR_SIGNATURE_SAMPLES:
+        return None
+    chroma = _normalized_rgb_chroma(samples)
+    if len(chroma) < MIN_FUR_SIGNATURE_SAMPLES:
+        return None
+    return np.median(chroma, axis=0).astype(np.float32)
+
+
+def _reference_fur_signature(reference_rgb: Image.Image | np.ndarray | tuple[int, int, int]) -> np.ndarray | None:
+    if isinstance(reference_rgb, Image.Image):
+        signature = fur_color_signature(reference_rgb)
+        if signature is not None:
+            return signature
+        values = np.asarray(reference_rgb.convert("RGB"), dtype=np.float32)
+    else:
+        values = np.asarray(reference_rgb, dtype=np.float32)
+    if values.shape != (3,):
+        values = np.median(values.reshape(-1, 3), axis=0)
+    chroma = _normalized_rgb_chroma(values)
+    return chroma[0] if len(chroma) else None
+
+
+def _is_light_fur_reference(reference_rgb: Image.Image | np.ndarray | tuple[int, int, int]) -> bool:
+    if isinstance(reference_rgb, Image.Image):
+        pixels = np.asarray(reference_rgb.convert("RGBA"), dtype=np.uint8)
+        return fur_color_signature(pixels) is not None
+    values = np.asarray(reference_rgb, dtype=np.float32)
+    if values.shape != (3,):
+        values = np.median(values.reshape(-1, 3), axis=0)
+    maximum = float(np.max(values))
+    minimum = float(np.min(values))
+    luminance = float(values @ np.array([0.2126, 0.7152, 0.0722], dtype=np.float32))
+    return (
+        luminance >= 125.0
+        and maximum - minimum <= 120.0
+        and float(values[0]) >= float(values[2]) - 8.0
+    )
+
+
 def despill_edges(frame: Image.Image) -> Image.Image:
     """Despill only the two-pixel visible boundary using nearby interior colors."""
     pixels = np.asarray(frame.convert("RGBA"), dtype=np.int16).copy()
@@ -189,6 +271,19 @@ def despill_edges(frame: Image.Image) -> Image.Image:
     green_edge = boundary & (green - np.maximum(red, blue) > 6)
     green_target = np.maximum(red, blue)
     pixels[..., 1][green_edge] = np.minimum(green[green_edge], green_target[green_edge] + 2)
+
+    # A generated matte can leave an isolated pink pixel with no opaque
+    # interior sample. Keeping that pixel creates a visible halo; dropping the
+    # low-alpha fringe is deterministic and does not alter valid blue/orange
+    # action props, which do not match the pink hue mask.
+    red, green, blue = [pixels[..., index] for index in range(3)]
+    # Resampling can leave a pink pixel surrounded only by translucent pixels,
+    # so it is invisible to a transparency-boundary test. Clear every
+    # semitransparent pixel with this contamination hue, not only pixels on
+    # the outer boundary. Valid blue/orange props do not match the relation.
+    pink_fringe = (alpha < ALPHA_OPAQUE) & red_pink_hue_mask(red, green, blue)
+    alpha[pink_fringe] = 0
+    pixels[pink_fringe, :3] = 0
     pixels[alpha < ALPHA_VISIBLE, :3] = 0
     pixels[alpha < ALPHA_VISIBLE, 3] = 0
     return Image.fromarray(np.clip(pixels, 0, 255).astype(np.uint8), "RGBA")
@@ -412,6 +507,7 @@ def validate_action_sequence(
     matte_pixels = 0
     bbox_violations = 0
     signatures: list[np.ndarray] = []
+    frame_signatures: list[np.ndarray | None] = []
     for pixels in arrays:
         alpha = pixels[..., 3]
         visible = alpha >= ALPHA_VISIBLE
@@ -430,24 +526,40 @@ def validate_action_sequence(
         ys, xs = np.where(visible)
         if not len(xs) or xs.min() < safe[0] or ys.min() < safe[1] or xs.max() + 1 > safe[2] or ys.max() + 1 > safe[3]:
             bbox_violations += 1
-        opaque = pixels[alpha >= ALPHA_OPAQUE, :3]
-        if len(opaque):
-            signatures.append(np.median(opaque, axis=0).astype(np.float32))
-    reference = np.asarray(reference_rgb.convert("RGB") if isinstance(reference_rgb, Image.Image) else reference_rgb, dtype=np.float32)
-    if reference.shape != (3,):
-        reference = np.median(reference.reshape(-1, 3), axis=0)
-    color_drift = max((float(np.max(np.abs(signature - reference))) for signature in signatures), default=0.0)
+        signature = fur_color_signature(pixels)
+        frame_signatures.append(signature)
+        if signature is not None:
+            signatures.append(signature)
+    native_reference = _normalized_rgb_chroma(np.asarray(NATIVE_FUR_REFERENCE_RGB, dtype=np.float32))[0]
+    reference_signature = _reference_fur_signature(reference_rgb)
+    reference_signatures = [native_reference]
+    if reference_signature is not None and _is_light_fur_reference(reference_rgb):
+        reference_signatures.append(reference_signature)
+    sequence_reference = np.median(np.stack(signatures), axis=0) if signatures else None
+    if sequence_reference is not None:
+        reference_signatures.append(sequence_reference)
+    missing_fur_frames = [index for index, signature in enumerate(frame_signatures) if signature is None]
+    color_drift = (
+        float("inf") if missing_fur_frames else max(
+            (float(np.max(np.abs(signature - reference)))
+             for signature in signatures for reference in reference_signatures),
+            default=0.0,
+        )
+    )
     return {
         "duplicateRatio": round(float(duplicate_ratio), 6),
         "edgePixels": edge_pixels,
         "mattePixels": matte_pixels,
         "bboxViolations": bbox_violations,
-        "colorDrift": round(color_drift, 6),
+        "colorDrift": round(color_drift, 6) if np.isfinite(color_drift) else float("inf"),
+        "colorSignature": FUR_SIGNATURE_SPACE,
+        "missingFurFrames": missing_fur_frames,
         "ok": (
             duplicate_ratio < 0.1
             and edge_pixels == 0
             and matte_pixels == 0
             and bbox_violations == 0
+            and not missing_fur_frames
             and color_drift <= COLOR_DRIFT_LIMIT
         ),
         "errors": [
@@ -456,6 +568,7 @@ def validate_action_sequence(
                 ("edgePixels", edge_pixels > 0),
                 ("mattePixels", matte_pixels > 0),
                 ("bboxViolations", bbox_violations > 0),
+                ("colorSignature", bool(missing_fur_frames)),
                 ("colorDrift", color_drift > COLOR_DRIFT_LIMIT),
             ) if failed
         ],

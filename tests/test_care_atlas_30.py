@@ -5,7 +5,7 @@ import unittest
 from pathlib import Path
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageDraw
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -50,6 +50,56 @@ class CareAtlas30ContractTest(unittest.TestCase):
         self.assertEqual(len(build_care_atlas_30.expand_to_frame_count(
             build_care_atlas_30.extract_source_frames(sleep), 30,
         )), 30)
+
+    def test_source_crops_exclude_neighbor_fragments_inside_the_crop_margin(self) -> None:
+        import build_care_atlas_30
+
+        width, row_height = 1620, 324
+        source = Image.new("RGB", (width, row_height * 3), (8, 202, 56))
+        # Keep the target silhouettes comfortably above the activity threshold,
+        # then place a short black seam just outside the first silhouette. The
+        # seam is a neighboring-cell artifact, not part of the target pose.
+        for row in range(3):
+            top = row * row_height
+            for column in range(10):
+                left = 20 + column * 160
+                source.paste((214, 174, 142), (left, top + 48, left + 80, top + 278))
+                if row == 0 and column == 0:
+                    source.paste((0, 0, 0), (left + 83, top + 170, left + 86, top + 198))
+
+        first = build_care_atlas_30._extract_source_rows(source, tight=True)[0][0]
+        pixels = np.asarray(first.convert("RGB"))
+
+        self.assertEqual(first.width, 80)
+        self.assertEqual(int(np.count_nonzero(np.max(pixels, axis=2) == 0)), 0)
+
+    def test_source_cleanup_removes_only_the_known_edge_prop_from_prop_free_pose(self) -> None:
+        import build_care_atlas_30
+
+        matte = (18, 238, 28)
+        source = Image.new("RGB", (96, 120), matte)
+        draw = ImageDraw.Draw(source)
+        draw.rectangle((24, 20, 72, 108), fill=(214, 174, 142))
+        draw.ellipse((0, 76, 22, 103), fill=(38, 125, 214))
+        # A small separated anti-aliased fragment is part of the same foreign
+        # prop and must not survive merely because it is below the component
+        # area threshold.
+        draw.rectangle((0, 108, 4, 119), fill=(2, 19, 37))
+        draw.ellipse((38, 44, 45, 51), fill=(38, 125, 214))
+        draw.ellipse((53, 44, 60, 51), fill=(38, 125, 214))
+
+        cleaned = build_care_atlas_30._remove_known_source_edge_prop(source, row=2, column=9)
+        cleaned_pixels = np.asarray(cleaned)
+        blue = (cleaned_pixels[..., 2] > cleaned_pixels[..., 0] + 30) & (
+            cleaned_pixels[..., 2] > cleaned_pixels[..., 1] + 10
+        )
+
+        self.assertEqual(int(np.count_nonzero(blue[76:, :24])), 0)
+        self.assertGreater(int(np.count_nonzero(blue[40:55, 35:65])), 0)
+        self.assertEqual(tuple(cleaned_pixels[70, 40]), (214, 174, 142))
+
+        other_pose = build_care_atlas_30._remove_known_source_edge_prop(source, row=2, column=8)
+        self.assertGreater(int(np.count_nonzero(np.asarray(other_pose)[76:, :24, 2] > 180)), 0)
 
     def test_built_atlases_have_contract_dimensions_and_non_empty_cells(self) -> None:
         import build_care_atlas_30
@@ -231,6 +281,65 @@ class CareAtlas30ContractTest(unittest.TestCase):
         report = verify_care_atlas_30.verify(opaque_corner, metadata, "sleep")
         self.assertFalse(report["ok"])
         self.assertTrue(any("opaque corner" in error for error in report["errors"]))
+
+    def test_verifier_checks_white_charcoal_checkerboard_and_rejects_black_rectangles(self) -> None:
+        import verify_care_atlas_30
+
+        metadata = self._metadata("sleeping-30.json")
+        atlas = self._synthetic_action_atlas(3, (0,), width=70, height=64)
+        clean_report = verify_care_atlas_30.verify(atlas, metadata, "sleep")
+
+        self.assertTrue(clean_report["ok"], clean_report["errors"])
+        self.assertEqual(
+            set(clean_report["backgrounds"]),
+            {"white", "charcoal", "checkerboard"},
+        )
+        for background in clean_report["backgrounds"]:
+            self.assertEqual(clean_report["backgroundChecks"][background]["blackRectangles"], 0)
+
+        contaminated = atlas.copy()
+        frame = self._atlas_frame(contaminated, 0, 0)
+        draw = ImageDraw.Draw(frame)
+        draw.rectangle((18, 18, 54, 58), fill=(0, 0, 0, 255))
+        contaminated.alpha_composite(frame, (0, 0))
+        report = verify_care_atlas_30.verify(contaminated, metadata, "sleep")
+
+        self.assertFalse(report["ok"])
+        self.assertTrue(any("black rectangle" in error for error in report["errors"]), report["errors"])
+
+    def test_verifier_allows_small_irregular_dark_subject_detail(self) -> None:
+        import verify_care_atlas_30
+
+        metadata = self._metadata("sleeping-30.json")
+        atlas = self._synthetic_action_atlas(3, (0,), width=70, height=64)
+        frame = self._atlas_frame(atlas, 0, 0)
+        draw = ImageDraw.Draw(frame)
+        draw.ellipse((82, 142, 92, 152), fill=(0, 0, 0, 255))
+        draw.line((80, 156, 87, 161), fill=(0, 0, 0, 255), width=2)
+        atlas.alpha_composite(frame, (0, 0))
+
+        report = verify_care_atlas_30.verify(atlas, metadata, "sleep")
+
+        self.assertTrue(report["ok"], report["errors"])
+        self.assertEqual(report["backgroundChecks"]["charcoal"]["blackRectangles"], 0)
+
+    def test_verifier_rejects_a_large_black_block_even_when_subject_pixels_make_holes(self) -> None:
+        import verify_care_atlas_30
+
+        metadata = self._metadata("sleeping-30.json")
+        atlas = self._synthetic_action_atlas(3, (0,), width=70, height=64)
+        frame = self._atlas_frame(atlas, 0, 0)
+        draw = ImageDraw.Draw(frame)
+        draw.rectangle((16, 16, 78, 190), fill=(0, 0, 0, 255))
+        # This hole makes the black component non-rectangular, matching the
+        # failure mode where a black background wraps around a cutout subject.
+        draw.rectangle((36, 48, 58, 158), fill=(0, 0, 0, 0))
+        atlas.alpha_composite(frame, (0, 0))
+
+        report = verify_care_atlas_30.verify(atlas, metadata, "sleep")
+
+        self.assertFalse(report["ok"])
+        self.assertTrue(any("black rectangle" in error for error in report["errors"]), report["errors"])
 
     def test_light_fur_stays_close_to_native_palette(self) -> None:
         import numpy as np
