@@ -7,6 +7,7 @@ import {
   buildCodexQueueArgs,
   buildCodexResumeArgs,
   CodexSessionsService,
+  canReplyToCodexSession,
   getCodexDesktopAppCandidates,
   getCodexThreadDeepLink,
   parseCodexSessionLog,
@@ -505,6 +506,29 @@ describe("session listing", () => {
 });
 
 describe("safe reply dispatch", () => {
+  it("keeps approval waits blocked while allowing an idle task to use the resume path", () => {
+    expect(canReplyToCodexSession({
+      canAcceptDirectInput: false,
+      status: {
+        activity: "waiting",
+        runtimeType: "active",
+        activeFlags: ["waitingOnApproval"],
+        activeTurnId: "turn-approval",
+        inferredFromLog: true,
+      },
+    })).toBe(false);
+    expect(canReplyToCodexSession({
+      canAcceptDirectInput: false,
+      status: {
+        activity: "idle",
+        runtimeType: "state-db",
+        activeFlags: [],
+        activeTurnId: null,
+        inferredFromLog: false,
+      },
+    })).toBe(true);
+  });
+
   it("uses the native Codex owner by default without spawning a CLI process", async () => {
     const recorder = recordingSpawner();
     const nativeReply = {

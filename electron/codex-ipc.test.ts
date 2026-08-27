@@ -272,4 +272,30 @@ describe("native Codex follower requests", () => {
     await expect(client.sendReply({ threadId: THREAD_ID, message: "超时", mode: "start" }))
       .rejects.toThrow("Codex IPC request timed out: initialize");
   });
+
+  it("does not send a follower command when the native owner is absent", async () => {
+    const requests: Array<Record<string, unknown>> = [];
+    const connector: NativeCodexIpcConnector = async () => new FakeConnection((request) => {
+      requests.push(request);
+      if (request.method === "initialize") {
+        return { type: "response", requestId: request.requestId, result: { clientId: "xiaoman-client" } };
+      }
+      if (request.method === "thread-owner-discovery") {
+        return { type: "response", requestId: request.requestId, result: {} };
+      }
+      return { type: "response", requestId: request.requestId, result: { accepted: true } };
+    });
+    const client = new NativeCodexIpcClient({
+      codexHome: "/tmp/xiaoman-codex",
+      connector,
+      idFactory: () => "message-id-no-owner",
+    });
+
+    await expect(client.sendReply({ threadId: THREAD_ID, message: "不要误发", mode: "start" }))
+      .rejects.toMatchObject({ code: "owner-not-found" });
+    expect(requests.map((request) => request.method)).toEqual([
+      "initialize",
+      "thread-owner-discovery",
+    ]);
+  });
 });

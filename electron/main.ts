@@ -131,6 +131,15 @@ function isGameId(value: unknown): value is GameId {
   return typeof value === "string" && GAME_IDS.includes(value as GameId);
 }
 
+function isInteractionAction(value: unknown): value is InteractionAction {
+  return value === "feed"
+    || value === "pet"
+    || value === "play"
+    || value === "sleep"
+    || value === "wake"
+    || value === "celebrate";
+}
+
 function cancelPetJob(data: PersistedData): CareMutationResult {
   if (!data.activeJob) return { ok: false, message: "现在没有打工" };
   return { ok: true, data: { ...data, activeJob: null }, message: "已取消打工" };
@@ -324,6 +333,8 @@ function triggerState(
   shouldBroadcast = true,
 ): void {
   const now = Date.now();
+  // Care actions do not hide a live Codex task or an active reminder.
+  if (source === "interaction" && (runtimeState.source === "codex" || runtimeState.source === "reminder")) return;
   if (runtimeState.expiresAt && runtimeState.expiresAt > now && priority < runtimeState.priority) return;
   clearStateTimer();
   const sequence = ++stateSequence;
@@ -423,6 +434,7 @@ function runCareMutation(
   wakesInactivity = true,
 ): AppSnapshot {
   const now = Date.now();
+  rolloverDailyQuests(now);
   const inputData = { ...data, stats: decayStats(data.stats, data.sleeping, now) };
   return commitCareMutation(applyCareMutation({ data: inputData, operation, now, random: careRandomSource }), title, state, message, sound, wakesInactivity);
 }
@@ -838,9 +850,10 @@ function setGameActive(active: boolean): void {
 }
 
 function runMaintenance(): void {
-  const jobSettled = settleDueJobInMain();
-  data.stats = decayStats(data.stats, data.sleeping);
   const now = Date.now();
+  const questsRolled = rolloverDailyQuests(now);
+  const jobSettled = settleDueJobInMain(now);
+  data.stats = decayStats(data.stats, data.sleeping);
   const cooldownPassed = (last: number | null, cooldownMs: number) => last === null || now - last >= cooldownMs;
 
   if (data.settings.proactiveNotifications) {
@@ -867,7 +880,7 @@ function runMaintenance(): void {
     }
   }
 
-  if (jobSettled) persistAndBroadcast();
+  if (jobSettled || questsRolled) persistAndBroadcast();
   else {
     persist();
     recomputeState();
@@ -1077,12 +1090,19 @@ function hardenRendererWindow(window: BrowserWindow): void {
   });
 }
 
-function assertTrustedInvoke(event: IpcMainInvokeEvent): void {
+function assertTrustedSender(
+  sender: IpcMainInvokeEvent["sender"],
+  senderFrame: IpcMainInvokeEvent["senderFrame"],
+): void {
   const trustedContents = [overlayWindow?.webContents, centerWindow?.webContents]
     .filter((contents) => contents && !contents.isDestroyed());
-  if (!trustedContents.includes(event.sender) || event.senderFrame !== event.sender.mainFrame) {
+  if (!trustedContents.includes(sender) || senderFrame !== sender.mainFrame) {
     throw new Error("Rejected IPC call from an untrusted renderer");
   }
+}
+
+function assertTrustedInvoke(event: IpcMainInvokeEvent): void {
+  assertTrustedSender(event.sender, event.senderFrame);
 }
 
 function overlayDimensions(petSize = data.settings.petSize): { width: number; height: number } {
@@ -1353,7 +1373,11 @@ function configureApplicationMonitor(): void {
 
 function registerIpcHandlers(): void {
   ipcMain.handle("snapshot:get", () => snapshot());
-  ipcMain.handle("interaction:perform", (_event, action: InteractionAction) => performInteraction(action));
+  ipcMain.handle("interaction:perform", (event, action: unknown) => {
+    assertTrustedInvoke(event);
+    if (!isInteractionAction(action)) throw new Error("没有这个互动动作");
+    return performInteraction(action);
+  });
   ipcMain.handle("care:feed-food", (event, foodId: FoodId) => {
     assertTrustedInvoke(event);
     if (!isFoodId(foodId)) throw new Error("没有这个食物");
@@ -1381,7 +1405,8 @@ function registerIpcHandlers(): void {
     if (typeof questId !== "string" || !questId.trim()) throw new Error("任务不存在");
     return claimDailyQuest(questId);
   });
-  ipcMain.on("game:set-active", (_event, active: boolean) => {
+  ipcMain.on("game:set-active", (event, active: unknown) => {
+    assertTrustedSender(event.sender, event.senderFrame);
     if (typeof active === "boolean") setGameActive(active);
   });
   ipcMain.handle("game:complete", (event, gameId: GameId, score: number) => {

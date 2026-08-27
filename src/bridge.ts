@@ -1,4 +1,4 @@
-import { appendActivity, clampStat, createDefaultData, FOOD_IDS, makeId, STATE_LABELS } from "./shared/domain";
+import { appendActivity, clampStat, createDefaultData, decayStats, FOOD_IDS, makeId, STATE_LABELS } from "./shared/domain";
 import { applyBath, applyFeed, claimDailyQuest, openGiftBox, startPetJob } from "./shared/care";
 import { settleGameResult } from "./shared/games";
 import type { XiaomanApi } from "./electron";
@@ -67,42 +67,46 @@ function createMockApi(): XiaomanApi {
     title: string,
   ): AppSnapshot => {
     const now = Date.now();
+    const baseData = {
+      ...current,
+      stats: decayStats(current.stats, current.sleeping, now),
+    };
     let result;
     if (operation.kind === "feed") {
       if (!FOOD_IDS.includes(operation.foodId)) throw new Error("没有这个食物");
-      result = applyFeed(current, operation.foodId, now);
+      result = applyFeed(baseData, operation.foodId, now);
     }
-    else if (operation.kind === "bath") result = applyBath(current, now);
-    else if (operation.kind === "open-gift") result = openGiftBox(current, Math.random);
+    else if (operation.kind === "bath") result = applyBath(baseData, now);
+    else if (operation.kind === "open-gift") result = openGiftBox(baseData, Math.random);
     else if (operation.kind === "start-job") {
       if (operation.jobId !== "desk-organizer" && operation.jobId !== "code-helper" && operation.jobId !== "delivery-run") {
         throw new Error("没有这个打工");
       }
-      result = startPetJob(current, operation.jobId, now);
+      result = startPetJob(baseData, operation.jobId, now);
     }
     else if (operation.kind === "cancel-job") {
-      result = current.activeJob
-        ? { ok: true as const, data: { ...current, activeJob: null }, message: "已取消打工" }
+      result = baseData.activeJob
+        ? { ok: true as const, data: { ...baseData, activeJob: null }, message: "已取消打工" }
         : { ok: false as const, message: "现在没有打工" };
-    } else if (operation.kind === "claim-quest") result = claimDailyQuest(current, operation.questId, now);
+    } else if (operation.kind === "claim-quest") result = claimDailyQuest(baseData, operation.questId, now);
     else {
       if (operation.gameId !== "rock-paper-scissors" && operation.gameId !== "fish-catch" && operation.gameId !== "bubble-pop") {
         throw new Error("没有这个小游戏");
       }
       const settlement = settleGameResult(operation.gameId, operation.score);
-      const experience = current.stats.experience + settlement.experience;
+      const experience = baseData.stats.experience + settlement.experience;
       result = {
         ok: true as const,
         data: {
-          ...current,
+          ...baseData,
           stats: {
-            ...current.stats,
-            affection: clampStat(current.stats.affection + settlement.affection),
+            ...baseData.stats,
+            affection: clampStat(baseData.stats.affection + settlement.affection),
             experience,
             level: Math.max(1, Math.floor(experience / 100) + 1),
             lastUpdatedAt: now,
           },
-          dailyQuests: current.dailyQuests.map((quest) => quest.kind === "play" && quest.progress < quest.target
+          dailyQuests: baseData.dailyQuests.map((quest) => quest.kind === "play" && quest.progress < quest.target
             ? { ...quest, progress: quest.progress + 1 }
             : quest),
         },
