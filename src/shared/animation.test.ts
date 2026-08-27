@@ -41,4 +41,16 @@ describe("advanceFrameByDelta", () => {
       remainderMs: 0,
     });
   });
+
+  it("normalizes invalid delta and clock remainder without producing invalid state", () => {
+    expect(advanceFrameByDelta({ frame: -4, remainderMs: -1 }, Number.NaN, spec)).toEqual({
+      clock: { frame: 0, remainderMs: 0 },
+      frameChanged: false,
+      looped: false,
+    });
+    expect(advanceFrameByDelta({ frame: 12, remainderMs: Number.POSITIVE_INFINITY }, 100, spec).clock).toEqual({
+      frame: 1,
+      remainderMs: 0,
+    });
+  });
 });

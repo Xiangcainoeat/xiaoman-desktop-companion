@@ -35,6 +35,12 @@ export type LookAtlasMetadataInput = Pick<
 
 const MAX_ELAPSED_MS = 250;
 
+export function normalizeAnimationDelta(elapsedMs: number): number {
+  return Number.isFinite(elapsedMs)
+    ? Math.min(MAX_ELAPSED_MS, Math.max(0, elapsedMs))
+    : 0;
+}
+
 function assertPositiveFinite(value: number, name: string): void {
   if (!Number.isFinite(value) || value <= 0) {
     throw new RangeError(`${name} must be a finite positive number`);
@@ -103,9 +109,7 @@ export function advanceAnimationClock(
   assertPositiveFinite(fps, "Animation fps");
   assertPositiveInteger(frameCount, "Animation frame count");
 
-  const safeElapsedMs = Number.isFinite(elapsedMs)
-    ? Math.min(MAX_ELAPSED_MS, Math.max(0, elapsedMs))
-    : 0;
+  const safeElapsedMs = normalizeAnimationDelta(elapsedMs);
   const remainder = Number.isFinite(clock.remainderMs) && clock.remainderMs >= 0
     ? clock.remainderMs
     : 0;
@@ -124,15 +128,21 @@ export function advanceFrameByDelta(
   elapsedMs: number,
   spec: Pick<AnimationSpec, "frames" | "fps">,
 ): { clock: AnimationClock; frameChanged: boolean; looped: boolean } {
-  const nextClock = advanceAnimationClock(clock, elapsedMs, spec.fps, spec.frames);
-  const safeElapsedMs = Number.isFinite(elapsedMs)
-    ? Math.min(MAX_ELAPSED_MS, Math.max(0, elapsedMs))
-    : 0;
-  const remainder = Number.isFinite(clock.remainderMs) && clock.remainderMs >= 0
-    ? clock.remainderMs
-    : 0;
-  const frameAdvance = Math.floor(remainder + (safeElapsedMs * spec.fps) / 1000);
-  const currentFrame = Number.isInteger(clock.frame) ? clock.frame : 0;
+  assertPositiveFinite(spec.fps, "Animation fps");
+  assertPositiveInteger(spec.frames, "Animation frame count");
+
+  const normalizedClock: AnimationClock = {
+    frame: Number.isInteger(clock.frame) && clock.frame >= 0 && clock.frame < spec.frames
+      ? clock.frame
+      : 0,
+    remainderMs: Number.isFinite(clock.remainderMs) && clock.remainderMs >= 0 && clock.remainderMs < 1
+      ? clock.remainderMs
+      : 0,
+  };
+  const safeElapsedMs = normalizeAnimationDelta(elapsedMs);
+  const nextClock = advanceAnimationClock(normalizedClock, safeElapsedMs, spec.fps, spec.frames);
+  const frameAdvance = Math.floor(normalizedClock.remainderMs + (safeElapsedMs * spec.fps) / 1000);
+  const currentFrame = normalizedClock.frame;
   const frameChanged = nextClock.frame !== currentFrame;
   const looped = frameAdvance > 0 && currentFrame + frameAdvance >= spec.frames;
   return { clock: nextClock, frameChanged, looped };
