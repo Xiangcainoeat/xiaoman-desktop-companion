@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Code2, Fish, PanelTopOpen } from "lucide-react";
+import { Code2, Fish, Gamepad2, Heart, PanelTopOpen } from "lucide-react";
 import {
   chooseIdleMotion,
   hoverJumpDurationMs,
@@ -12,6 +12,7 @@ import {
 import type { DragState } from "../shared/motion";
 import type { PetMotion } from "../shared/types";
 import { OverlayCodexPanel } from "./OverlayCodexPanel";
+import { DesktopBubbleLayer } from "./DesktopBubbleLayer";
 import { PetSprite } from "./PetSprite";
 import { bridge, useCompanion } from "../useCompanion";
 
@@ -60,6 +61,7 @@ export function Overlay() {
   const [idlePhrase, setIdlePhrase] = useState<string | null>(null);
   const [gazeActive, setGazeActive] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
+  const bubbleInteractiveRef = useRef(false);
 
   const clearMotionTimer = useCallback(() => {
     if (motionTimerRef.current !== null) window.clearTimeout(motionTimerRef.current);
@@ -90,9 +92,19 @@ export function Overlay() {
   }, [clearHoverMotion, clearMotionTimer]);
 
   const handleGazeActivity = useCallback((active: boolean) => setGazeActive(active), []);
+  const handleBubbleInteractiveChange = useCallback((active: boolean) => {
+    bubbleInteractiveRef.current = active;
+    if (active || tasksOpen) bridge.setOverlayMouseMode("interactive");
+    else bridge.setOverlayMouseMode("passthrough");
+  }, [tasksOpen]);
+  const enterInteractiveArea = useCallback(() => bridge.setOverlayMouseMode("interactive"), []);
+  const leaveInteractiveArea = useCallback(() => {
+    if (!bubbleInteractiveRef.current && !tasksOpen) bridge.setOverlayMouseMode("passthrough");
+  }, [tasksOpen]);
   const setTaskPanel = useCallback((open: boolean) => {
     setTasksOpen(open);
     bridge.setOverlayTaskPanel(open);
+    bridge.setOverlayMouseMode(open || bubbleInteractiveRef.current ? "interactive" : "passthrough");
   }, []);
   const closeTaskPanel = useCallback(() => setTaskPanel(false), [setTaskPanel]);
 
@@ -308,6 +320,7 @@ export function Overlay() {
   };
 
   const pointerEnter = () => {
+    enterInteractiveArea();
     if (!snapshot.settings.hoverJumpEnabled || !canUseTransientMotion || dragRef.current.active) return;
     clearHoverMotion();
     setHoverMotion("jumping");
@@ -360,6 +373,7 @@ export function Overlay() {
           replyTransport={snapshot.settings.codexReplyTransport}
         />
       )}
+      <DesktopBubbleLayer snapshot={snapshot} onInteractiveChange={handleBubbleInteractiveChange} />
       <div className={`pet-bubble source-${snapshot.stateSource}`} aria-live="polite">
         {idlePhrase ?? snapshot.stateMessage}
       </div>
@@ -372,7 +386,10 @@ export function Overlay() {
         onPointerCancel={pointerCancel}
         onLostPointerCapture={lostPointerCapture}
         onPointerEnter={pointerEnter}
-        onPointerLeave={pointerLeave}
+        onPointerLeave={() => {
+          pointerLeave();
+          leaveInteractiveArea();
+        }}
         onClick={petClick}
         onDoubleClick={openCenter}
         onKeyDown={(event) => {
@@ -395,7 +412,7 @@ export function Overlay() {
           className="overlay-pet"
         />
       </div>
-      <div className="overlay-actions">
+      <div className="overlay-actions" onPointerEnter={enterInteractiveArea} onPointerLeave={leaveInteractiveArea}>
         {snapshot.settings.codexSessionControls && (
           <button
             className={`icon-button overlay-action ${tasksOpen ? "is-active" : ""}`}
@@ -422,6 +439,30 @@ export function Overlay() {
           }}
         >
           <Fish size={18} />
+        </button>
+        <button
+          className="icon-button overlay-action"
+          type="button"
+          title="打开养成"
+          aria-label="打开养成"
+          onClick={(event) => {
+            event.stopPropagation();
+            bridge.showQuickWindow("care");
+          }}
+        >
+          <Heart size={18} />
+        </button>
+        <button
+          className="icon-button overlay-action"
+          type="button"
+          title="打开互动"
+          aria-label="打开互动"
+          onClick={(event) => {
+            event.stopPropagation();
+            bridge.showQuickWindow("interaction");
+          }}
+        >
+          <Gamepad2 size={18} />
         </button>
         <button
           className="icon-button overlay-action"
