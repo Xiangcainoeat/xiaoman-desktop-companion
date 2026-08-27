@@ -3,6 +3,7 @@ import {
   interpolateLookDirection,
   resolveGazeSmoothingMs,
   resolveGazeTarget,
+  selectLookDirection,
   shouldTrackCursor,
   smoothAngle,
 } from "../src/shared/gaze";
@@ -20,6 +21,20 @@ describe("gaze geometry", () => {
     expect(interpolateLookDirection(359, 16)).toMatchObject({ first: 15, second: 0 });
     expect(interpolateLookDirection(1, 16)).toMatchObject({ first: 0, second: 1 });
     expect(interpolateLookDirection(180, 16)).toEqual({ first: 8, second: 9, blend: 0 });
+  });
+
+  it("selects one of 96 frames without compositing", () => {
+    expect(selectLookDirection(0, 96)).toBe(0);
+    expect(selectLookDirection(3.7, 96)).toBe(1);
+    expect(selectLookDirection(180, 96)).toBe(48);
+    expect(selectLookDirection(359, 96)).toBe(0);
+  });
+
+  it("holds the current frame through a small boundary jitter", () => {
+    expect(selectLookDirection(2.3, 96, 0, 0.8)).toBe(0);
+    expect(selectLookDirection(2.8, 96, 0, 0.8)).toBe(1);
+    expect(selectLookDirection(358.8, 96, 95, 0.8)).toBe(95);
+    expect(selectLookDirection(359.1, 96, 95, 0.8)).toBe(0);
   });
 
   it("uses shortest-path delta-time smoothing", () => {

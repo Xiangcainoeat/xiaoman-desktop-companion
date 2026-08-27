@@ -4,10 +4,10 @@
     "enhanced": {
       "pet": "pet.json",
       "spritesheet": "spritesheet.webp",
-      "lookAtlas": "look-90.webp",
-      "lookMetadata": "look-90.json",
-      "directionCount": 90,
-      "stepDegrees": 4
+      "lookAtlas": "look-96.webp",
+      "lookMetadata": "look-96.json",
+      "directionCount": 96,
+      "stepDegrees": 3.75
     },
     "native": {
       "pet": "native/pet.json",

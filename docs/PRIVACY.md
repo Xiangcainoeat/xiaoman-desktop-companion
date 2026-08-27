@@ -29,7 +29,7 @@ The local JSON store contains pet stats, reminder text, app-name rules, idle phr
 
 ## Build-time image generation
 
-The idle action sheet and enhanced gaze transition references were produced during development through the user's private OpenAI-compatible ImageGen relay with `gpt-image-2`, using the local `relay-imagegen` CLI wrapper. The relay endpoint and credentials are not included in the app and are never called at runtime. The native 16-direction gaze atlas is extracted locally from the accepted native spritesheet; the enhanced 90-direction atlas is assembled locally from generated anchors and selected transition images.
+The idle action sheet and enhanced gaze transition references were produced during development through the user's private OpenAI-compatible ImageGen relay with `gpt-image-2`, using the local `relay-imagegen` CLI wrapper. The relay endpoint and credentials are not included in the app and are never called at runtime. The native 16-direction gaze atlas is extracted locally from the accepted native spritesheet; the enhanced 96-direction atlas is assembled locally from generated anchors, selected in-between images and seam repairs.
 
 ## Codex independence
 

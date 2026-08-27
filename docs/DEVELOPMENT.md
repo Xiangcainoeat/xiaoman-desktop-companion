@@ -41,43 +41,45 @@ python3 scripts/build_native_look_atlas.py \
 
 Expected contract: `1536x416`, `8x2`, 16 populated transparent cells of `192x208`.
 
-The enhanced profile is the 90-direction atlas. The source repair and the
-generated transition overrides are recorded under `work/xiaoman-pet-90/`.
-The resampler uses shared scale/baseline registration and premultiplied alpha
-interpolation, then the atlas builder writes a `10x9` sheet:
+The enhanced profile is the 96-direction atlas. The source repair, generated
+in-betweens and lower-hemisphere seam repair are recorded under
+`work/xiaoman-pet-96/`. Every runtime cell is an independent RGBA frame; the
+renderer never cross-fades two look frames. The assembler uses shared
+scale/baseline registration and the atlas builder writes a `12x8` sheet:
 
 ```bash
-sh scripts/run_image_python.sh scripts/resample_look_directions.py \
-  --input work/xiaoman-pet-90/relay-output/look-32-source-repaired.png \
-  --output-dir work/xiaoman-pet-90/frames-90-v2 \
-  --provenance work/xiaoman-pet-90/resampling-provenance.json \
-  --transition 172=work/xiaoman-pet-90/transition-output/look-172.png \
-  --transition 176=work/xiaoman-pet-90/transition-output/look-176.png \
-  --transition 260=work/xiaoman-pet-90/transition-output-v2/look-260.png \
-  --transition 264=work/xiaoman-pet-90/transition-output-v2/look-264.png \
-  --transition 268=work/xiaoman-pet-90/transition-output-v2/look-268.png \
-  --transition 352=work/xiaoman-pet-90/transition-output/look-352.png \
-  --transition 356=work/xiaoman-pet-90/transition-output/look-356.png
-npm run verify:look-90
+sh scripts/run_image_python.sh scripts/assemble_look_96.py \
+  --generation-manifest work/xiaoman-pet-96/generation-manifest.json \
+  --anchors-dir work/xiaoman-pet-96/anchors \
+  --generated-dir work/xiaoman-pet-96/relay-output \
+  --seam-repairs work/xiaoman-pet-96/relay-output/seam-pairs-15-23.png \
+  --reference work/xiaoman-pet-96/generation-inputs/native-color-reference.png \
+  --frames-dir work/xiaoman-pet-96/ordered-frames \
+  --output public/pet/look-96.webp \
+  --metadata public/pet/look-96.json \
+  --provenance work/xiaoman-pet-96/assembly-provenance.json
+npm run verify:look-96
 ```
 
-Expected enhanced contract: `1920x1872`, `10x9`, 90 populated transparent
-cells, `4°` steps, no empty frames and edge contamination within the report
-limits. The final runtime atlas and metadata are already checked in; the
+Expected enhanced contract: `2304x1664`, `12x8`, 96 populated transparent
+cells, `3.75°` steps, no empty frames, no hidden RGB and no double-exposure
+alpha ratios. The final runtime atlas and metadata are already checked in; the
 command above is a reproducibility path, not a runtime dependency.
 
 ## Rebuilding idle actions
 
 The selected ImageGen sources are `work/idle-actions-30-generated-lick.png`,
-`work/idle-actions-30-generated-blink.png`, and
-`work/idle-actions-30-generated-scratch.png`. The deterministic build extracts
-30 frames per action and assembles a `10x9` atlas:
+`work/idle-actions-30-generated-blink.png`, and the three raised-front-paw
+phase sheets under `work/xiaoman-pet-96/relay-output/`. The deterministic build
+keeps the accepted lick and blink rows and replaces the legacy scratch rows with
+30 independent lift/hold/lower paw frames:
 
 ```bash
-sh scripts/run_image_python.sh scripts/build_idle_atlas_30.py \
-  --lick work/idle-actions-30-generated-lick.png \
-  --blink work/idle-actions-30-generated-blink.png \
-  --scratch work/idle-actions-30-generated-scratch.png
+sh scripts/run_image_python.sh scripts/assemble_paw_action_30.py \
+  --base-atlas public/pet/idle-actions-30.webp \
+  --paw-lift work/xiaoman-pet-96/relay-output/paw-lift.png \
+  --paw-hold work/xiaoman-pet-96/relay-output/paw-hold.png \
+  --paw-lower work/xiaoman-pet-96/relay-output/paw-lower.png
 npm run verify:idle-atlas
 ```
 
@@ -87,12 +89,13 @@ limits. Install the optional tools
 with `python3 -m pip install -r requirements-image.txt` when the bundled Codex
 runtime is not available.
 
-The prior `look-32.webp` pipeline remains in `work/` for provenance only; no
-runtime profile loads it directly.
+The prior `look-32.webp` and `look-90.webp` pipelines remain in `work/` and
+`public/pet/` for historical provenance only; no runtime profile loads them
+directly.
 
 ## Testing a local build
 
-Browser mock QA covers forms, profile toggles, feature controls, task composition and responsive control-center layouts. Native QA additionally verifies transparent-window alpha, 30/60Hz cursor tracking, 90/native profile asset selection, inactivity reset, lower-quadrant continuity, owner-routed native IPC replies, repeated sends, filtered task identity, explicit CLI queue/resume compatibility, system notifications and packaged resources.
+Browser mock QA covers forms, profile toggles, feature controls, task composition and responsive control-center layouts. Native QA additionally verifies transparent-window alpha, 30/60Hz cursor tracking, 96/native profile asset selection, configurable hover count, configurable inactivity reset, lower-quadrant continuity, owner-routed native IPC replies, owner-not-found CLI fallback, repeated sends, filtered task identity, explicit CLI queue/resume compatibility, system notifications and packaged resources.
 
 ## Distribution
 

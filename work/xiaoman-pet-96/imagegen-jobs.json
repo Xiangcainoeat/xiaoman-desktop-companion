@@ -1,0 +1,32 @@
+{
+  "cli": "${CODEX_HOME:-$HOME/.codex}/skills/relay-imagegen/scripts/relay_imagegen.sh",
+  "model": "gpt-image-2",
+  "operation": "edit",
+  "sourceIdentity": "accepted Xiaoman Codex Siamese cat atlas",
+  "sharedConcurrencyCeiling": 6,
+  "jobs": [
+    {
+      "id": "look-inbetweens-00-07",
+      "count": 8,
+      "promptPattern": "prompts/batch-00.md through prompts/batch-07.md",
+      "outputs": "relay-output/inbetweens-00.png through inbetweens-07.png",
+      "purpose": "64 independent 96-direction in-between poses"
+    },
+    {
+      "id": "lower-hemisphere-seam-repair",
+      "count": 1,
+      "prompt": "prompts/seam-pairs-15-23.md",
+      "output": "relay-output/seam-pairs-15-23.png",
+      "purpose": "replace four selected lower-hemisphere seam cells"
+    },
+    {
+      "id": "raised-front-paw",
+      "count": 3,
+      "prompts": ["prompts/paw-lift.md", "prompts/paw-hold.md", "prompts/paw-lower.md"],
+      "outputs": ["relay-output/paw-lift.png", "relay-output/paw-hold.png", "relay-output/paw-lower.png"],
+      "purpose": "30 independent idle frames with a visible raised front paw"
+    }
+  ],
+  "notRuntime": "Image generation is a build-time operation only; the desktop app does not call the relay.",
+  "privacy": "No endpoint, API key, password or original user-photo path is stored here."
+}

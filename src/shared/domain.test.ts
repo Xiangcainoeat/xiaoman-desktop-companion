@@ -25,4 +25,14 @@ describe("hover jump count persistence", () => {
       settings: { ...defaults.settings, hoverJumpCount: 4 },
     }).settings.hoverJumpCount).toBe(4);
   });
+
+  it("keeps the mouse-inactivity reset within the half-second to five-second range", () => {
+    const defaults = createDefaultData();
+    expect(normalizeCompanionSettings({ ...defaults.settings, gazeIdleResetMs: 0 }).gazeIdleResetMs).toBe(500);
+    expect(normalizeCompanionSettings({ ...defaults.settings, gazeIdleResetMs: 2_650 }).gazeIdleResetMs).toBe(2_650);
+    expect(normalizeCompanionSettings({ ...defaults.settings, gazeIdleResetMs: 99_000 }).gazeIdleResetMs).toBe(5_000);
+    expect(normalizeCompanionSettings({ ...defaults.settings, gazeIdleResetMs: "slow" }).gazeIdleResetMs).toBe(
+      defaults.settings.gazeIdleResetMs,
+    );
+  });
 });

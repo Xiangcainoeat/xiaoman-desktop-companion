@@ -1,0 +1,13 @@
+{
+  "policy": "shared-total-concurrency",
+  "maxConcurrentWorkUnits": 6,
+  "counts": [
+    "image-generation-cli-jobs",
+    "parallel-development-agents"
+  ],
+  "maxConcurrentImageJobs": 4,
+  "maxConcurrentDevelopmentAgents": 2,
+  "maxObservedCombined": 4,
+  "limitExceeded": false,
+  "notes": "Look in-betweens, seam repair and paw phases were generated in bounded batches. Development agents were closed before image generation; no credentials or private photo paths are recorded."
+}

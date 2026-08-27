@@ -8,6 +8,7 @@ import {
 } from "./domain";
 import {
   interpolateLookDirection,
+  selectLookDirection,
   shortestAngleDelta,
   smoothAngle,
 } from "./gaze";
@@ -79,25 +80,21 @@ describe("Task 5 companion settings contract", () => {
 describe("Task 5 look atlas contract", () => {
   it("derives layout and angular steps from the atlas frame count", () => {
     const enhanced = createLookAtlasMetadata({
-      frameCount: 90,
-      columns: 10,
+      frameCount: 96,
+      columns: 12,
       frameWidth: 192,
       frameHeight: 208,
     });
 
     expect(enhanced).toEqual({
-      frameCount: 90,
-      columns: 10,
-      rows: 9,
+      frameCount: 96,
+      columns: 12,
+      rows: 8,
       frameWidth: 192,
       frameHeight: 208,
-      stepDegrees: 4,
+      stepDegrees: 3.75,
     });
-    expect(interpolateLookDirection(359, enhanced.frameCount)).toEqual({
-      first: 89,
-      second: 0,
-      blend: 0.75,
-    });
+    expect(selectLookDirection(359, enhanced.frameCount)).toBe(0);
     expect(createLookAtlasMetadata({
       frameCount: 16,
       columns: 8,
@@ -113,10 +110,10 @@ describe("Task 5 look atlas contract", () => {
 });
 
 describe("Task 5 gaze direction contract", () => {
-  it("interpolates a 90-direction atlas in four-degree steps", () => {
-    expect(interpolateLookDirection(6, 90)).toEqual({ first: 1, second: 2, blend: 0.5 });
-    expect(interpolateLookDirection(180, 90)).toEqual({ first: 45, second: 46, blend: 0 });
-    expect(interpolateLookDirection(359, 90)).toEqual({ first: 89, second: 0, blend: 0.75 });
+  it("selects exactly one frame from the 96-direction atlas", () => {
+    expect(selectLookDirection(6, 96)).toBe(2);
+    expect(selectLookDirection(180, 96)).toBe(48);
+    expect(selectLookDirection(359, 96)).toBe(0);
   });
 
   it("keeps the existing 16-direction default unchanged", () => {

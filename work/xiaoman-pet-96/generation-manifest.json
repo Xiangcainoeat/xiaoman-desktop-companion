@@ -1,0 +1,763 @@
+{
+  "anchorCount": 32,
+  "anchorSheet": "work/xiaoman-pet-90/relay-output/look-32-source-repaired.png",
+  "batchCount": 8,
+  "batches": [
+    {
+      "batch": 0,
+      "prompt": "work/xiaoman-pet-96/prompts/batch-00.md",
+      "reference": "work/xiaoman-pet-96/generation-inputs/endpoints-00.png",
+      "segments": [
+        {
+          "lowerAnchor": 0,
+          "outputCells": [
+            0,
+            1
+          ],
+          "segment": 0,
+          "targetDegrees": [
+            3.75,
+            7.5
+          ],
+          "targetFrameIndices": [
+            1,
+            2
+          ],
+          "upperAnchor": 1
+        },
+        {
+          "lowerAnchor": 1,
+          "outputCells": [
+            2,
+            3
+          ],
+          "segment": 1,
+          "targetDegrees": [
+            15.0,
+            18.75
+          ],
+          "targetFrameIndices": [
+            4,
+            5
+          ],
+          "upperAnchor": 2
+        },
+        {
+          "lowerAnchor": 2,
+          "outputCells": [
+            4,
+            5
+          ],
+          "segment": 2,
+          "targetDegrees": [
+            26.25,
+            30.0
+          ],
+          "targetFrameIndices": [
+            7,
+            8
+          ],
+          "upperAnchor": 3
+        },
+        {
+          "lowerAnchor": 3,
+          "outputCells": [
+            6,
+            7
+          ],
+          "segment": 3,
+          "targetDegrees": [
+            37.5,
+            41.25
+          ],
+          "targetFrameIndices": [
+            10,
+            11
+          ],
+          "upperAnchor": 4
+        }
+      ]
+    },
+    {
+      "batch": 1,
+      "prompt": "work/xiaoman-pet-96/prompts/batch-01.md",
+      "reference": "work/xiaoman-pet-96/generation-inputs/endpoints-01.png",
+      "segments": [
+        {
+          "lowerAnchor": 4,
+          "outputCells": [
+            0,
+            1
+          ],
+          "segment": 4,
+          "targetDegrees": [
+            48.75,
+            52.5
+          ],
+          "targetFrameIndices": [
+            13,
+            14
+          ],
+          "upperAnchor": 5
+        },
+        {
+          "lowerAnchor": 5,
+          "outputCells": [
+            2,
+            3
+          ],
+          "segment": 5,
+          "targetDegrees": [
+            60.0,
+            63.75
+          ],
+          "targetFrameIndices": [
+            16,
+            17
+          ],
+          "upperAnchor": 6
+        },
+        {
+          "lowerAnchor": 6,
+          "outputCells": [
+            4,
+            5
+          ],
+          "segment": 6,
+          "targetDegrees": [
+            71.25,
+            75.0
+          ],
+          "targetFrameIndices": [
+            19,
+            20
+          ],
+          "upperAnchor": 7
+        },
+        {
+          "lowerAnchor": 7,
+          "outputCells": [
+            6,
+            7
+          ],
+          "segment": 7,
+          "targetDegrees": [
+            82.5,
+            86.25
+          ],
+          "targetFrameIndices": [
+            22,
+            23
+          ],
+          "upperAnchor": 8
+        }
+      ]
+    },
+    {
+      "batch": 2,
+      "prompt": "work/xiaoman-pet-96/prompts/batch-02.md",
+      "reference": "work/xiaoman-pet-96/generation-inputs/endpoints-02.png",
+      "segments": [
+        {
+          "lowerAnchor": 8,
+          "outputCells": [
+            0,
+            1
+          ],
+          "segment": 8,
+          "targetDegrees": [
+            93.75,
+            97.5
+          ],
+          "targetFrameIndices": [
+            25,
+            26
+          ],
+          "upperAnchor": 9
+        },
+        {
+          "lowerAnchor": 9,
+          "outputCells": [
+            2,
+            3
+          ],
+          "segment": 9,
+          "targetDegrees": [
+            105.0,
+            108.75
+          ],
+          "targetFrameIndices": [
+            28,
+            29
+          ],
+          "upperAnchor": 10
+        },
+        {
+          "lowerAnchor": 10,
+          "outputCells": [
+            4,
+            5
+          ],
+          "segment": 10,
+          "targetDegrees": [
+            116.25,
+            120.0
+          ],
+          "targetFrameIndices": [
+            31,
+            32
+          ],
+          "upperAnchor": 11
+        },
+        {
+          "lowerAnchor": 11,
+          "outputCells": [
+            6,
+            7
+          ],
+          "segment": 11,
+          "targetDegrees": [
+            127.5,
+            131.25
+          ],
+          "targetFrameIndices": [
+            34,
+            35
+          ],
+          "upperAnchor": 12
+        }
+      ]
+    },
+    {
+      "batch": 3,
+      "prompt": "work/xiaoman-pet-96/prompts/batch-03.md",
+      "reference": "work/xiaoman-pet-96/generation-inputs/endpoints-03.png",
+      "segments": [
+        {
+          "lowerAnchor": 12,
+          "outputCells": [
+            0,
+            1
+          ],
+          "segment": 12,
+          "targetDegrees": [
+            138.75,
+            142.5
+          ],
+          "targetFrameIndices": [
+            37,
+            38
+          ],
+          "upperAnchor": 13
+        },
+        {
+          "lowerAnchor": 13,
+          "outputCells": [
+            2,
+            3
+          ],
+          "segment": 13,
+          "targetDegrees": [
+            150.0,
+            153.75
+          ],
+          "targetFrameIndices": [
+            40,
+            41
+          ],
+          "upperAnchor": 14
+        },
+        {
+          "lowerAnchor": 14,
+          "outputCells": [
+            4,
+            5
+          ],
+          "segment": 14,
+          "targetDegrees": [
+            161.25,
+            165.0
+          ],
+          "targetFrameIndices": [
+            43,
+            44
+          ],
+          "upperAnchor": 15
+        },
+        {
+          "lowerAnchor": 15,
+          "outputCells": [
+            6,
+            7
+          ],
+          "segment": 15,
+          "targetDegrees": [
+            172.5,
+            176.25
+          ],
+          "targetFrameIndices": [
+            46,
+            47
+          ],
+          "upperAnchor": 16
+        }
+      ]
+    },
+    {
+      "batch": 4,
+      "prompt": "work/xiaoman-pet-96/prompts/batch-04.md",
+      "reference": "work/xiaoman-pet-96/generation-inputs/endpoints-04.png",
+      "segments": [
+        {
+          "lowerAnchor": 16,
+          "outputCells": [
+            0,
+            1
+          ],
+          "segment": 16,
+          "targetDegrees": [
+            183.75,
+            187.5
+          ],
+          "targetFrameIndices": [
+            49,
+            50
+          ],
+          "upperAnchor": 17
+        },
+        {
+          "lowerAnchor": 17,
+          "outputCells": [
+            2,
+            3
+          ],
+          "segment": 17,
+          "targetDegrees": [
+            195.0,
+            198.75
+          ],
+          "targetFrameIndices": [
+            52,
+            53
+          ],
+          "upperAnchor": 18
+        },
+        {
+          "lowerAnchor": 18,
+          "outputCells": [
+            4,
+            5
+          ],
+          "segment": 18,
+          "targetDegrees": [
+            206.25,
+            210.0
+          ],
+          "targetFrameIndices": [
+            55,
+            56
+          ],
+          "upperAnchor": 19
+        },
+        {
+          "lowerAnchor": 19,
+          "outputCells": [
+            6,
+            7
+          ],
+          "segment": 19,
+          "targetDegrees": [
+            217.5,
+            221.25
+          ],
+          "targetFrameIndices": [
+            58,
+            59
+          ],
+          "upperAnchor": 20
+        }
+      ]
+    },
+    {
+      "batch": 5,
+      "prompt": "work/xiaoman-pet-96/prompts/batch-05.md",
+      "reference": "work/xiaoman-pet-96/generation-inputs/endpoints-05.png",
+      "segments": [
+        {
+          "lowerAnchor": 20,
+          "outputCells": [
+            0,
+            1
+          ],
+          "segment": 20,
+          "targetDegrees": [
+            228.75,
+            232.5
+          ],
+          "targetFrameIndices": [
+            61,
+            62
+          ],
+          "upperAnchor": 21
+        },
+        {
+          "lowerAnchor": 21,
+          "outputCells": [
+            2,
+            3
+          ],
+          "segment": 21,
+          "targetDegrees": [
+            240.0,
+            243.75
+          ],
+          "targetFrameIndices": [
+            64,
+            65
+          ],
+          "upperAnchor": 22
+        },
+        {
+          "lowerAnchor": 22,
+          "outputCells": [
+            4,
+            5
+          ],
+          "segment": 22,
+          "targetDegrees": [
+            251.25,
+            255.0
+          ],
+          "targetFrameIndices": [
+            67,
+            68
+          ],
+          "upperAnchor": 23
+        },
+        {
+          "lowerAnchor": 23,
+          "outputCells": [
+            6,
+            7
+          ],
+          "segment": 23,
+          "targetDegrees": [
+            262.5,
+            266.25
+          ],
+          "targetFrameIndices": [
+            70,
+            71
+          ],
+          "upperAnchor": 24
+        }
+      ]
+    },
+    {
+      "batch": 6,
+      "prompt": "work/xiaoman-pet-96/prompts/batch-06.md",
+      "reference": "work/xiaoman-pet-96/generation-inputs/endpoints-06.png",
+      "segments": [
+        {
+          "lowerAnchor": 24,
+          "outputCells": [
+            0,
+            1
+          ],
+          "segment": 24,
+          "targetDegrees": [
+            273.75,
+            277.5
+          ],
+          "targetFrameIndices": [
+            73,
+            74
+          ],
+          "upperAnchor": 25
+        },
+        {
+          "lowerAnchor": 25,
+          "outputCells": [
+            2,
+            3
+          ],
+          "segment": 25,
+          "targetDegrees": [
+            285.0,
+            288.75
+          ],
+          "targetFrameIndices": [
+            76,
+            77
+          ],
+          "upperAnchor": 26
+        },
+        {
+          "lowerAnchor": 26,
+          "outputCells": [
+            4,
+            5
+          ],
+          "segment": 26,
+          "targetDegrees": [
+            296.25,
+            300.0
+          ],
+          "targetFrameIndices": [
+            79,
+            80
+          ],
+          "upperAnchor": 27
+        },
+        {
+          "lowerAnchor": 27,
+          "outputCells": [
+            6,
+            7
+          ],
+          "segment": 27,
+          "targetDegrees": [
+            307.5,
+            311.25
+          ],
+          "targetFrameIndices": [
+            82,
+            83
+          ],
+          "upperAnchor": 28
+        }
+      ]
+    },
+    {
+      "batch": 7,
+      "prompt": "work/xiaoman-pet-96/prompts/batch-07.md",
+      "reference": "work/xiaoman-pet-96/generation-inputs/endpoints-07.png",
+      "segments": [
+        {
+          "lowerAnchor": 28,
+          "outputCells": [
+            0,
+            1
+          ],
+          "segment": 28,
+          "targetDegrees": [
+            318.75,
+            322.5
+          ],
+          "targetFrameIndices": [
+            85,
+            86
+          ],
+          "upperAnchor": 29
+        },
+        {
+          "lowerAnchor": 29,
+          "outputCells": [
+            2,
+            3
+          ],
+          "segment": 29,
+          "targetDegrees": [
+            330.0,
+            333.75
+          ],
+          "targetFrameIndices": [
+            88,
+            89
+          ],
+          "upperAnchor": 30
+        },
+        {
+          "lowerAnchor": 30,
+          "outputCells": [
+            4,
+            5
+          ],
+          "segment": 30,
+          "targetDegrees": [
+            341.25,
+            345.0
+          ],
+          "targetFrameIndices": [
+            91,
+            92
+          ],
+          "upperAnchor": 31
+        },
+        {
+          "lowerAnchor": 31,
+          "outputCells": [
+            6,
+            7
+          ],
+          "segment": 31,
+          "targetDegrees": [
+            352.5,
+            356.25
+          ],
+          "targetFrameIndices": [
+            94,
+            95
+          ],
+          "upperAnchor": 0
+        }
+      ]
+    }
+  ],
+  "nativeColorReference": "work/xiaoman-pet-96/generation-inputs/native-color-reference.png",
+  "nativeSheet": "public/pet/native/spritesheet.webp",
+  "registration": {
+    "algorithm": "shared-scale-centered-baseline",
+    "anchorSubjectSizes": [
+      [
+        136,
+        185
+      ],
+      [
+        138,
+        186
+      ],
+      [
+        135,
+        186
+      ],
+      [
+        130,
+        186
+      ],
+      [
+        126,
+        185
+      ],
+      [
+        121,
+        184
+      ],
+      [
+        121,
+        183
+      ],
+      [
+        121,
+        180
+      ],
+      [
+        121,
+        181
+      ],
+      [
+        119,
+        180
+      ],
+      [
+        118,
+        180
+      ],
+      [
+        119,
+        181
+      ],
+      [
+        119,
+        180
+      ],
+      [
+        118,
+        179
+      ],
+      [
+        118,
+        179
+      ],
+      [
+        117,
+        177
+      ],
+      [
+        141,
+        155
+      ],
+      [
+        142,
+        153
+      ],
+      [
+        138,
+        154
+      ],
+      [
+        136,
+        155
+      ],
+      [
+        134,
+        154
+      ],
+      [
+        133,
+        154
+      ],
+      [
+        133,
+        154
+      ],
+      [
+        130,
+        153
+      ],
+      [
+        130,
+        186
+      ],
+      [
+        132,
+        186
+      ],
+      [
+        128,
+        186
+      ],
+      [
+        127,
+        186
+      ],
+      [
+        126,
+        187
+      ],
+      [
+        126,
+        188
+      ],
+      [
+        126,
+        187
+      ],
+      [
+        125,
+        187
+      ]
+    ],
+    "backgroundHolePixelsRemoved": 760,
+    "backgroundPixelsRemoved": 1088500,
+    "baseline": 202,
+    "maximumSourceSubjectSize": [
+      157,
+      212
+    ],
+    "scale": 0.89622642,
+    "sharedScale": true,
+    "targetSubjectSize": [
+      174,
+      190
+    ]
+  },
+  "sheet": {
+    "columns": 4,
+    "dimensions": [
+      2048,
+      1152
+    ],
+    "rows": 2
+  }
+}

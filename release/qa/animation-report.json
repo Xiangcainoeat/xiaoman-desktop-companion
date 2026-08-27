@@ -1,14 +1,14 @@
 {
-  "version": "1.2.0",
+  "version": "1.3.0",
   "concurrencyPolicy": "shared maximum 6 across image-generation jobs and development agents",
   "profiles": {
     "enhanced": {
-      "lookAtlas": "public/pet/look-90.webp",
-      "lookMetadata": "public/pet/look-90.json",
-      "directionCount": 90,
-      "stepDegrees": 4,
+      "lookAtlas": "public/pet/look-96.webp",
+      "lookMetadata": "public/pet/look-96.json",
+      "directionCount": 96,
+      "stepDegrees": 3.75,
       "idleAtlas": "public/pet/idle-actions-30.webp",
-      "idleActions": ["idle-lick", "idle-blink", "idle-scratch"],
+      "idleActions": ["idle-lick", "idle-blink", "idle-scratch (visible: 举前爪)"],
       "supportsContinuousGaze": true,
       "supportsIdleActionToggles": true
     },
@@ -26,15 +26,17 @@
   },
   "generation": {
     "sourceAnchorCount": 32,
-    "selectedTransitionOverrideCount": 7,
-    "method": "local CLI generated anchors and transitions plus deterministic registration/interpolation",
+    "generatedInbetweenCount": 64,
+    "selectedSeamRepairCount": 4,
+    "method": "local CLI generated independent frames plus deterministic shared registration; no runtime blending",
     "cli": "relay-imagegen/scripts/relay_imagegen.sh",
     "model": "gpt-image-2",
     "sharedMaxConcurrency": 6,
-    "transition260Revision": "v3"
+    "maxConcurrentImageJobs": 4,
+    "maxConcurrentDevelopmentAgents": 2
   },
   "runtime": {
-    "package": "release/Xiaoman-Desktop-Companion-1.2.0-arm64.zip",
+    "package": "release/Xiaoman-Desktop-Companion-1.3.0-arm64.zip",
     "defaultPetProfile": "enhanced",
     "nativePetProfileSelectable": true,
     "defaultReplyTransport": "native",
@@ -44,16 +46,19 @@
     "nativeReplyManualSend": "not run against the user's active conversation"
   },
   "qa": {
-    "look90Report": "release/qa/look-90-report.json",
+    "look96Report": "release/qa/look-96-report.json",
     "nativeProfileHashes": "release/qa/native-profile-hashes.json",
     "nativeReplySmokeTest": "release/qa/native-reply-smoke-test.md",
-    "contactSheet": "work/xiaoman-pet-90/qa/look-90-contact-sheet.png",
-    "seamSheet": "work/xiaoman-pet-90/qa/seam-frames.png",
-    "look90": {
-      "maxRedPinkEdgePixelsPerFrame": 0,
+    "contactSheet": "work/xiaoman-pet-96/qa/look-96-contact-sheet.png",
+    "seamSheet": "work/xiaoman-pet-96/generation-inputs/seam-pairs-15-23.png",
+    "look96": {
+      "directionCount": 96,
+      "stepDegrees": 3.75,
+      "maxMidAlphaRatio": 0.01216947,
+      "maxLightFurDistance": 18.22087,
       "emptyFrames": 0,
-      "fullyOpaqueFrames": 0,
-      "hiddenRgbPixels": 0
+      "hiddenRgbPixels": 0,
+      "compositing": "none"
     },
     "idle30": {
       "maxRedPinkEdgePixelsPerFrame": 1,
@@ -63,11 +68,11 @@
     }
   },
   "verification": {
-    "npmTest": "108 passed",
+    "npmTest": "129 passed",
     "typecheck": "passed",
     "build": "passed",
     "verifyIdleAtlas": "passed",
-    "verifyLookAtlas90": "passed",
+    "verifyLookAtlas96": "passed",
     "nativeIpcAndStateTests": "passed",
     "packagedAsarInspection": "passed"
   }

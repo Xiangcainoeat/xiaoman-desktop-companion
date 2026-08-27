@@ -7,10 +7,11 @@ import {
   type LookAtlasMetadata,
 } from "../shared/animation";
 import { STANDARD_ATLAS_FRAME_COUNTS } from "../shared/domain";
+import { HOVER_JUMP_FPS, HOVER_JUMP_FRAME_COUNT } from "../shared/motion";
 import {
-  interpolateLookDirection,
   resolveGazeSmoothingMs,
   resolveGazeTarget,
+  selectLookDirection,
   shouldTrackCursor,
   shortestAngleDelta,
   smoothAngle,
@@ -79,7 +80,14 @@ const STATE_FPS: Record<PetState, number> = {
 const MOTION_SPEC: Record<PetMotion, AnimationSpec> = {
   "running-right": { atlas: "standard", row: 1, frames: 8, fps: 7.4, columns: 8, atlasRows: 11 },
   "running-left": { atlas: "standard", row: 2, frames: 8, fps: 7.4, columns: 8, atlasRows: 11 },
-  jumping: { atlas: "standard", row: 4, frames: 5, fps: 6.2, columns: 8, atlasRows: 11 },
+  jumping: {
+    atlas: "standard",
+    row: 4,
+    frames: HOVER_JUMP_FRAME_COUNT,
+    fps: HOVER_JUMP_FPS,
+    columns: 8,
+    atlasRows: 11,
+  },
   "idle-lick": { atlas: "idle", row: 0, frames: 30, fps: 5.6, columns: 10, atlasRows: 9 },
   "idle-blink": { atlas: "idle", row: 3, frames: 30, fps: 6.8, columns: 10, atlasRows: 9 },
   "idle-scratch": { atlas: "idle", row: 6, frames: 30, fps: 5.1, columns: 10, atlasRows: 9 },
@@ -89,12 +97,12 @@ const LOOK_STATES = new Set<PetState>(["idle", "working", "happy", "celebrating"
 
 const LOOK_ATLAS_FALLBACKS: Record<PetProfile, LookAtlasMetadata> = {
   enhanced: {
-    frameCount: 90,
-    columns: 10,
-    rows: 9,
+    frameCount: 96,
+    columns: 12,
+    rows: 8,
     frameWidth: 192,
     frameHeight: 208,
-    stepDegrees: 4,
+    stepDegrees: 3.75,
   },
   native: {
     frameCount: 16,
@@ -128,11 +136,7 @@ export function PetSprite({
   const [frame, setFrame] = useState(0);
   const [settled, setSettled] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
-  const [lookSelection, setLookSelection] = useState<{
-    first: number;
-    second: number;
-    blend: number;
-  } | null>(null);
+  const [lookIndex, setLookIndex] = useState<number | null>(null);
   const [lookMetadata, setLookMetadata] = useState<LookAtlasMetadata>(
     () => LOOK_ATLAS_FALLBACKS[settings.petProfile],
   );
@@ -141,7 +145,7 @@ export function PetSprite({
   const loopsRef = useRef(0);
   const settledRef = useRef(false);
   const animationRef = useRef<AnimationSpec | null>(null);
-  const lookSelectionRef = useRef<typeof lookSelection>(null);
+  const lookIndexRef = useRef<number | null>(null);
   const targetAngleRef = useRef(0);
   const currentAngleRef = useRef(0);
   const targetDistanceRef = useRef(0);
@@ -161,7 +165,7 @@ export function PetSprite({
     const profile = settings.petProfile;
     const fallback = LOOK_ATLAS_FALLBACKS[profile];
     const root = profile === "native" ? "./pet/native" : "./pet";
-    const metadataName = profile === "native" ? "look-16.json" : "look-90.json";
+    const metadataName = profile === "native" ? "look-16.json" : "look-96.json";
     let cancelled = false;
     setLookMetadata(fallback);
     void fetch(`${root}/${metadataName}`)
@@ -279,9 +283,8 @@ export function PetSprite({
         : `url('${root}/spritesheet.webp')`,
       backgroundSize: `${size * animation.columns}px ${dimensions.height * animation.atlasRows}px`,
       backgroundPosition: `${-framePosition.column * size}px ${-framePosition.row * dimensions.height}px`,
-      opacity: lookSelection === null ? 1 : 0,
     };
-  }, [animation, dimensions.height, dimensions.width, framePosition, lookSelection, settings.petProfile, size]);
+  }, [animation, dimensions.height, dimensions.width, framePosition, settings.petProfile, size]);
 
   useEffect(() => {
     const canLook = settings.gazeEnabled && !gazeSuppressed && !motion && !reducedMotion && LOOK_STATES.has(state);
@@ -289,24 +292,23 @@ export function PetSprite({
     const setLooking = (active: boolean) => {
       const changed = lookingRef.current !== active;
       lookingRef.current = active;
-      if (!active && lookSelectionRef.current !== null) {
-        lookSelectionRef.current = null;
-        setLookSelection(null);
+      if (!active && lookIndexRef.current !== null) {
+        lookIndexRef.current = null;
+        setLookIndex(null);
       }
       if (changed) onGazeActivityChange?.(active);
     };
 
     const renderLook = (angle: number) => {
-      const selection = interpolateLookDirection(angle, lookMetadata.frameCount);
-      const previous = lookSelectionRef.current;
-      if (
-        !previous
-        || previous.first !== selection.first
-        || previous.second !== selection.second
-        || Math.abs(previous.blend - selection.blend) > 0.001
-      ) {
-        lookSelectionRef.current = selection;
-        setLookSelection(selection);
+      const index = selectLookDirection(
+        angle,
+        lookMetadata.frameCount,
+        lookIndexRef.current ?? undefined,
+        0.8,
+      );
+      if (lookIndexRef.current !== index) {
+        lookIndexRef.current = index;
+        setLookIndex(index);
       }
       setLooking(true);
     };
@@ -410,18 +412,14 @@ export function PetSprite({
   ]);
 
   const lookAssetRoot = settings.petProfile === "native" ? "./pet/native" : "./pet";
-  const lookAssetName = settings.petProfile === "native" ? "look-16.webp" : "look-90.webp";
-  const lookLayerStyle = (index: number, opacity: number) => ({
+  const lookAssetName = settings.petProfile === "native" ? "look-16.webp" : "look-96.webp";
+  const lookLayerStyle = (index: number) => ({
     width: dimensions.width,
     height: dimensions.height,
     backgroundImage: `url('${lookAssetRoot}/${lookAssetName}')`,
     backgroundSize: `${size * lookMetadata.columns}px ${dimensions.height * lookMetadata.rows}px`,
     backgroundPosition: `${-(index % lookMetadata.columns) * size}px ${-Math.floor(index / lookMetadata.columns) * dimensions.height}px`,
-    opacity,
   });
-  const firstLookIndex = lookSelection?.first ?? 0;
-  const secondLookIndex = lookSelection?.second ?? 0;
-  const lookBlend = lookSelection?.blend ?? 0;
 
   const decorated = ["hungry", "eating", "happy", "affectionate", "sleepy", "sleeping", "playful", "celebrating", "reminder"].includes(state);
 
@@ -432,17 +430,15 @@ export function PetSprite({
       role="img"
       aria-label={`小满：${state}`}
     >
-      <div className="pet-sprite pet-sprite-base" style={baseSprite} aria-hidden="true" />
-      <div
-        className="pet-sprite pet-look-layer"
-        style={lookLayerStyle(firstLookIndex, lookSelection ? 1 - lookBlend : 0)}
-        aria-hidden="true"
-      />
-      <div
-        className="pet-sprite pet-look-layer"
-        style={lookLayerStyle(secondLookIndex, lookSelection ? lookBlend : 0)}
-        aria-hidden="true"
-      />
+      {lookIndex === null ? (
+        <div className="pet-sprite pet-sprite-base" style={baseSprite} aria-hidden="true" />
+      ) : (
+        <div
+          className="pet-sprite pet-look-layer"
+          style={lookLayerStyle(lookIndex)}
+          aria-hidden="true"
+        />
+      )}
       {decorated && (
         <span className="pet-mood-glyph">
           <MoodGlyph state={state} />

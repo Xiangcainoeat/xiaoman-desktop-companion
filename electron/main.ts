@@ -655,7 +655,8 @@ async function replyToCodexThread(threadId: string, message: string): Promise<Co
       throw error;
     }
     codexThreadCache = null;
-    if (transport === "native") markNativeReplyActive(threadId);
+    const usedCliFallback = transport === "native" && dispatch.transport === "exec-resume";
+    if (transport === "native" && !usedCliFallback) markNativeReplyActive(threadId);
     const mode = dispatch.transport === "queue" ? "queued" : "started";
     const sessionTitle = session?.title ?? "本机任务";
     data.activity = appendActivity(data.activity, {
@@ -687,9 +688,11 @@ async function replyToCodexThread(threadId: string, message: string): Promise<Co
     return {
       ok: true,
       mode,
-      transport,
-      message: transport === "native"
-        ? "已发送到原生 Codex 窗口，正在继续执行"
+      transport: usedCliFallback ? "cli" : transport,
+      message: usedCliFallback
+        ? "原生 Codex 未持有该任务，已回退到 CLI 继续执行"
+        : transport === "native"
+          ? "已发送到原生 Codex 窗口，正在继续执行"
         : mode === "queued"
           ? "CLI 兼容回复已排队；当前回复结束后会自动继续"
           : "CLI 兼容任务已启动，正在后台执行",

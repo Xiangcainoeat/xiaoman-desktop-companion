@@ -36,5 +36,14 @@ describe("SettingsView layout contract", () => {
     expect(componentSource).toContain('label="鼠标静止多久停止跟随"');
     expect(componentSource).toContain("settings.gazeIdleResetMs");
     expect(componentSource).not.toContain('label="静止后回正"');
+    expect(componentSource).toMatch(/min="500"[\s\S]*max="5000"[\s\S]*aria-label="鼠标静止多久停止跟随"/);
+  });
+
+  it("exposes the persisted one-to-five hover jump count", () => {
+    expect(componentSource).toContain('label="悬停跳跃次数"');
+    expect(componentSource).toContain('label="举前爪"');
+    expect(componentSource).toContain("settings.hoverJumpCount");
+    expect(componentSource).toContain("update({ hoverJumpCount: Number(event.target.value) })");
+    expect(componentSource).toMatch(/aria-label="悬停跳跃次数"[\s\S]*min="1"[\s\S]*max="5"/);
   });
 });

@@ -1,7 +1,7 @@
 # Native Reply Smoke Test
 
 Date: 2026-08-27
-Version: 1.2.0
+Version: 1.3.0
 
 ## Contract covered
 
@@ -17,6 +17,9 @@ Version: 1.2.0
 - Native success does not invoke the `codex://threads/<id>` deep link again.
 - Native task discovery uses the filtered state DB and does not union local
   `exec` or subagent logs.
+- If owner discovery returns the explicit `owner-not-found` result, the same
+  reply is handed to the CLI resume path; socket, protocol and timeout errors
+  are surfaced without fallback.
 
 ## Automated result
 

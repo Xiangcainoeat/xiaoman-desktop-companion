@@ -2,6 +2,7 @@ import { mkdtempSync, mkdirSync, rmSync, utimesSync, writeFileSync } from "node:
 import os from "node:os";
 import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
+import { NativeCodexIpcError } from "./codex-ipc";
 import {
   buildCodexQueueArgs,
   buildCodexResumeArgs,
@@ -551,6 +552,58 @@ describe("safe reply dispatch", () => {
     expect(dispatch.transport).toBe("queue");
     expect(nativeReply.sendReply).not.toHaveBeenCalled();
     expect(recorder.invocations).toHaveLength(1);
+  });
+
+  it("falls back to CLI resume when no native Codex window owns the task", async () => {
+    const recorder = recordingSpawner();
+    const nativeReply = {
+      sendReply: vi.fn(async () => {
+        throw new NativeCodexIpcError(
+          "没有找到拥有该 Codex 任务的原生窗口",
+          "owner-not-found",
+        );
+      }),
+    };
+    const service = new CodexSessionsService({
+      processSpawner: recorder.spawner,
+      nativeIpcClient: nativeReply,
+    });
+
+    const dispatch = await service.sendReply({
+      threadId: THREAD_ID,
+      message: "从 CLI 继续历史任务",
+      activity: "idle",
+      cwd: "/Users/example/project",
+    });
+
+    expect(dispatch.transport).toBe("exec-resume");
+    expect(dispatch.fallbackReason).toContain("没有找到拥有该 Codex 任务");
+    expect(recorder.invocations).toEqual([
+      expect.objectContaining({
+        args: buildCodexResumeArgs(THREAD_ID),
+        stdin: "从 CLI 继续历史任务\n",
+      }),
+    ]);
+  });
+
+  it("does not hide native connection failures behind CLI fallback", async () => {
+    const recorder = recordingSpawner();
+    const nativeReply = {
+      sendReply: vi.fn(async () => {
+        throw new NativeCodexIpcError("无法连接原生 Codex IPC", "connect-failed");
+      }),
+    };
+    const service = new CodexSessionsService({
+      processSpawner: recorder.spawner,
+      nativeIpcClient: nativeReply,
+    });
+
+    await expect(service.sendReply({
+      threadId: THREAD_ID,
+      message: "不要误回退",
+      activity: "idle",
+    })).rejects.toMatchObject({ code: "connect-failed" });
+    expect(recorder.invocations).toHaveLength(0);
   });
 
   it("steers an immediate native follow-up while the state db is still unknown", async () => {

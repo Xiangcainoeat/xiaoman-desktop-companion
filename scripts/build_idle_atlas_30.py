@@ -273,8 +273,19 @@ def _matte_regression() -> dict[str, bool]:
     }
 
 
-def normalize_action_frames(source_frames: list[Image.Image]) -> tuple[list[Image.Image], dict[str, object]]:
-    """Normalize action motion around a shared neutral subject size."""
+def normalize_action_frames(
+    source_frames: list[Image.Image],
+    scale_multiplier: float = 1.0,
+) -> tuple[list[Image.Image], dict[str, object]]:
+    """Normalize action motion around a shared neutral subject size.
+
+    ``scale_multiplier`` is used by actions assembled from a different source
+    sheet when their neutral pose needs to match an already accepted atlas.
+    It scales the complete foreground uniformly, preserving the cat's aspect
+    ratio while keeping the feet on the same baseline.
+    """
+    if not np.isfinite(scale_multiplier) or scale_multiplier <= 0:
+        raise ValueError("scale_multiplier must be a positive finite number")
     keyed_frames: list[Image.Image] = []
     matte_stats: list[dict[str, int]] = []
     for source in source_frames:
@@ -289,6 +300,7 @@ def normalize_action_frames(source_frames: list[Image.Image]) -> tuple[list[Imag
     ], dtype=np.float32)
     neutral_width, neutral_height = np.median(neutral_dimensions, axis=0)
     scale = min(NEUTRAL_TARGET_WIDTH / neutral_width, NEUTRAL_TARGET_HEIGHT / neutral_height)
+    scale *= float(scale_multiplier)
     neutral_size = (
         max(1, round(neutral_width * scale)),
         max(1, round(neutral_height * scale)),
@@ -306,6 +318,7 @@ def normalize_action_frames(source_frames: list[Image.Image]) -> tuple[list[Imag
         normalized.append(despill_edges(frame))
     return normalized, {
         "scale": float(round(float(scale), 6)),
+        "scaleMultiplier": float(round(float(scale_multiplier), 6)),
         "sharedScale": True,
         "neutralReferenceSize": [NEUTRAL_TARGET_WIDTH, NEUTRAL_TARGET_HEIGHT],
         "neutralSubjectSize": list(neutral_size),

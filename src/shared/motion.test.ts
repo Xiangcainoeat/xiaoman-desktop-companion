@@ -60,11 +60,11 @@ describe("pointer drag policy", () => {
 describe("hover jump timing", () => {
   it("allocates one complete host cycle per configured jump", () => {
     expect([1, 2, 3, 4, 5].map(hoverJumpDurationMs)).toEqual([
-      900,
-      1800,
-      2700,
-      3600,
-      4500,
+      806,
+      1613,
+      2419,
+      3226,
+      4032,
     ]);
   });
 });

@@ -224,6 +224,19 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
             <SettingsRow icon={<Sparkles size={18} />} label="悬停时跳跃">
               <Toggle checked={settings.hoverJumpEnabled} label="悬停时跳跃" onChange={(hoverJumpEnabled) => update({ hoverJumpEnabled })} />
             </SettingsRow>
+            <SettingsRow icon={<Gauge size={18} />} label="悬停跳跃次数" value={`${settings.hoverJumpCount} 次`}>
+              <input
+                className="range-control"
+                type="range"
+                aria-label="悬停跳跃次数"
+                min="1"
+                max="5"
+                step="1"
+                value={settings.hoverJumpCount}
+                disabled={!settings.hoverJumpEnabled}
+                onChange={(event) => update({ hoverJumpCount: Number(event.target.value) })}
+              />
+            </SettingsRow>
           </div>
           </section>
         </div>
@@ -243,8 +256,8 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
             <SettingsRow icon={<Eye size={18} />} label="眨眼">
               <Toggle checked={settings.idleBlinkEnabled} label="眨眼" disabled={!settings.idleActionsEnabled || settings.petProfile !== "enhanced"} onChange={(idleBlinkEnabled) => update({ idleBlinkEnabled })} />
             </SettingsRow>
-            <SettingsRow icon={<MousePointer2 size={18} />} label="挠头">
-              <Toggle checked={settings.idleScratchEnabled} label="挠头" disabled={!settings.idleActionsEnabled || settings.petProfile !== "enhanced"} onChange={(idleScratchEnabled) => update({ idleScratchEnabled })} />
+            <SettingsRow icon={<MousePointer2 size={18} />} label="举前爪">
+              <Toggle checked={settings.idleScratchEnabled} label="举前爪" disabled={!settings.idleActionsEnabled || settings.petProfile !== "enhanced"} onChange={(idleScratchEnabled) => update({ idleScratchEnabled })} />
             </SettingsRow>
             <SettingsRow icon={<Gauge size={18} />} label="动作间隔" value={`约 ${settings.idleActionIntervalSec} 秒`}>
               <input

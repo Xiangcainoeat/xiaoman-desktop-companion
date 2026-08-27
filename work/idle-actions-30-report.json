@@ -1,6 +1,6 @@
 {
   "ok": true,
-  "algorithm": "idle-atlas-30-v2-stable-registration",
+  "algorithm": "idle-atlas-30-v3-raised-front-paw",
   "dimensions": [
     1920,
     1872
@@ -11,92 +11,91 @@
     192,
     208
   ],
-  "backgroundHolePixelsRemoved": 1869,
+  "backgroundHolePixelsRemoved": 1905,
   "regressions": {
     "enclosedBackgroundHoleRemoved": true,
     "enclosedGreenPixelPreserved": true
   },
+  "backgrounds": [
+    "white",
+    "charcoal",
+    "checkerboard"
+  ],
+  "frameCount": 90,
+  "maxContaminatedEdgePixels": 4,
+  "errors": [],
   "actions": {
     "idle-lick": {
       "frames": 30,
       "emptyFrames": 0,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
-      "contaminatedEdgePixelTotal": 0,
       "redPinkEdgePixels": 0,
+      "maxColorDrift": 14.0,
+      "backgroundHolePixelsRemoved": 0,
       "registration": {
-        "scale": 0.777293,
+        "scale": 1.0,
         "sharedScale": true,
         "neutralReferenceSize": [
           124,
           178
         ],
         "neutralSubjectSize": [
-          124,
-          178
+          118,
+          172
         ],
-        "backgroundPixelsRemoved": 969124,
-        "backgroundHolePixelsRemoved": 705,
         "maxAdjacentAreaDeltaRatio": 0.0442,
         "maxAdjacentCenterDelta": 1.4142,
         "maxAdjacentBottomDelta": 0
-      },
-      "maxColorDrift": 14.0,
-      "backgroundHolePixelsRemoved": 705
+      }
     },
     "idle-blink": {
       "frames": 30,
       "emptyFrames": 0,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 4,
-      "contaminatedEdgePixelTotal": 13,
       "redPinkEdgePixels": 1,
+      "maxColorDrift": 12.5,
+      "backgroundHolePixelsRemoved": 0,
       "registration": {
-        "scale": 0.803612,
+        "scale": 1.0,
         "sharedScale": true,
         "neutralReferenceSize": [
           124,
           178
         ],
         "neutralSubjectSize": [
-          115,
-          178
+          111,
+          170
         ],
-        "backgroundPixelsRemoved": 1032724,
-        "backgroundHolePixelsRemoved": 587,
         "maxAdjacentAreaDeltaRatio": 0.0148,
         "maxAdjacentCenterDelta": 1.118,
         "maxAdjacentBottomDelta": 1
-      },
-      "maxColorDrift": 12.5,
-      "backgroundHolePixelsRemoved": 587
+      }
     },
     "idle-scratch": {
       "frames": 30,
       "emptyFrames": 0,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 1,
-      "contaminatedEdgePixelTotal": 5,
-      "redPinkEdgePixels": 1,
+      "redPinkEdgePixels": 0,
+      "maxColorDrift": 17.5,
+      "backgroundHolePixelsRemoved": 0,
       "registration": {
-        "scale": 0.894472,
+        "scale": 1.0,
         "sharedScale": true,
         "neutralReferenceSize": [
           124,
           178
         ],
         "neutralSubjectSize": [
-          117,
-          178
+          128,
+          170
         ],
-        "backgroundPixelsRemoved": 1115402,
-        "backgroundHolePixelsRemoved": 577,
-        "maxAdjacentAreaDeltaRatio": 0.0955,
-        "maxAdjacentCenterDelta": 7.0178,
-        "maxAdjacentBottomDelta": 4
-      },
-      "maxColorDrift": 18.0,
-      "backgroundHolePixelsRemoved": 577
+        "maxAdjacentAreaDeltaRatio": 0.0592,
+        "maxAdjacentCenterDelta": 2.0616,
+        "maxAdjacentBottomDelta": 1
+      }
     }
   },
   "frames": [
@@ -643,8 +642,8 @@
     {
       "action": "idle-scratch",
       "frame": 0,
-      "visiblePixels": 12085,
-      "opaquePixels": 11371,
+      "visiblePixels": 12164,
+      "opaquePixels": 11326,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -652,8 +651,8 @@
     {
       "action": "idle-scratch",
       "frame": 1,
-      "visiblePixels": 11929,
-      "opaquePixels": 11231,
+      "visiblePixels": 12279,
+      "opaquePixels": 11468,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -661,8 +660,8 @@
     {
       "action": "idle-scratch",
       "frame": 2,
-      "visiblePixels": 11948,
-      "opaquePixels": 11234,
+      "visiblePixels": 12075,
+      "opaquePixels": 11298,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -670,8 +669,8 @@
     {
       "action": "idle-scratch",
       "frame": 3,
-      "visiblePixels": 11856,
-      "opaquePixels": 11149,
+      "visiblePixels": 12272,
+      "opaquePixels": 11509,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -679,8 +678,8 @@
     {
       "action": "idle-scratch",
       "frame": 4,
-      "visiblePixels": 12956,
-      "opaquePixels": 12241,
+      "visiblePixels": 12380,
+      "opaquePixels": 11617,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -688,35 +687,35 @@
     {
       "action": "idle-scratch",
       "frame": 5,
-      "visiblePixels": 12702,
-      "opaquePixels": 12022,
+      "visiblePixels": 11501,
+      "opaquePixels": 10747,
       "hiddenRgbPixels": 0,
-      "contaminatedEdgePixels": 1,
+      "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
     },
     {
       "action": "idle-scratch",
       "frame": 6,
-      "visiblePixels": 12835,
-      "opaquePixels": 12118,
+      "visiblePixels": 11550,
+      "opaquePixels": 10769,
       "hiddenRgbPixels": 0,
-      "contaminatedEdgePixels": 1,
-      "redPinkEdgePixels": 1
+      "contaminatedEdgePixels": 0,
+      "redPinkEdgePixels": 0
     },
     {
       "action": "idle-scratch",
       "frame": 7,
-      "visiblePixels": 12781,
-      "opaquePixels": 12076,
+      "visiblePixels": 11305,
+      "opaquePixels": 10567,
       "hiddenRgbPixels": 0,
-      "contaminatedEdgePixels": 1,
-      "redPinkEdgePixels": 1
+      "contaminatedEdgePixels": 0,
+      "redPinkEdgePixels": 0
     },
     {
       "action": "idle-scratch",
       "frame": 8,
-      "visiblePixels": 12738,
-      "opaquePixels": 12039,
+      "visiblePixels": 11110,
+      "opaquePixels": 10383,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -724,17 +723,17 @@
     {
       "action": "idle-scratch",
       "frame": 9,
-      "visiblePixels": 12697,
-      "opaquePixels": 12003,
+      "visiblePixels": 10891,
+      "opaquePixels": 10162,
       "hiddenRgbPixels": 0,
-      "contaminatedEdgePixels": 1,
+      "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
     },
     {
       "action": "idle-scratch",
       "frame": 10,
-      "visiblePixels": 13021,
-      "opaquePixels": 12271,
+      "visiblePixels": 11837,
+      "opaquePixels": 11035,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -742,8 +741,8 @@
     {
       "action": "idle-scratch",
       "frame": 11,
-      "visiblePixels": 12907,
-      "opaquePixels": 12180,
+      "visiblePixels": 12035,
+      "opaquePixels": 11235,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -751,8 +750,8 @@
     {
       "action": "idle-scratch",
       "frame": 12,
-      "visiblePixels": 13072,
-      "opaquePixels": 12350,
+      "visiblePixels": 12000,
+      "opaquePixels": 11195,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -760,17 +759,17 @@
     {
       "action": "idle-scratch",
       "frame": 13,
-      "visiblePixels": 12934,
-      "opaquePixels": 12190,
+      "visiblePixels": 11989,
+      "opaquePixels": 11190,
       "hiddenRgbPixels": 0,
-      "contaminatedEdgePixels": 0,
+      "contaminatedEdgePixels": 1,
       "redPinkEdgePixels": 0
     },
     {
       "action": "idle-scratch",
       "frame": 14,
-      "visiblePixels": 13096,
-      "opaquePixels": 12365,
+      "visiblePixels": 12009,
+      "opaquePixels": 11200,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -778,8 +777,8 @@
     {
       "action": "idle-scratch",
       "frame": 15,
-      "visiblePixels": 12994,
-      "opaquePixels": 12280,
+      "visiblePixels": 11916,
+      "opaquePixels": 11118,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -787,8 +786,8 @@
     {
       "action": "idle-scratch",
       "frame": 16,
-      "visiblePixels": 13089,
-      "opaquePixels": 12368,
+      "visiblePixels": 11939,
+      "opaquePixels": 11138,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -796,8 +795,8 @@
     {
       "action": "idle-scratch",
       "frame": 17,
-      "visiblePixels": 13018,
-      "opaquePixels": 12267,
+      "visiblePixels": 12168,
+      "opaquePixels": 11352,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -805,8 +804,8 @@
     {
       "action": "idle-scratch",
       "frame": 18,
-      "visiblePixels": 12951,
-      "opaquePixels": 12242,
+      "visiblePixels": 11970,
+      "opaquePixels": 11178,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -814,17 +813,17 @@
     {
       "action": "idle-scratch",
       "frame": 19,
-      "visiblePixels": 12879,
-      "opaquePixels": 12140,
+      "visiblePixels": 11925,
+      "opaquePixels": 11124,
       "hiddenRgbPixels": 0,
-      "contaminatedEdgePixels": 1,
-      "redPinkEdgePixels": 1
+      "contaminatedEdgePixels": 0,
+      "redPinkEdgePixels": 0
     },
     {
       "action": "idle-scratch",
       "frame": 20,
-      "visiblePixels": 11970,
-      "opaquePixels": 11245,
+      "visiblePixels": 11866,
+      "opaquePixels": 11080,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -832,8 +831,8 @@
     {
       "action": "idle-scratch",
       "frame": 21,
-      "visiblePixels": 11994,
-      "opaquePixels": 11281,
+      "visiblePixels": 11565,
+      "opaquePixels": 10782,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -841,8 +840,8 @@
     {
       "action": "idle-scratch",
       "frame": 22,
-      "visiblePixels": 11945,
-      "opaquePixels": 11226,
+      "visiblePixels": 11621,
+      "opaquePixels": 10832,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -850,8 +849,8 @@
     {
       "action": "idle-scratch",
       "frame": 23,
-      "visiblePixels": 11921,
-      "opaquePixels": 11205,
+      "visiblePixels": 11958,
+      "opaquePixels": 11148,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -859,8 +858,8 @@
     {
       "action": "idle-scratch",
       "frame": 24,
-      "visiblePixels": 11961,
-      "opaquePixels": 11227,
+      "visiblePixels": 11879,
+      "opaquePixels": 11063,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -868,8 +867,8 @@
     {
       "action": "idle-scratch",
       "frame": 25,
-      "visiblePixels": 11990,
-      "opaquePixels": 11264,
+      "visiblePixels": 11871,
+      "opaquePixels": 11060,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -877,26 +876,26 @@
     {
       "action": "idle-scratch",
       "frame": 26,
-      "visiblePixels": 11997,
-      "opaquePixels": 11262,
+      "visiblePixels": 11869,
+      "opaquePixels": 11057,
       "hiddenRgbPixels": 0,
-      "contaminatedEdgePixels": 0,
+      "contaminatedEdgePixels": 1,
       "redPinkEdgePixels": 0
     },
     {
       "action": "idle-scratch",
       "frame": 27,
-      "visiblePixels": 11974,
-      "opaquePixels": 11242,
+      "visiblePixels": 11914,
+      "opaquePixels": 11085,
       "hiddenRgbPixels": 0,
-      "contaminatedEdgePixels": 0,
+      "contaminatedEdgePixels": 1,
       "redPinkEdgePixels": 0
     },
     {
       "action": "idle-scratch",
       "frame": 28,
-      "visiblePixels": 11921,
-      "opaquePixels": 11190,
+      "visiblePixels": 11963,
+      "opaquePixels": 11136,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
@@ -904,11 +903,55 @@
     {
       "action": "idle-scratch",
       "frame": 29,
-      "visiblePixels": 11930,
-      "opaquePixels": 11192,
+      "visiblePixels": 11853,
+      "opaquePixels": 11045,
       "hiddenRgbPixels": 0,
       "contaminatedEdgePixels": 0,
       "redPinkEdgePixels": 0
     }
-  ]
+  ],
+  "compositing": "none",
+  "source": {
+    "baseAtlas": "public/pet/idle-actions-30.webp",
+    "pawPhases": {
+      "lift": "work/xiaoman-pet-96/relay-output/paw-lift.png",
+      "hold": "work/xiaoman-pet-96/relay-output/paw-hold.png",
+      "lower": "work/xiaoman-pet-96/relay-output/paw-lower.png"
+    },
+    "pawFrameCount": 30
+  },
+  "pawAction": {
+    "visibleLabel": "\u4e3e\u524d\u722a",
+    "internalAction": "idle-scratch",
+    "phases": [
+      "lift",
+      "hold",
+      "lower"
+    ],
+    "framesPerPhase": 10,
+    "registration": {
+      "scale": 0.567735,
+      "scaleMultiplier": 1.075949,
+      "sharedScale": true,
+      "neutralReferenceSize": [
+        124,
+        178
+      ],
+      "neutralSubjectSize": [
+        133,
+        177
+      ],
+      "backgroundPixelsRemoved": 3650140,
+      "backgroundHolePixelsRemoved": 18,
+      "sharedReferenceSubjectSize": [
+        114,
+        170
+      ],
+      "actualNeutralSubjectSize": [
+        128,
+        170
+      ]
+    },
+    "compositing": "none"
+  }
 }

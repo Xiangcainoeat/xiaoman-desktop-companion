@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.0 - 2026-08-27
+
+- Replaced the enhanced gaze sheet with 96 independent 3.75° frames and removed renderer-side opacity cross-fading, eliminating the turn-time ghosting path.
+- Added explicit lower-hemisphere seam repairs, native-color QA and a reproducible local ImageGen/assembly record under `work/xiaoman-pet-96/`.
+- Added configurable hover jump count (1–5) and configurable mouse-inactivity timeout before gaze returns to the forward idle pose.
+- Replaced the visible scratch/head-touch idle action with a clearly raised-front-paw sequence while retaining the persisted compatibility key.
+- Limited native-to-CLI fallback to the precise “no native owner” result; connection, protocol and timeout failures remain visible instead of launching an unrelated task.
+- Increased control-center and overlay task typography while preserving fixed window dimensions and stable status columns.
+
 ## 1.2.0 - 2026-08-27
 
 - Added switchable `小满增强` and `原生 Codex` pet profiles. The enhanced host profile uses a validated 90-direction, 4° gaze atlas; the native profile keeps the accepted 16-direction Codex assets byte-for-byte.

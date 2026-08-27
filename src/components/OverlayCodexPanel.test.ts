@@ -14,10 +14,10 @@ describe("OverlayCodexPanel layout contract", () => {
       /\.overlay-codex-thread > span:last-child\s*\{[\s\S]*min-width:\s*0;[\s\S]*overflow:\s*hidden;[\s\S]*text-overflow:\s*ellipsis;[\s\S]*white-space:\s*nowrap;/,
     );
     expect(stylesSource).toMatch(
-      /\.overlay-thread-copy strong\s*\{[\s\S]*font-size:\s*12px;[\s\S]*line-height:\s*18px;/,
+      /\.overlay-thread-copy strong\s*\{[\s\S]*font-size:\s*13px;[\s\S]*line-height:\s*18px;/,
     );
     expect(stylesSource).toMatch(
-      /\.overlay-thread-copy small\s*\{[\s\S]*font-size:\s*10px;[\s\S]*line-height:\s*14px;/,
+      /\.overlay-thread-copy small\s*\{[\s\S]*font-size:\s*11px;[\s\S]*line-height:\s*15px;/,
     );
     expect(stylesSource).toMatch(
       /\.overlay-codex-thread > span:last-child\s*\{[\s\S]*font-size:\s*11px;[\s\S]*line-height:\s*16px;/,
@@ -27,13 +27,13 @@ describe("OverlayCodexPanel layout contract", () => {
   it("shortens the reply box and increases compose text readability", () => {
     expect(componentSource).toContain('aria-label="回复 Codex 任务"');
     expect(stylesSource).toMatch(
-      /\.overlay-codex-selection strong\s*\{[\s\S]*font-size:\s*12px;[\s\S]*line-height:\s*18px;/,
+      /\.overlay-codex-selection strong\s*\{[\s\S]*font-size:\s*13px;[\s\S]*line-height:\s*18px;/,
     );
     expect(stylesSource).toMatch(
-      /\.overlay-codex-compose textarea\s*\{[\s\S]*height:\s*64px;[\s\S]*font-size:\s*12px;[\s\S]*line-height:\s*18px;/,
+      /\.overlay-codex-compose textarea\s*\{[\s\S]*height:\s*64px;[\s\S]*font-size:\s*13px;[\s\S]*line-height:\s*18px;/,
     );
     expect(stylesSource).toMatch(
-      /\.overlay-codex-footer > span\s*\{[\s\S]*font-size:\s*10px;[\s\S]*line-height:\s*14px;/,
+      /\.overlay-codex-footer > span\s*\{[\s\S]*font-size:\s*11px;[\s\S]*line-height:\s*15px;/,
     );
     expect(stylesSource).toMatch(
       /\.overlay-codex-list\s*\{[\s\S]*min-height:\s*0;[\s\S]*overflow:\s*auto;/,

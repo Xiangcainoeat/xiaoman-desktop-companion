@@ -36,16 +36,16 @@ Renderer-only motion does not mutate this business state. Drag running, hover ju
 4. Shortest-path exponential smoothing follows the target without frame-rate dependence.
 5. Upper-180 mode clamps lower targets to the horizon; full-360 mode permits low-head frames.
 6. Lower tracking is capped relative to the inactivity timeout so it reaches the lower quadrant before reset; return-to-neutral uses a separate prompt-but-smooth cap.
-7. The selected profile chooses either the 90-frame enhanced atlas (4° steps) or the untouched native 16-frame atlas (22.5° steps); each profile renders one direction layer at a time.
+7. The selected profile chooses either the 96-frame enhanced atlas (3.75° steps) or the untouched native 16-frame atlas (22.5° steps); each profile renders one direction layer at a time, with no opacity cross-fade.
 8. After cursor inactivity, the direction eases to zero, the look layer is removed, and the ordinary forward animation is restored.
 
-The enhanced `look-90.webp` is assembled deterministically from a repaired 32-anchor source and seven generated transition overrides. Its metadata, source hashes, prompts and contact sheets live under `work/xiaoman-pet-90/`. The native `public/pet/native/` profile is a byte-for-byte copy of the accepted v2 `pet.json`, `spritesheet.webp` and extracted `look-16.webp`; it is never written back to `~/.codex/pets/xiaoman`. The older `look-32.webp` remains provenance only.
+The enhanced `look-96.webp` is assembled deterministically from a repaired 32-anchor source, 64 generated in-betweens and four selected lower-hemisphere seam repairs. Its metadata, source hashes, prompts, concurrency record and contact sheets live under `work/xiaoman-pet-96/`. The native `public/pet/native/` profile is a byte-for-byte copy of the accepted v2 `pet.json`, `spritesheet.webp` and extracted `look-16.webp`; it is never written back to `~/.codex/pets/xiaoman`. The older `look-32.webp` and `look-90.webp` remain provenance only.
 
 ## Motion and idle behavior
 
 - Horizontal drag crosses a 4px threshold before choosing left/right running rows.
-- Hover starts one jump cycle when enabled.
-- Idle lick, blink and scratch use `idle-actions-30.webp`, a 10x9 transparent atlas with 30 frames per action. Rows 0–2 are lick, 3–5 blink, and 6–8 scratch.
+- Hover starts one jump cycle when enabled and repeats it for the persisted 1–5 jump count.
+- Idle lick, blink and raised-front-paw actions use `idle-actions-30.webp`, a 10x9 transparent atlas with 30 frames per action. Rows 0–2 are lick, 3–5 blink, and 6–8 are the visible `举前爪` action while retaining the `idle-scratch` compatibility key.
 - Idle scheduling pauses during drag, gaze, hidden overlay or higher-priority state animation.
 - Random speech is selected from a normalized list of at most 40 unique phrases, each at most 80 characters.
 - Overlay dimensions derive from the 150–340px pet size and preserve the lower-right screen anchor.

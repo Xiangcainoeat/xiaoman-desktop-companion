@@ -44,6 +44,36 @@ export function interpolateLookDirection(angle: number, directionCount = 16): Lo
   return { first, second: (first + 1) % directionCount, blend };
 }
 
+export function selectLookDirection(
+  angle: number,
+  directionCount = 16,
+  previousIndex?: number,
+  hysteresisDegrees = 0,
+): number {
+  if (!Number.isInteger(directionCount) || directionCount <= 0) {
+    throw new RangeError("Look direction count must be a positive integer");
+  }
+  if (!Number.isFinite(hysteresisDegrees) || hysteresisDegrees < 0) {
+    throw new RangeError("Look direction hysteresis must be a non-negative number");
+  }
+
+  const step = 360 / directionCount;
+  const normalized = normalizeAngle(angle);
+  if (
+    previousIndex !== undefined
+    && Number.isInteger(previousIndex)
+    && previousIndex >= 0
+    && previousIndex < directionCount
+  ) {
+    const previousAngle = previousIndex * step;
+    if (Math.abs(shortestAngleDelta(previousAngle, normalized)) <= step / 2 + hysteresisDegrees) {
+      return previousIndex;
+    }
+  }
+
+  return Math.round(normalized / step) % directionCount;
+}
+
 export function smoothAngle(current: number, target: number, elapsedMs: number, smoothingMs: number): number {
   const elapsed = Math.max(0, elapsedMs);
   const timeConstant = Math.max(1, smoothingMs);

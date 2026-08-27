@@ -1,0 +1,186 @@
+{
+  "algorithm": "raised-front-paw-30-no-blend",
+  "compositing": "none",
+  "frames": [
+    {
+      "frameIndex": 0,
+      "phase": "lift",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lift.png#cell-0",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 1,
+      "phase": "lift",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lift.png#cell-1",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 2,
+      "phase": "lift",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lift.png#cell-2",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 3,
+      "phase": "lift",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lift.png#cell-3",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 4,
+      "phase": "lift",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lift.png#cell-4",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 5,
+      "phase": "lift",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lift.png#cell-5",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 6,
+      "phase": "lift",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lift.png#cell-6",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 7,
+      "phase": "lift",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lift.png#cell-7",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 8,
+      "phase": "lift",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lift.png#cell-8",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 9,
+      "phase": "lift",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lift.png#cell-9",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 10,
+      "phase": "hold",
+      "source": "work/xiaoman-pet-96/relay-output/paw-hold.png#cell-0",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 11,
+      "phase": "hold",
+      "source": "work/xiaoman-pet-96/relay-output/paw-hold.png#cell-1",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 12,
+      "phase": "hold",
+      "source": "work/xiaoman-pet-96/relay-output/paw-hold.png#cell-2",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 13,
+      "phase": "hold",
+      "source": "work/xiaoman-pet-96/relay-output/paw-hold.png#cell-3",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 14,
+      "phase": "hold",
+      "source": "work/xiaoman-pet-96/relay-output/paw-hold.png#cell-4",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 15,
+      "phase": "hold",
+      "source": "work/xiaoman-pet-96/relay-output/paw-hold.png#cell-5",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 16,
+      "phase": "hold",
+      "source": "work/xiaoman-pet-96/relay-output/paw-hold.png#cell-6",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 17,
+      "phase": "hold",
+      "source": "work/xiaoman-pet-96/relay-output/paw-hold.png#cell-7",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 18,
+      "phase": "hold",
+      "source": "work/xiaoman-pet-96/relay-output/paw-hold.png#cell-8",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 19,
+      "phase": "hold",
+      "source": "work/xiaoman-pet-96/relay-output/paw-hold.png#cell-9",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 20,
+      "phase": "lower",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lower.png#cell-0",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 21,
+      "phase": "lower",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lower.png#cell-1",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 22,
+      "phase": "lower",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lower.png#cell-2",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 23,
+      "phase": "lower",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lower.png#cell-3",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 24,
+      "phase": "lower",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lower.png#cell-4",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 25,
+      "phase": "lower",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lower.png#cell-5",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 26,
+      "phase": "lower",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lower.png#cell-6",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 27,
+      "phase": "lower",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lower.png#cell-7",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 28,
+      "phase": "lower",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lower.png#cell-8",
+      "compositing": "none"
+    },
+    {
+      "frameIndex": 29,
+      "phase": "lower",
+      "source": "work/xiaoman-pet-96/relay-output/paw-lower.png#cell-9",
+      "compositing": "none"
+    }
+  ]
+}

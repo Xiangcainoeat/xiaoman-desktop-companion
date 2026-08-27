@@ -809,7 +809,7 @@ async function requestAppServerProcess(
             clientInfo: {
               name: "xiaoman_desktop_companion",
               title: "Xiaoman Desktop Companion",
-              version: "1.2.0",
+              version: "1.3.0",
             },
             capabilities: {
               optOutNotificationMethods: [
@@ -1050,6 +1050,10 @@ function isNativeInactiveError(error: unknown): boolean {
   const detail = error instanceof Error ? error.message : String(error);
   if (error instanceof NativeCodexIpcError && error.code === "owner-not-found") return false;
   return /no\s+active|inactive|not\s+active|active\s+turn.*(?:not\s+found|missing)/i.test(detail);
+}
+
+function isNativeOwnerNotFoundError(error: unknown): error is NativeCodexIpcError {
+  return error instanceof NativeCodexIpcError && error.code === "owner-not-found";
 }
 
 function isNativeActiveError(error: unknown): boolean {
@@ -1394,11 +1398,19 @@ export class CodexSessionsService {
         ? "running"
         : input.activity;
       if (activeUntil && activeUntil <= this.now()) this.nativeReplyActiveUntil.delete(threadId);
-      const dispatch = await this.sendNativeReply(threadId, message, activity, input.cwd);
+      let dispatch: CodexReplyDispatch;
+      try {
+        dispatch = await this.sendNativeReply(threadId, message, activity, input.cwd);
+      } catch (error) {
+        if (!isNativeOwnerNotFoundError(error)) throw error;
+        dispatch = await this.startResume(threadId, message, error.message, input.cwd);
+      }
       // The native owner acknowledges the follower request before the state DB
       // necessarily records the new turn. Keep the next immediate send on the
       // steer path; monitor events replace this marker when available.
-      this.nativeReplyActiveUntil.set(threadId, this.now() + NATIVE_REPLY_ASSUMED_ACTIVE_MS);
+      if (dispatch.transport === "native-start" || dispatch.transport === "native-steer") {
+        this.nativeReplyActiveUntil.set(threadId, this.now() + NATIVE_REPLY_ASSUMED_ACTIVE_MS);
+      }
       return dispatch;
     }
 

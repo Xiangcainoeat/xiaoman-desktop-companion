@@ -78,7 +78,7 @@ export function FeaturesView({ snapshot }: { snapshot: AppSnapshot }) {
             <FeatureToggle icon={<Sparkles size={18} />} label="待机动作" checked={settings.idleActionsEnabled} onChange={(idleActionsEnabled) => update({ idleActionsEnabled })} />
             <FeatureToggle icon={<Sparkles size={18} />} label="舔嘴" checked={settings.idleLickEnabled} disabled={!settings.idleActionsEnabled} onChange={(idleLickEnabled) => update({ idleLickEnabled })} />
             <FeatureToggle icon={<Eye size={18} />} label="眨眼" checked={settings.idleBlinkEnabled} disabled={!settings.idleActionsEnabled} onChange={(idleBlinkEnabled) => update({ idleBlinkEnabled })} />
-            <FeatureToggle icon={<MousePointer2 size={18} />} label="挠头" checked={settings.idleScratchEnabled} disabled={!settings.idleActionsEnabled} onChange={(idleScratchEnabled) => update({ idleScratchEnabled })} />
+            <FeatureToggle icon={<MousePointer2 size={18} />} label="举前爪" checked={settings.idleScratchEnabled} disabled={!settings.idleActionsEnabled} onChange={(idleScratchEnabled) => update({ idleScratchEnabled })} />
             <FeatureToggle icon={<MessageCircle size={18} />} label="随机说话" checked={settings.idleSpeechEnabled} onChange={(idleSpeechEnabled) => update({ idleSpeechEnabled })} />
           </div>
         </section>

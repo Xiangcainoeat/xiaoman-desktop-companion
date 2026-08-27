@@ -1,0 +1,745 @@
+{
+  "algorithm": "32-anchors-plus-64-generated-inbetweens",
+  "compositing": "none",
+  "frameCount": 96,
+  "frames": [
+    {
+      "anchor": 0,
+      "degrees": 0.0,
+      "frameIndex": 0,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-00.png"
+    },
+    {
+      "batch": 0,
+      "cell": 0,
+      "degrees": 3.75,
+      "frameIndex": 1,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-00.png#cell-0"
+    },
+    {
+      "batch": 0,
+      "cell": 1,
+      "degrees": 7.5,
+      "frameIndex": 2,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-00.png#cell-1"
+    },
+    {
+      "anchor": 1,
+      "degrees": 11.25,
+      "frameIndex": 3,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-01.png"
+    },
+    {
+      "batch": 0,
+      "cell": 2,
+      "degrees": 15.0,
+      "frameIndex": 4,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-00.png#cell-2"
+    },
+    {
+      "batch": 0,
+      "cell": 3,
+      "degrees": 18.75,
+      "frameIndex": 5,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-00.png#cell-3"
+    },
+    {
+      "anchor": 2,
+      "degrees": 22.5,
+      "frameIndex": 6,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-02.png"
+    },
+    {
+      "batch": 0,
+      "cell": 4,
+      "degrees": 26.25,
+      "frameIndex": 7,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-00.png#cell-4"
+    },
+    {
+      "batch": 0,
+      "cell": 5,
+      "degrees": 30.0,
+      "frameIndex": 8,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-00.png#cell-5"
+    },
+    {
+      "anchor": 3,
+      "degrees": 33.75,
+      "frameIndex": 9,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-03.png"
+    },
+    {
+      "batch": 0,
+      "cell": 6,
+      "degrees": 37.5,
+      "frameIndex": 10,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-00.png#cell-6"
+    },
+    {
+      "batch": 0,
+      "cell": 7,
+      "degrees": 41.25,
+      "frameIndex": 11,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-00.png#cell-7"
+    },
+    {
+      "anchor": 4,
+      "degrees": 45.0,
+      "frameIndex": 12,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-04.png"
+    },
+    {
+      "batch": 1,
+      "cell": 0,
+      "degrees": 48.75,
+      "frameIndex": 13,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-01.png#cell-0"
+    },
+    {
+      "batch": 1,
+      "cell": 1,
+      "degrees": 52.5,
+      "frameIndex": 14,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-01.png#cell-1"
+    },
+    {
+      "anchor": 5,
+      "degrees": 56.25,
+      "frameIndex": 15,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-05.png"
+    },
+    {
+      "batch": 1,
+      "cell": 2,
+      "degrees": 60.0,
+      "frameIndex": 16,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-01.png#cell-2"
+    },
+    {
+      "batch": 1,
+      "cell": 3,
+      "degrees": 63.75,
+      "frameIndex": 17,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-01.png#cell-3"
+    },
+    {
+      "anchor": 6,
+      "degrees": 67.5,
+      "frameIndex": 18,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-06.png"
+    },
+    {
+      "batch": 1,
+      "cell": 4,
+      "degrees": 71.25,
+      "frameIndex": 19,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-01.png#cell-4"
+    },
+    {
+      "batch": 1,
+      "cell": 5,
+      "degrees": 75.0,
+      "frameIndex": 20,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-01.png#cell-5"
+    },
+    {
+      "anchor": 7,
+      "degrees": 78.75,
+      "frameIndex": 21,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-07.png"
+    },
+    {
+      "batch": 1,
+      "cell": 6,
+      "degrees": 82.5,
+      "frameIndex": 22,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-01.png#cell-6"
+    },
+    {
+      "batch": 1,
+      "cell": 7,
+      "degrees": 86.25,
+      "frameIndex": 23,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-01.png#cell-7"
+    },
+    {
+      "anchor": 8,
+      "degrees": 90.0,
+      "frameIndex": 24,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-08.png"
+    },
+    {
+      "batch": 2,
+      "cell": 0,
+      "degrees": 93.75,
+      "frameIndex": 25,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-02.png#cell-0"
+    },
+    {
+      "batch": 2,
+      "cell": 1,
+      "degrees": 97.5,
+      "frameIndex": 26,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-02.png#cell-1"
+    },
+    {
+      "anchor": 9,
+      "degrees": 101.25,
+      "frameIndex": 27,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-09.png"
+    },
+    {
+      "batch": 2,
+      "cell": 2,
+      "degrees": 105.0,
+      "frameIndex": 28,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-02.png#cell-2"
+    },
+    {
+      "batch": 2,
+      "cell": 3,
+      "degrees": 108.75,
+      "frameIndex": 29,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-02.png#cell-3"
+    },
+    {
+      "anchor": 10,
+      "degrees": 112.5,
+      "frameIndex": 30,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-10.png"
+    },
+    {
+      "batch": 2,
+      "cell": 4,
+      "degrees": 116.25,
+      "frameIndex": 31,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-02.png#cell-4"
+    },
+    {
+      "batch": 2,
+      "cell": 5,
+      "degrees": 120.0,
+      "frameIndex": 32,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-02.png#cell-5"
+    },
+    {
+      "anchor": 11,
+      "degrees": 123.75,
+      "frameIndex": 33,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-11.png"
+    },
+    {
+      "batch": 2,
+      "cell": 6,
+      "degrees": 127.5,
+      "frameIndex": 34,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-02.png#cell-6"
+    },
+    {
+      "batch": 2,
+      "cell": 7,
+      "degrees": 131.25,
+      "frameIndex": 35,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-02.png#cell-7"
+    },
+    {
+      "anchor": 12,
+      "degrees": 135.0,
+      "frameIndex": 36,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-12.png"
+    },
+    {
+      "batch": 3,
+      "cell": 0,
+      "degrees": 138.75,
+      "frameIndex": 37,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-03.png#cell-0"
+    },
+    {
+      "batch": 3,
+      "cell": 1,
+      "degrees": 142.5,
+      "frameIndex": 38,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-03.png#cell-1"
+    },
+    {
+      "anchor": 13,
+      "degrees": 146.25,
+      "frameIndex": 39,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-13.png"
+    },
+    {
+      "batch": 3,
+      "cell": 2,
+      "degrees": 150.0,
+      "frameIndex": 40,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-03.png#cell-2"
+    },
+    {
+      "batch": 3,
+      "cell": 3,
+      "degrees": 153.75,
+      "frameIndex": 41,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-03.png#cell-3"
+    },
+    {
+      "anchor": 14,
+      "degrees": 157.5,
+      "frameIndex": 42,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-14.png"
+    },
+    {
+      "batch": 3,
+      "cell": 4,
+      "degrees": 161.25,
+      "frameIndex": 43,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-03.png#cell-4"
+    },
+    {
+      "batch": 3,
+      "cell": 5,
+      "degrees": 165.0,
+      "frameIndex": 44,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-03.png#cell-5"
+    },
+    {
+      "anchor": 15,
+      "degrees": 168.75,
+      "frameIndex": 45,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-15.png"
+    },
+    {
+      "cell": 0,
+      "degrees": 172.5,
+      "frameIndex": 46,
+      "kind": "generated-seam-repair",
+      "source": "work/xiaoman-pet-96/relay-output/seam-pairs-15-23.png#cell-0"
+    },
+    {
+      "cell": 1,
+      "degrees": 176.25,
+      "frameIndex": 47,
+      "kind": "generated-seam-repair",
+      "source": "work/xiaoman-pet-96/relay-output/seam-pairs-15-23.png#cell-1"
+    },
+    {
+      "anchor": 16,
+      "degrees": 180.0,
+      "frameIndex": 48,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-16.png"
+    },
+    {
+      "batch": 4,
+      "cell": 0,
+      "degrees": 183.75,
+      "frameIndex": 49,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-04.png#cell-0"
+    },
+    {
+      "batch": 4,
+      "cell": 1,
+      "degrees": 187.5,
+      "frameIndex": 50,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-04.png#cell-1"
+    },
+    {
+      "anchor": 17,
+      "degrees": 191.25,
+      "frameIndex": 51,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-17.png"
+    },
+    {
+      "batch": 4,
+      "cell": 2,
+      "degrees": 195.0,
+      "frameIndex": 52,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-04.png#cell-2"
+    },
+    {
+      "batch": 4,
+      "cell": 3,
+      "degrees": 198.75,
+      "frameIndex": 53,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-04.png#cell-3"
+    },
+    {
+      "anchor": 18,
+      "degrees": 202.5,
+      "frameIndex": 54,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-18.png"
+    },
+    {
+      "batch": 4,
+      "cell": 4,
+      "degrees": 206.25,
+      "frameIndex": 55,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-04.png#cell-4"
+    },
+    {
+      "batch": 4,
+      "cell": 5,
+      "degrees": 210.0,
+      "frameIndex": 56,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-04.png#cell-5"
+    },
+    {
+      "anchor": 19,
+      "degrees": 213.75,
+      "frameIndex": 57,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-19.png"
+    },
+    {
+      "batch": 4,
+      "cell": 6,
+      "degrees": 217.5,
+      "frameIndex": 58,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-04.png#cell-6"
+    },
+    {
+      "batch": 4,
+      "cell": 7,
+      "degrees": 221.25,
+      "frameIndex": 59,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-04.png#cell-7"
+    },
+    {
+      "anchor": 20,
+      "degrees": 225.0,
+      "frameIndex": 60,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-20.png"
+    },
+    {
+      "batch": 5,
+      "cell": 0,
+      "degrees": 228.75,
+      "frameIndex": 61,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-05.png#cell-0"
+    },
+    {
+      "batch": 5,
+      "cell": 1,
+      "degrees": 232.5,
+      "frameIndex": 62,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-05.png#cell-1"
+    },
+    {
+      "anchor": 21,
+      "degrees": 236.25,
+      "frameIndex": 63,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-21.png"
+    },
+    {
+      "batch": 5,
+      "cell": 2,
+      "degrees": 240.0,
+      "frameIndex": 64,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-05.png#cell-2"
+    },
+    {
+      "batch": 5,
+      "cell": 3,
+      "degrees": 243.75,
+      "frameIndex": 65,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-05.png#cell-3"
+    },
+    {
+      "anchor": 22,
+      "degrees": 247.5,
+      "frameIndex": 66,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-22.png"
+    },
+    {
+      "batch": 5,
+      "cell": 4,
+      "degrees": 251.25,
+      "frameIndex": 67,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-05.png#cell-4"
+    },
+    {
+      "batch": 5,
+      "cell": 5,
+      "degrees": 255.0,
+      "frameIndex": 68,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-05.png#cell-5"
+    },
+    {
+      "anchor": 23,
+      "degrees": 258.75,
+      "frameIndex": 69,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-23.png"
+    },
+    {
+      "cell": 2,
+      "degrees": 262.5,
+      "frameIndex": 70,
+      "kind": "generated-seam-repair",
+      "source": "work/xiaoman-pet-96/relay-output/seam-pairs-15-23.png#cell-2"
+    },
+    {
+      "cell": 3,
+      "degrees": 266.25,
+      "frameIndex": 71,
+      "kind": "generated-seam-repair",
+      "source": "work/xiaoman-pet-96/relay-output/seam-pairs-15-23.png#cell-3"
+    },
+    {
+      "anchor": 24,
+      "degrees": 270.0,
+      "frameIndex": 72,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-24.png"
+    },
+    {
+      "batch": 6,
+      "cell": 0,
+      "degrees": 273.75,
+      "frameIndex": 73,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-06.png#cell-0"
+    },
+    {
+      "batch": 6,
+      "cell": 1,
+      "degrees": 277.5,
+      "frameIndex": 74,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-06.png#cell-1"
+    },
+    {
+      "anchor": 25,
+      "degrees": 281.25,
+      "frameIndex": 75,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-25.png"
+    },
+    {
+      "batch": 6,
+      "cell": 2,
+      "degrees": 285.0,
+      "frameIndex": 76,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-06.png#cell-2"
+    },
+    {
+      "batch": 6,
+      "cell": 3,
+      "degrees": 288.75,
+      "frameIndex": 77,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-06.png#cell-3"
+    },
+    {
+      "anchor": 26,
+      "degrees": 292.5,
+      "frameIndex": 78,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-26.png"
+    },
+    {
+      "batch": 6,
+      "cell": 4,
+      "degrees": 296.25,
+      "frameIndex": 79,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-06.png#cell-4"
+    },
+    {
+      "batch": 6,
+      "cell": 5,
+      "degrees": 300.0,
+      "frameIndex": 80,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-06.png#cell-5"
+    },
+    {
+      "anchor": 27,
+      "degrees": 303.75,
+      "frameIndex": 81,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-27.png"
+    },
+    {
+      "batch": 6,
+      "cell": 6,
+      "degrees": 307.5,
+      "frameIndex": 82,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-06.png#cell-6"
+    },
+    {
+      "batch": 6,
+      "cell": 7,
+      "degrees": 311.25,
+      "frameIndex": 83,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-06.png#cell-7"
+    },
+    {
+      "anchor": 28,
+      "degrees": 315.0,
+      "frameIndex": 84,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-28.png"
+    },
+    {
+      "batch": 7,
+      "cell": 0,
+      "degrees": 318.75,
+      "frameIndex": 85,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-07.png#cell-0"
+    },
+    {
+      "batch": 7,
+      "cell": 1,
+      "degrees": 322.5,
+      "frameIndex": 86,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-07.png#cell-1"
+    },
+    {
+      "anchor": 29,
+      "degrees": 326.25,
+      "frameIndex": 87,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-29.png"
+    },
+    {
+      "batch": 7,
+      "cell": 2,
+      "degrees": 330.0,
+      "frameIndex": 88,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-07.png#cell-2"
+    },
+    {
+      "batch": 7,
+      "cell": 3,
+      "degrees": 333.75,
+      "frameIndex": 89,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-07.png#cell-3"
+    },
+    {
+      "anchor": 30,
+      "degrees": 337.5,
+      "frameIndex": 90,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-30.png"
+    },
+    {
+      "batch": 7,
+      "cell": 4,
+      "degrees": 341.25,
+      "frameIndex": 91,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-07.png#cell-4"
+    },
+    {
+      "batch": 7,
+      "cell": 5,
+      "degrees": 345.0,
+      "frameIndex": 92,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-07.png#cell-5"
+    },
+    {
+      "anchor": 31,
+      "degrees": 348.75,
+      "frameIndex": 93,
+      "kind": "anchor",
+      "source": "work/xiaoman-pet-96/anchors/anchor-31.png"
+    },
+    {
+      "batch": 7,
+      "cell": 6,
+      "degrees": 352.5,
+      "frameIndex": 94,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-07.png#cell-6"
+    },
+    {
+      "batch": 7,
+      "cell": 7,
+      "degrees": 356.25,
+      "frameIndex": 95,
+      "kind": "generated",
+      "source": "work/xiaoman-pet-96/relay-output/inbetweens-07.png#cell-7"
+    }
+  ],
+  "seamRepairs": {
+    "46": 0,
+    "47": 1,
+    "70": 2,
+    "71": 3
+  }
+}
