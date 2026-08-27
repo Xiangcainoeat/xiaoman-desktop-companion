@@ -16,6 +16,7 @@ import type {
   JobId,
   InteractionAction,
   QuickViewMode,
+  OverlayInteractionReport,
   ReminderInput,
   SoundName,
 } from "./shared/types";
@@ -384,6 +385,7 @@ function createMockApi(): XiaomanApi {
     toggleOverlay: () => undefined,
     moveOverlayBy: () => undefined,
     setOverlayMouseMode: () => undefined,
+    reportOverlayHitRegions: (_report: OverlayInteractionReport) => undefined,
     showOverlayMenu: () => undefined,
     onSnapshot: (listener) => {
       listeners.add(listener);

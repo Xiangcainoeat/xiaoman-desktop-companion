@@ -12,6 +12,7 @@ import type {
   GameStartResult,
   JobId,
   InteractionAction,
+  OverlayInteractionReport,
   ReminderInput,
   SoundName,
 } from "./shared/types";
@@ -51,6 +52,7 @@ export interface XiaomanApi {
   toggleOverlay(): void;
   moveOverlayBy(deltaX: number, deltaY: number): void;
   setOverlayMouseMode(mode: "passthrough" | "interactive"): void;
+  reportOverlayHitRegions(report: OverlayInteractionReport): void;
   showOverlayMenu(): void;
   onSnapshot(callback: (snapshot: AppSnapshot) => void): () => void;
   onCursor(callback: (payload: CursorPayload) => void): () => void;

@@ -57,6 +57,25 @@ export interface DesktopInteractionStatus {
   score: number;
 }
 
+export const MAX_OVERLAY_HIT_REGIONS = 64;
+export type OverlayHitRegionKind = "bubble" | "pet" | "actions" | "task";
+
+export interface OverlayHitRegion {
+  kind: OverlayHitRegionKind;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface OverlayInteractionReport {
+  revision: number;
+  bubbleActive: boolean;
+  interactiveActive: boolean;
+  bubbleRegions: OverlayHitRegion[];
+  interactiveRegions: OverlayHitRegion[];
+}
+
 export interface DesktopBubble {
   id: string;
   x: number;

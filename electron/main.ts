@@ -76,6 +76,9 @@ import {
   type GameSettlement,
   type JobId,
   type InteractionAction,
+  MAX_OVERLAY_HIT_REGIONS,
+  type OverlayHitRegion,
+  type OverlayInteractionReport,
   type PersistedData,
   type PetState,
   type Reminder,
@@ -419,12 +422,183 @@ export function isTrustedSender(
   return trustedContents.includes(sender) && senderFrame === mainFrame;
 }
 
+export type OverlayMouseMode = "passthrough" | "interactive";
+
+export interface OverlayScreenBounds {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+export interface OverlayScreenPoint {
+  x: number;
+  y: number;
+}
+
+export interface OverlayPointerPolicyInput {
+  visible: boolean;
+  requestedMode: OverlayMouseMode;
+  cursor: OverlayScreenPoint | null;
+  bounds: OverlayScreenBounds;
+  report: OverlayInteractionReport | null;
+}
+
+export interface OverlayHitRegionState {
+  sender: unknown | null;
+  revision: number;
+  report: OverlayInteractionReport | null;
+}
+
+const MAX_OVERLAY_REGION_COORDINATE = 100_000;
+const MAX_OVERLAY_REGION_SIZE = 20_000;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function normalizeOverlayHitRegion(value: unknown, expectedKind: OverlayHitRegion["kind"]): OverlayHitRegion | null {
+  if (!isRecord(value) || value.kind !== expectedKind) return null;
+  const { x, y, width, height } = value;
+  if (!isFiniteNumber(x) || !isFiniteNumber(y) || !isFiniteNumber(width) || !isFiniteNumber(height)) return null;
+  if (width <= 0 || height <= 0 || width > MAX_OVERLAY_REGION_SIZE || height > MAX_OVERLAY_REGION_SIZE) return null;
+  if (Math.abs(x) > MAX_OVERLAY_REGION_COORDINATE || Math.abs(y) > MAX_OVERLAY_REGION_COORDINATE) return null;
+  return { kind: expectedKind, x, y, width, height };
+}
+
+function normalizeOverlayHitRegions(
+  value: unknown,
+  expectedKind: OverlayHitRegion["kind"],
+): OverlayHitRegion[] | null {
+  if (!Array.isArray(value) || value.length > MAX_OVERLAY_HIT_REGIONS) return null;
+  const regions = value.map((item) => normalizeOverlayHitRegion(item, expectedKind));
+  return regions.every((region): region is OverlayHitRegion => region !== null) ? regions : null;
+}
+
+export function normalizeOverlayInteractionReport(value: unknown): OverlayInteractionReport | null {
+  if (!isRecord(value)
+    || typeof value.revision !== "number"
+    || !Number.isSafeInteger(value.revision)
+    || value.revision <= 0
+    || typeof value.bubbleActive !== "boolean"
+    || typeof value.interactiveActive !== "boolean") {
+    return null;
+  }
+  const bubbleRegions = normalizeOverlayHitRegions(value.bubbleRegions, "bubble");
+  const interactiveRegions = Array.isArray(value.interactiveRegions)
+    && value.interactiveRegions.length <= MAX_OVERLAY_HIT_REGIONS
+    ? (value.interactiveRegions as unknown[]).map((item) => {
+      if (!isRecord(item)) return null;
+      const kind = item.kind;
+      if (kind !== "pet" && kind !== "actions" && kind !== "task") return null;
+      return normalizeOverlayHitRegion(item, kind);
+    })
+    : null;
+  if (!bubbleRegions || !interactiveRegions
+    || interactiveRegions.some((region): region is null => region === null)
+    || bubbleRegions.length + interactiveRegions.length > MAX_OVERLAY_HIT_REGIONS) {
+    return null;
+  }
+  return {
+    revision: value.revision,
+    bubbleActive: value.bubbleActive,
+    interactiveActive: value.interactiveActive,
+    bubbleRegions,
+    interactiveRegions: interactiveRegions as OverlayHitRegion[],
+  };
+}
+
+export function createOverlayHitRegionState(): OverlayHitRegionState {
+  return { sender: null, revision: 0, report: null };
+}
+
+export function acceptOverlayHitRegionReport(
+  state: OverlayHitRegionState,
+  sender: unknown,
+  value: unknown,
+): { accepted: boolean; state: OverlayHitRegionState } {
+  const report = normalizeOverlayInteractionReport(value);
+  if (!report) return { accepted: false, state };
+  if (state.sender === sender && report.revision <= state.revision) return { accepted: false, state };
+  return {
+    accepted: true,
+    state: { sender, revision: report.revision, report },
+  };
+}
+
+function pointInOverlayBounds(point: OverlayScreenPoint, bounds: OverlayScreenBounds): boolean {
+  return isFiniteNumber(point.x)
+    && isFiniteNumber(point.y)
+    && isFiniteNumber(bounds.x)
+    && isFiniteNumber(bounds.y)
+    && isFiniteNumber(bounds.width)
+    && isFiniteNumber(bounds.height)
+    && bounds.width > 0
+    && bounds.height > 0
+    && point.x >= bounds.x
+    && point.y >= bounds.y
+    && point.x < bounds.x + bounds.width
+    && point.y < bounds.y + bounds.height;
+}
+
+function pointInOverlayRegion(
+  point: OverlayScreenPoint,
+  bounds: OverlayScreenBounds,
+  region: OverlayHitRegion,
+): boolean {
+  const localX = point.x - bounds.x;
+  const localY = point.y - bounds.y;
+  return localX >= region.x
+    && localY >= region.y
+    && localX < region.x + region.width
+    && localY < region.y + region.height;
+}
+
+export function shouldCaptureOverlayPointer(input: OverlayPointerPolicyInput): boolean {
+  if (!input.visible) return false;
+  // A task panel or an active pet drag owns the native window until release,
+  // including while the pointer is outside the overlay's current bounds.
+  if (input.report?.interactiveActive) return true;
+  // The legacy renderer announces bubble activity with the same interactive
+  // mode used by the pet. Once a report is present, scope that legacy mode to
+  // the reported regions so transparent pixels remain click-through.
+  if (input.requestedMode === "interactive" && (!input.report || !input.report.bubbleActive)) return true;
+  if (!pointInOverlayBounds(input.cursor ?? { x: NaN, y: NaN }, input.bounds)) return false;
+  if (!input.report || !input.cursor) return false;
+  const regions = [
+    ...(input.report.bubbleActive ? input.report.bubbleRegions : []),
+    ...input.report.interactiveRegions,
+  ];
+  return regions.some((region) => pointInOverlayRegion(input.cursor!, input.bounds, region));
+}
+
+export function isTrustedOverlaySender(
+  sender: unknown,
+  senderFrame: unknown,
+  overlayContents: unknown,
+): boolean {
+  return overlayContents !== null
+    && overlayContents !== undefined
+    && isTrustedSender(sender, senderFrame, [overlayContents]);
+}
+
+export function setOverlayPointerCaptureForWindow(
+  window: { setIgnoreMouseEvents(ignore: boolean, options?: { forward: boolean }): void },
+  capture: boolean,
+): void {
+  if (capture) window.setIgnoreMouseEvents(false);
+  else window.setIgnoreMouseEvents(true, { forward: true });
+}
+
 export function setOverlayMouseModeForWindow(
   window: { setIgnoreMouseEvents(ignore: boolean, options?: { forward: boolean }): void },
-  mode: "passthrough" | "interactive",
+  mode: OverlayMouseMode,
 ): void {
-  if (mode === "passthrough") window.setIgnoreMouseEvents(true, { forward: true });
-  else window.setIgnoreMouseEvents(false);
+  setOverlayPointerCaptureForWindow(window, mode === "interactive");
 }
 
 let store: CompanionStore;
@@ -453,7 +627,9 @@ let currentAppRule: AppRule | null = null;
 let stateSequence = 0;
 let gameActive = false;
 let desktopSessionState = createDesktopBubbleSessionState();
-let overlayMouseMode: "passthrough" | "interactive" = "interactive";
+let overlayMouseMode: OverlayMouseMode = "passthrough";
+let overlayHitRegionState = createOverlayHitRegionState();
+let overlayMouseCapture: boolean | null = null;
 let lastSystemIdleSeconds: number | null = null;
 let careRandomSource: () => number = () => Math.random();
 
@@ -1100,6 +1276,7 @@ function clearDesktopBubbleSessionWithoutReward(shouldBroadcast = true): void {
   const sessionId = desktopSessionState.status.sessionId;
   if (!sessionId) return;
   desktopSessionState = stopDesktopBubbleSessionState(desktopSessionState, sessionId, false, Date.now()).state;
+  applyOverlayMousePolicy();
   if (shouldBroadcast) broadcast();
 }
 
@@ -1152,6 +1329,7 @@ export function stopDesktopBubbleSession(sessionId: string, completed: boolean):
   if (!result.changed) return Promise.resolve(snapshot());
   clearDesktopSessionExpiryTimer();
   desktopSessionState = result.state;
+  applyOverlayMousePolicy();
   if (result.settlement) {
     const settled = runCareMutation(
       { kind: "complete-game", gameId: "bubble-pop", score: result.settlement.score },
@@ -1434,6 +1612,60 @@ function assertTrustedInvoke(event: IpcMainInvokeEvent): void {
   assertTrustedSender(event.sender, event.senderFrame);
 }
 
+function assertTrustedOverlaySender(
+  sender: IpcMainInvokeEvent["sender"],
+  senderFrame: IpcMainInvokeEvent["senderFrame"],
+): void {
+  if (!isTrustedOverlaySender(sender, senderFrame, overlayWindow?.webContents)) {
+    throw new Error("Rejected overlay IPC call from an untrusted renderer");
+  }
+}
+
+function resetOverlayHitRegionState(): void {
+  overlayHitRegionState = createOverlayHitRegionState();
+}
+
+function effectiveOverlayHitRegionReport(): OverlayInteractionReport | null {
+  const report = overlayHitRegionState.report;
+  if (!report) return null;
+  const bubblesEnabled = Boolean(data?.settings?.gameModeEnabled && desktopSessionState.status.active);
+  const interactiveActive = report.interactiveActive || overlayTaskPanelOpen;
+  if (report.bubbleActive && !bubblesEnabled) {
+    return { ...report, bubbleActive: false, bubbleRegions: [], interactiveActive };
+  }
+  if (interactiveActive !== report.interactiveActive) return { ...report, interactiveActive };
+  return report;
+}
+
+function applyOverlayMousePolicy(): void {
+  const window = overlayWindow;
+  if (!window || window.isDestroyed()) {
+    overlayMouseCapture = null;
+    return;
+  }
+
+  let visible = false;
+  let bounds: OverlayScreenBounds = { x: 0, y: 0, width: 0, height: 0 };
+  let cursor: OverlayScreenPoint | null = null;
+  try {
+    visible = window.isVisible();
+    bounds = window.getBounds();
+    cursor = screen.getCursorScreenPoint();
+  } catch {
+    visible = false;
+  }
+  const capture = shouldCaptureOverlayPointer({
+    visible,
+    requestedMode: overlayMouseMode,
+    cursor,
+    bounds,
+    report: effectiveOverlayHitRegionReport(),
+  });
+  if (overlayMouseCapture === capture) return;
+  overlayMouseCapture = capture;
+  setOverlayPointerCaptureForWindow(window, capture);
+}
+
 function overlayDimensions(petSize = data.settings.petSize): { width: number; height: number } {
   return calculateOverlayDimensions(petSize, overlayTaskPanelOpen);
 }
@@ -1450,7 +1682,7 @@ function defaultOverlayPosition(): { x: number; y: number } {
 function createOverlayWindow(): void {
   const savedPosition = data.overlayPosition ?? defaultOverlayPosition();
   const dimensions = overlayDimensions();
-  overlayWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: dimensions.width,
     height: dimensions.height,
     x: savedPosition.x,
@@ -1473,24 +1705,64 @@ function createOverlayWindow(): void {
       sandbox: true,
     },
   });
-  hardenRendererWindow(overlayWindow);
-  setOverlayMouseModeForWindow(overlayWindow, overlayMouseMode);
-  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  overlayWindow.setHiddenInMissionControl(true);
-  overlayWindow.on("close", (event) => {
+  overlayWindow = window;
+  overlayMouseMode = "passthrough";
+  overlayHitRegionState = createOverlayHitRegionState();
+  overlayMouseCapture = null;
+  hardenRendererWindow(window);
+  setOverlayPointerCaptureForWindow(window, false);
+  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  window.setHiddenInMissionControl(true);
+  window.on("move", () => {
+    if (overlayWindow === window) applyOverlayMousePolicy();
+  });
+  window.on("resize", () => {
+    if (overlayWindow === window) applyOverlayMousePolicy();
+  });
+  window.on("focus", () => {
+    if (overlayWindow === window) applyOverlayMousePolicy();
+  });
+  window.on("blur", () => {
+    if (overlayWindow !== window) return;
+    // A lost pointer capture must never leave the transparent window blocking the desktop.
+    overlayMouseMode = "passthrough";
+    applyOverlayMousePolicy();
+  });
+  window.webContents.on("did-start-loading", () => {
+    if (overlayWindow !== window) return;
+    overlayMouseMode = "passthrough";
+    resetOverlayHitRegionState();
+    applyOverlayMousePolicy();
+  });
+  window.webContents.on("render-process-gone", () => {
+    if (overlayWindow !== window) return;
+    overlayMouseMode = "passthrough";
+    resetOverlayHitRegionState();
+    applyOverlayMousePolicy();
+  });
+  window.on("closed", () => {
+    if (overlayWindow !== window) return;
+    resetOverlayHitRegionState();
+    overlayMouseCapture = null;
+    overlayWindow = null;
+  });
+  window.on("close", (event) => {
     if (!quitting) {
       event.preventDefault();
       setOverlayTaskPanel(false);
-      overlayWindow?.hide();
+      overlayMouseMode = "passthrough";
+      window.hide();
+      applyOverlayMousePolicy();
       data.settings.overlayVisible = false;
       persistAndBroadcast();
     }
   });
-  overlayWindow.on("ready-to-show", () => {
-    if (data.settings.overlayVisible) overlayWindow?.showInactive();
+  window.on("ready-to-show", () => {
+    if (data.settings.overlayVisible) window.showInactive();
+    applyOverlayMousePolicy();
     broadcast();
   });
-  loadViewSafely(overlayWindow, "overlay");
+  loadViewSafely(window, "overlay");
 }
 
 function createCenterWindow(): void {
@@ -1592,18 +1864,23 @@ export function showQuickWindow(mode: QuickViewMode): void {
   );
 }
 
-export function setOverlayMouseMode(mode: "passthrough" | "interactive"): void {
+export function setOverlayMouseMode(mode: OverlayMouseMode): void {
   overlayMouseMode = mode;
-  if (overlayWindow && !overlayWindow.isDestroyed()) setOverlayMouseModeForWindow(overlayWindow, mode);
+  applyOverlayMousePolicy();
 }
 
 function toggleOverlay(): void {
   if (!overlayWindow) return;
   data.settings.overlayVisible = !overlayWindow.isVisible();
-  if (data.settings.overlayVisible) overlayWindow.showInactive();
+  if (data.settings.overlayVisible) {
+    overlayWindow.showInactive();
+    applyOverlayMousePolicy();
+  }
   else {
     setOverlayTaskPanel(false);
+    overlayMouseMode = "passthrough";
     overlayWindow.hide();
+    applyOverlayMousePolicy();
   }
   persistAndBroadcast();
 }
@@ -1695,18 +1972,24 @@ function setOverlayTaskPanel(open: boolean): void {
   const next = Boolean(open) && data.settings.codexSessionControls;
   if (overlayTaskPanelOpen === next) return;
   overlayTaskPanelOpen = next;
+  overlayMouseMode = next ? "interactive" : "passthrough";
   resizeOverlayForPet();
   if (next && overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.show();
     overlayWindow.focus();
   }
+  applyOverlayMousePolicy();
 }
 
 function applySettingsSideEffects(previous: CompanionSettings): void {
   if (overlayWindow) {
     overlayWindow.setAlwaysOnTop(data.settings.alwaysOnTop);
     if (data.settings.overlayVisible && !overlayWindow.isVisible()) overlayWindow.showInactive();
-    if (!data.settings.overlayVisible && overlayWindow.isVisible()) overlayWindow.hide();
+    if (!data.settings.overlayVisible) {
+      overlayMouseMode = "passthrough";
+      if (overlayWindow.isVisible()) overlayWindow.hide();
+    }
+    applyOverlayMousePolicy();
   }
   if (previous.monitorCodex !== data.settings.monitorCodex) void configureCodexMonitor();
   if (previous.monitorApps !== data.settings.monitorApps) configureApplicationMonitor();
@@ -1720,6 +2003,8 @@ function applySettingsSideEffects(previous: CompanionSettings): void {
   if (previous.gameModeEnabled && !data.settings.gameModeEnabled) {
     clearDesktopBubbleSessionWithoutReward(false);
     gameActive = false;
+    resetOverlayHitRegionState();
+    applyOverlayMousePolicy();
   }
   monitoring.notifications = !data.settings.systemNotifications
     ? "off"
@@ -1922,16 +2207,33 @@ function registerIpcHandlers(): void {
     if (mode !== "care" && mode !== "interaction") throw new Error("快捷窗口模式无效");
     showQuickWindow(mode);
   });
+  ipcMain.on("overlay:hit-regions", (event, report: unknown) => {
+    // Hit reports are high-frequency fire-and-forget messages; reject foreign senders without throwing in the main process.
+    if (!isTrustedOverlaySender(event.sender, event.senderFrame, overlayWindow?.webContents)) return;
+    const next = acceptOverlayHitRegionReport(overlayHitRegionState, event.sender, report);
+    if (!next.accepted) return;
+    overlayHitRegionState = next.state;
+    applyOverlayMousePolicy();
+  });
   ipcMain.on("overlay:mouse-mode", (event, mode: unknown) => {
-    assertTrustedSender(event.sender, event.senderFrame);
+    assertTrustedOverlaySender(event.sender, event.senderFrame);
     if (mode !== "passthrough" && mode !== "interactive") throw new Error("Overlay 鼠标模式无效");
     setOverlayMouseMode(mode);
   });
   ipcMain.on("center:show", () => showCenter());
   ipcMain.on("overlay:toggle", () => toggleOverlay());
-  ipcMain.on("overlay:task-panel", (_event, open: boolean) => setOverlayTaskPanel(open));
-  ipcMain.on("overlay:move-by", (_event, deltaX: number, deltaY: number) => moveOverlayBy(deltaX, deltaY));
-  ipcMain.on("overlay:context-menu", () => showOverlayContextMenu());
+  ipcMain.on("overlay:task-panel", (event, open: unknown) => {
+    assertTrustedOverlaySender(event.sender, event.senderFrame);
+    if (typeof open === "boolean") setOverlayTaskPanel(open);
+  });
+  ipcMain.on("overlay:move-by", (event, deltaX: number, deltaY: number) => {
+    assertTrustedOverlaySender(event.sender, event.senderFrame);
+    moveOverlayBy(deltaX, deltaY);
+  });
+  ipcMain.on("overlay:context-menu", (event) => {
+    assertTrustedOverlaySender(event.sender, event.senderFrame);
+    showOverlayContextMenu();
+  });
 }
 
 function startTimers(): void {
@@ -1944,16 +2246,43 @@ function startTimers(): void {
 function configureCursorTimer(): void {
   if (cursorTimer) clearInterval(cursorTimer);
   cursorTimer = setInterval(() => {
-    if (!overlayWindow?.isVisible() || !data.settings.gazeEnabled) return;
-    const cursor = screen.getCursorScreenPoint();
-    const bounds = overlayWindow.getBounds();
-    overlayWindow.webContents.send("cursor:changed", {
+    const window = overlayWindow;
+    if (!window || window.isDestroyed()) {
+      overlayMouseCapture = null;
+      return;
+    }
+
+    let cursor: OverlayScreenPoint;
+    let bounds: OverlayScreenBounds;
+    let visible = false;
+    try {
+      visible = window.isVisible();
+      cursor = screen.getCursorScreenPoint();
+      bounds = window.getBounds();
+    } catch {
+      overlayMouseCapture = null;
+      return;
+    }
+
+    const capture = shouldCaptureOverlayPointer({
+      visible,
+      requestedMode: overlayMouseMode,
+      cursor,
+      bounds,
+      report: effectiveOverlayHitRegionReport(),
+    });
+    if (overlayMouseCapture !== capture) {
+      overlayMouseCapture = capture;
+      setOverlayPointerCaptureForWindow(window, capture);
+    }
+    if (!visible || !data.settings.gazeEnabled) return;
+    window.webContents.send("cursor:changed", {
       x: cursor.x - bounds.x,
       y: cursor.y - bounds.y,
       windowWidth: bounds.width,
       windowHeight: bounds.height,
     });
-  }, 1000 / data.settings.gazeFrameRate);
+  }, 1000 / Math.max(30, Math.min(60, data.settings.gazeFrameRate)));
 }
 
 app.on("second-instance", () => showCenter());
@@ -1999,6 +2328,11 @@ app.on("before-quit", () => {
   if (cursorTimer) clearInterval(cursorTimer);
   if (stateTimer) clearTimeout(stateTimer);
   if (overlayPositionSaveTimer) clearTimeout(overlayPositionSaveTimer);
+  clearDesktopSessionExpiryTimer();
+  clearDesktopBubbleSessionWithoutReward(false);
+  resetOverlayHitRegionState();
+  if (overlayWindow && !overlayWindow.isDestroyed()) setOverlayPointerCaptureForWindow(overlayWindow, false);
+  overlayMouseCapture = null;
   applicationMonitor?.stop();
   void codexMonitor?.stop();
   for (const handle of activeCodexReplyHandles) handle.cancel();

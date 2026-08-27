@@ -23,12 +23,17 @@ vi.mock("electron", () => ({
 }));
 
 import {
+  acceptOverlayHitRegionReport,
   createDesktopBubbleSessionState,
   createQuickLoadController,
   canCompleteGame,
   ensureQuickWindow,
   hitDesktopBubbleState,
+  isTrustedOverlaySender,
   isTrustedSender,
+  normalizeOverlayInteractionReport,
+  shouldCaptureOverlayPointer,
+  setOverlayPointerCaptureForWindow,
   setOverlayMouseModeForWindow,
   startDesktopBubbleSessionState,
   stopDesktopBubbleSessionState,
@@ -120,6 +125,172 @@ describe("desktop interaction Electron boundary", () => {
     setOverlayMouseModeForWindow(window, "interactive");
     expect(window.setIgnoreMouseEvents).toHaveBeenNthCalledWith(1, true, { forward: true });
     expect(window.setIgnoreMouseEvents).toHaveBeenNthCalledWith(2, false);
+  });
+
+  it("accepts only the overlay's main frame for hit-region reports", () => {
+    const mainFrame = {};
+    const overlayContents = { mainFrame };
+    const centerContents = { mainFrame };
+
+    expect(isTrustedOverlaySender(overlayContents, mainFrame, overlayContents)).toBe(true);
+    expect(isTrustedOverlaySender(centerContents, mainFrame, overlayContents)).toBe(false);
+    expect(isTrustedOverlaySender(overlayContents, {}, overlayContents)).toBe(false);
+  });
+
+  it("normalizes bounded hit-region reports and rejects malformed or oversized input", () => {
+    expect(normalizeOverlayInteractionReport({
+      revision: 3,
+      bubbleActive: true,
+      interactiveActive: false,
+      bubbleRegions: [{ kind: "bubble", x: 12, y: 18, width: 42, height: 38 }],
+      interactiveRegions: [{ kind: "pet", x: 80, y: 140, width: 120, height: 180 }],
+    })).toEqual({
+      revision: 3,
+      bubbleActive: true,
+      interactiveActive: false,
+      bubbleRegions: [{ kind: "bubble", x: 12, y: 18, width: 42, height: 38 }],
+      interactiveRegions: [{ kind: "pet", x: 80, y: 140, width: 120, height: 180 }],
+    });
+    expect(normalizeOverlayInteractionReport({ revision: 0, bubbleActive: false, interactiveActive: false, bubbleRegions: [], interactiveRegions: [] })).toBeNull();
+    expect(normalizeOverlayInteractionReport({
+      revision: 4,
+      bubbleActive: true,
+      interactiveActive: false,
+      bubbleRegions: Array.from({ length: 65 }, () => ({ kind: "bubble", x: 0, y: 0, width: 1, height: 1 })),
+      interactiveRegions: [],
+    })).toBeNull();
+    expect(normalizeOverlayInteractionReport({
+      revision: 5,
+      bubbleActive: true,
+      interactiveActive: false,
+      bubbleRegions: [{ kind: "bubble", x: Number.NaN, y: 0, width: 1, height: 1 }],
+      interactiveRegions: [],
+    })).toBeNull();
+  });
+
+  it("drops stale reports but accepts a fresh revision from a new overlay renderer", () => {
+    const firstSender = {};
+    const secondSender = {};
+    const firstReport = {
+      revision: 2,
+      bubbleActive: true,
+      interactiveActive: false,
+      bubbleRegions: [{ kind: "bubble" as const, x: 10, y: 10, width: 40, height: 40 }],
+      interactiveRegions: [],
+    };
+    const newerReport = { ...firstReport, revision: 3, bubbleActive: false, bubbleRegions: [] };
+    const restartedReport = { ...firstReport, revision: 1 };
+
+    const accepted = acceptOverlayHitRegionReport(
+      { sender: null, revision: 0, report: null },
+      firstSender,
+      firstReport,
+    );
+    expect(accepted.accepted).toBe(true);
+    expect(accepted.state.report).toEqual(firstReport);
+
+    const stale = acceptOverlayHitRegionReport(accepted.state, firstSender, { ...firstReport, revision: 1 });
+    expect(stale.accepted).toBe(false);
+    expect(stale.state).toBe(accepted.state);
+
+    const advanced = acceptOverlayHitRegionReport(accepted.state, firstSender, newerReport);
+    expect(advanced.accepted).toBe(true);
+    expect(advanced.state.report).toEqual(newerReport);
+
+    const restarted = acceptOverlayHitRegionReport(advanced.state, secondSender, restartedReport);
+    expect(restarted.accepted).toBe(true);
+    expect(restarted.state.revision).toBe(1);
+    expect(restarted.state.sender).toBe(secondSender);
+  });
+
+  it("captures only a reported local region when the requested mode is passthrough", () => {
+    const report = normalizeOverlayInteractionReport({
+      revision: 1,
+      bubbleActive: true,
+      interactiveActive: false,
+      bubbleRegions: [{ kind: "bubble", x: 100, y: 40, width: 50, height: 50 }],
+      interactiveRegions: [{ kind: "pet", x: 200, y: 210, width: 80, height: 120 }],
+    });
+    const bounds = { x: 1_000, y: 500, width: 320, height: 360 };
+
+    expect(shouldCaptureOverlayPointer({
+      visible: true,
+      requestedMode: "passthrough",
+      cursor: { x: 1_120, y: 560 },
+      bounds,
+      report,
+    })).toBe(true);
+    expect(shouldCaptureOverlayPointer({
+      visible: true,
+      requestedMode: "passthrough",
+      cursor: { x: 1_250, y: 760 },
+      bounds,
+      report,
+    })).toBe(true);
+    expect(shouldCaptureOverlayPointer({
+      visible: true,
+      requestedMode: "passthrough",
+      cursor: { x: 1_010, y: 510 },
+      bounds,
+      report,
+    })).toBe(false);
+  });
+
+  it("keeps legacy bubble activation region-scoped while preserving active drag capture", () => {
+    const report = normalizeOverlayInteractionReport({
+      revision: 1,
+      bubbleActive: true,
+      interactiveActive: false,
+      bubbleRegions: [{ kind: "bubble", x: 100, y: 40, width: 50, height: 50 }],
+      interactiveRegions: [{ kind: "pet", x: 200, y: 210, width: 80, height: 120 }],
+    });
+    const bounds = { x: 1_000, y: 500, width: 320, height: 360 };
+
+    expect(shouldCaptureOverlayPointer({
+      visible: true,
+      requestedMode: "interactive",
+      cursor: { x: 1_010, y: 510 },
+      bounds,
+      report,
+    })).toBe(false);
+    expect(shouldCaptureOverlayPointer({
+      visible: true,
+      requestedMode: "interactive",
+      cursor: { x: 1_120, y: 560 },
+      bounds,
+      report,
+    })).toBe(true);
+    expect(shouldCaptureOverlayPointer({
+      visible: true,
+      requestedMode: "passthrough",
+      cursor: { x: 1_500, y: 900 },
+      bounds,
+      report: { ...report!, interactiveActive: true },
+    })).toBe(true);
+  });
+
+  it("keeps explicit interactive mode and task interaction working without a hit report", () => {
+    const bounds = { x: 100, y: 200, width: 320, height: 360 };
+    expect(shouldCaptureOverlayPointer({
+      visible: true,
+      requestedMode: "interactive",
+      cursor: { x: 100, y: 200 },
+      bounds,
+      report: null,
+    })).toBe(true);
+    expect(shouldCaptureOverlayPointer({
+      visible: false,
+      requestedMode: "interactive",
+      cursor: { x: 100, y: 200 },
+      bounds,
+      report: null,
+    })).toBe(false);
+
+    const window = { setIgnoreMouseEvents: vi.fn() };
+    setOverlayPointerCaptureForWindow(window, true);
+    setOverlayPointerCaptureForWindow(window, false);
+    expect(window.setIgnoreMouseEvents).toHaveBeenNthCalledWith(1, false);
+    expect(window.setIgnoreMouseEvents).toHaveBeenNthCalledWith(2, true, { forward: true });
   });
 
   it("keeps regular game ownership separate from the desktop bubble session", () => {
