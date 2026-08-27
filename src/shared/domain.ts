@@ -1,4 +1,5 @@
 import { PET_STATES, SOUND_NAMES } from "./types";
+import { DEFAULT_HOVER_JUMP_COUNT, normalizeHoverJumpCount } from "./motion";
 import type {
   ActivityItem,
   AppRule,
@@ -46,6 +47,7 @@ export const DEFAULT_SETTINGS: CompanionSettings = {
   petSize: 240,
   dragRunEnabled: true,
   hoverJumpEnabled: true,
+  hoverJumpCount: DEFAULT_HOVER_JUMP_COUNT,
   idleActionsEnabled: true,
   idleLickEnabled: true,
   idleBlinkEnabled: true,
@@ -263,6 +265,7 @@ export function normalizeCompanionSettings(value: unknown): CompanionSettings {
     petSize: integerValue(source.petSize, DEFAULT_SETTINGS.petSize, 150, 340),
     dragRunEnabled: booleanValue(source.dragRunEnabled, DEFAULT_SETTINGS.dragRunEnabled),
     hoverJumpEnabled: booleanValue(source.hoverJumpEnabled, DEFAULT_SETTINGS.hoverJumpEnabled),
+    hoverJumpCount: normalizeHoverJumpCount(source.hoverJumpCount, DEFAULT_SETTINGS.hoverJumpCount),
     idleActionsEnabled: booleanValue(source.idleActionsEnabled, DEFAULT_SETTINGS.idleActionsEnabled),
     idleLickEnabled: booleanValue(source.idleLickEnabled, DEFAULT_SETTINGS.idleLickEnabled),
     idleBlinkEnabled: booleanValue(source.idleBlinkEnabled, DEFAULT_SETTINGS.idleBlinkEnabled),

@@ -116,6 +116,7 @@ export interface CompanionSettings {
   petSize: number;
   dragRunEnabled: boolean;
   hoverJumpEnabled: boolean;
+  hoverJumpCount: number;
   idleActionsEnabled: boolean;
   idleLickEnabled: boolean;
   idleBlinkEnabled: boolean;

@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Code2, Fish, PanelTopOpen } from "lucide-react";
-import { chooseIdleMotion, randomizedDelayMs, resolveDragMotion } from "../shared/motion";
+import {
+  chooseIdleMotion,
+  hoverJumpDurationMs,
+  isPrimaryDragPointer,
+  releaseDragState,
+  resetDragState,
+  randomizedDelayMs,
+  resolveDragMotion,
+} from "../shared/motion";
+import type { DragState } from "../shared/motion";
 import type { PetMotion } from "../shared/types";
 import { OverlayCodexPanel } from "./OverlayCodexPanel";
 import { PetSprite } from "./PetSprite";
@@ -32,7 +41,16 @@ function idleActionDurationMs(motion: IdleActionMotion): number {
 export function Overlay() {
   const snapshot = useCompanion();
   const idlePhraseKey = snapshot?.idlePhrases.join("\u0000") ?? "";
-  const dragRef = useRef({ active: false, moved: false, x: 0, y: 0, horizontal: 0 });
+  const dragRef = useRef<DragState>({
+    active: false,
+    moved: false,
+    x: 0,
+    y: 0,
+    horizontal: 0,
+    pointerId: null,
+  });
+  const hitboxRef = useRef<HTMLDivElement | null>(null);
+  const clickSuppressionRef = useRef(false);
   const clickTimerRef = useRef<number | null>(null);
   const motionTimerRef = useRef<number | null>(null);
   const hoverTimerRef = useRef<number | null>(null);
@@ -43,6 +61,34 @@ export function Overlay() {
   const [gazeActive, setGazeActive] = useState(false);
   const [tasksOpen, setTasksOpen] = useState(false);
 
+  const clearMotionTimer = useCallback(() => {
+    if (motionTimerRef.current !== null) window.clearTimeout(motionTimerRef.current);
+    motionTimerRef.current = null;
+  }, []);
+
+  const clearHoverMotion = useCallback(() => {
+    if (hoverTimerRef.current !== null) window.clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = null;
+    setHoverMotion(null);
+  }, []);
+
+  const resetPointerInteraction = useCallback((preserveClickSuppression = false) => {
+    const pointerId = dragRef.current.pointerId;
+    dragRef.current = resetDragState(dragRef.current);
+    if (!preserveClickSuppression) clickSuppressionRef.current = false;
+    if (!preserveClickSuppression) {
+      clearMotionTimer();
+      setDragMotion(null);
+    }
+    clearHoverMotion();
+    setIdleMotion(null);
+
+    const hitbox = hitboxRef.current;
+    if (pointerId !== null && hitbox?.hasPointerCapture(pointerId)) {
+      hitbox.releasePointerCapture(pointerId);
+    }
+  }, [clearHoverMotion, clearMotionTimer]);
+
   const handleGazeActivity = useCallback((active: boolean) => setGazeActive(active), []);
   const setTaskPanel = useCallback((open: boolean) => {
     setTasksOpen(open);
@@ -51,11 +97,27 @@ export function Overlay() {
   const closeTaskPanel = useCallback(() => setTaskPanel(false), [setTaskPanel]);
 
   useEffect(() => () => {
-    if (clickTimerRef.current) window.clearTimeout(clickTimerRef.current);
-    if (motionTimerRef.current) window.clearTimeout(motionTimerRef.current);
-    if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
+    if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current);
+    clearMotionTimer();
+    clearHoverMotion();
+    dragRef.current = resetDragState(dragRef.current);
+    clickSuppressionRef.current = false;
     bridge.setOverlayTaskPanel(false);
-  }, []);
+  }, [clearHoverMotion, clearMotionTimer]);
+
+  useEffect(() => {
+    const resetOnWindowBlur = () => resetPointerInteraction();
+    const resetOnVisibilityLoss = () => {
+      if (document.visibilityState !== "visible") resetPointerInteraction();
+    };
+
+    window.addEventListener("blur", resetOnWindowBlur);
+    document.addEventListener("visibilitychange", resetOnVisibilityLoss);
+    return () => {
+      window.removeEventListener("blur", resetOnWindowBlur);
+      document.removeEventListener("visibilitychange", resetOnVisibilityLoss);
+    };
+  }, [resetPointerInteraction]);
 
   useEffect(() => {
     if (tasksOpen && snapshot && !snapshot.settings.codexSessionControls) {
@@ -63,6 +125,17 @@ export function Overlay() {
       bridge.setOverlayTaskPanel(false);
     }
   }, [snapshot?.settings.codexSessionControls, tasksOpen]);
+
+  useEffect(() => {
+    if (
+      !snapshot
+      || !snapshot.settings.overlayVisible
+      || !snapshot.settings.hoverJumpEnabled
+      || !MOTION_ALLOWED_STATES.has(snapshot.state)
+    ) {
+      clearHoverMotion();
+    }
+  }, [clearHoverMotion, snapshot?.settings.hoverJumpEnabled, snapshot?.settings.overlayVisible, snapshot?.state]);
 
   useEffect(() => {
     if (
@@ -181,22 +254,27 @@ export function Overlay() {
   const canUseTransientMotion = MOTION_ALLOWED_STATES.has(snapshot.state);
   const motion = canUseTransientMotion ? dragMotion ?? hoverMotion ?? idleMotion : null;
 
-  const clearMotionTimer = () => {
-    if (motionTimerRef.current) window.clearTimeout(motionTimerRef.current);
-    motionTimerRef.current = null;
-  };
-
   const pointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest("button")) return;
+    const buttonTarget = event.target instanceof Element && event.target.closest("button");
+    if (buttonTarget || !isPrimaryDragPointer(event)) {
+      resetPointerInteraction();
+      return;
+    }
+    resetPointerInteraction();
     clearMotionTimer();
-    setHoverMotion(null);
-    setIdleMotion(null);
-    dragRef.current = { active: true, moved: false, x: event.screenX, y: event.screenY, horizontal: 0 };
+    dragRef.current = {
+      active: true,
+      moved: false,
+      x: event.screenX,
+      y: event.screenY,
+      horizontal: 0,
+      pointerId: event.pointerId,
+    };
     event.currentTarget.setPointerCapture(event.pointerId);
   };
 
   const pointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!dragRef.current.active) return;
+    if (!dragRef.current.active || dragRef.current.pointerId !== event.pointerId) return;
     const deltaX = event.screenX - dragRef.current.x;
     const deltaY = event.screenY - dragRef.current.y;
     dragRef.current.horizontal += deltaX;
@@ -214,61 +292,67 @@ export function Overlay() {
     }
   };
 
-  const stopDragging = (clearMoved: boolean) => {
-    if (!dragRef.current.active) return;
-    dragRef.current.active = false;
-    dragRef.current.horizontal = 0;
-    if (clearMoved) dragRef.current.moved = false;
-    clearMotionTimer();
-    motionTimerRef.current = window.setTimeout(() => setDragMotion(null), 160);
-  };
-
   const pointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    stopDragging(false);
+    if (dragRef.current.active && dragRef.current.pointerId === event.pointerId) {
+      clickSuppressionRef.current = dragRef.current.moved;
+      dragRef.current = releaseDragState(dragRef.current);
+      clearMotionTimer();
+      motionTimerRef.current = window.setTimeout(() => setDragMotion(null), 160);
+    }
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   const pointerCancel = (event: React.PointerEvent<HTMLDivElement>) => {
-    stopDragging(true);
+    resetPointerInteraction();
     if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   };
 
   const pointerEnter = () => {
     if (!snapshot.settings.hoverJumpEnabled || !canUseTransientMotion || dragRef.current.active) return;
-    if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
+    clearHoverMotion();
     setHoverMotion("jumping");
-    hoverTimerRef.current = window.setTimeout(() => setHoverMotion(null), 900);
+    hoverTimerRef.current = window.setTimeout(() => {
+      hoverTimerRef.current = null;
+      setHoverMotion(null);
+    }, hoverJumpDurationMs(snapshot.settings.hoverJumpCount));
   };
 
   const pointerLeave = () => {
-    if (dragRef.current.active) return;
-    if (hoverTimerRef.current) window.clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = null;
-    setHoverMotion(null);
+    clearHoverMotion();
   };
 
   const petClick = () => {
-    if (dragRef.current.moved) {
+    if (clickSuppressionRef.current || dragRef.current.moved) {
+      clickSuppressionRef.current = false;
       dragRef.current.moved = false;
       return;
     }
-    if (clickTimerRef.current) window.clearTimeout(clickTimerRef.current);
+    if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current);
     clickTimerRef.current = window.setTimeout(() => void bridge.interact("pet"), 210);
   };
 
   const openCenter = () => {
-    if (clickTimerRef.current) window.clearTimeout(clickTimerRef.current);
+    if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current);
     clickTimerRef.current = null;
     bridge.showCenter();
+  };
+
+  const lostPointerCapture = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (dragRef.current.active && dragRef.current.pointerId !== event.pointerId) return;
+    // Preserve only the normal release tail; the drag state itself is always reset.
+    resetPointerInteraction(!dragRef.current.active && clickSuppressionRef.current);
+  };
+
+  const handleContextMenu = (event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+    resetPointerInteraction();
+    bridge.showOverlayMenu();
   };
 
   return (
     <main
       className={`overlay-root ${tasksOpen ? "has-task-panel" : ""}`}
-      onContextMenu={(event) => {
-        event.preventDefault();
-        bridge.showOverlayMenu();
-      }}
+      onContextMenu={handleContextMenu}
     >
       {tasksOpen && (
         <OverlayCodexPanel
@@ -280,12 +364,13 @@ export function Overlay() {
         {idlePhrase ?? snapshot.stateMessage}
       </div>
       <div
+        ref={hitboxRef}
         className="overlay-pet-hitbox"
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerUp}
         onPointerCancel={pointerCancel}
-        onLostPointerCapture={() => stopDragging(true)}
+        onLostPointerCapture={lostPointerCapture}
         onPointerEnter={pointerEnter}
         onPointerLeave={pointerLeave}
         onClick={petClick}
