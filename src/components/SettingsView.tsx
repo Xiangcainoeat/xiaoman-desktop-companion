@@ -42,7 +42,8 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
   return (
     <div className="view settings-view">
       <div className="settings-columns">
-        <section className="settings-section">
+        <div className="settings-column settings-column-left">
+          <section className="settings-section">
           <div className="section-heading">
             <div><span className="eyebrow">运行配置</span><h2>工作方式</h2></div>
           </div>
@@ -88,9 +89,9 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
               </div>
             </SettingsRow>
           </div>
-        </section>
+          </section>
 
-        <section className="settings-section">
+          <section className="settings-section">
           <div className="section-heading">
             <div><span className="eyebrow">悬浮小满</span><h2>显示与注视</h2></div>
           </div>
@@ -184,7 +185,7 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
                 onChange={(event) => update({ gazeDeadzonePx: Number(event.target.value) })}
               />
             </SettingsRow>
-            <SettingsRow icon={<MousePointer2 size={18} />} label="静止后回正" value={`${(settings.gazeIdleResetMs / 1000).toFixed(1)} 秒`}>
+            <SettingsRow icon={<MousePointer2 size={18} />} label="鼠标静止多久停止跟随" value={`${(settings.gazeIdleResetMs / 1000).toFixed(1)} 秒`}>
               <input
                 className="range-control"
                 type="range"
@@ -192,7 +193,7 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
                 max="5000"
                 step="100"
                 value={settings.gazeIdleResetMs}
-                aria-label="静止后回正时间"
+                aria-label="鼠标静止多久停止跟随"
                 disabled={!settings.gazeEnabled}
                 onChange={(event) => update({ gazeIdleResetMs: Number(event.target.value) })}
               />
@@ -210,9 +211,9 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
               />
             </SettingsRow>
           </div>
-        </section>
+          </section>
 
-        <section className="settings-section">
+          <section className="settings-section">
           <div className="section-heading">
             <div><span className="eyebrow">原生反馈</span><h2>移动动作</h2></div>
           </div>
@@ -224,9 +225,11 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
               <Toggle checked={settings.hoverJumpEnabled} label="悬停时跳跃" onChange={(hoverJumpEnabled) => update({ hoverJumpEnabled })} />
             </SettingsRow>
           </div>
-        </section>
+          </section>
+        </div>
 
-        <section className="settings-section">
+        <div className="settings-column settings-column-right">
+          <section className="settings-section">
           <div className="section-heading">
             <div><span className="eyebrow">空闲时</span><h2>待机动作</h2></div>
           </div>
@@ -273,9 +276,9 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
               />
             </SettingsRow>
           </div>
-        </section>
+          </section>
 
-        <section className="settings-section">
+          <section className="settings-section">
           <div className="section-heading">
             <div><span className="eyebrow">反馈</span><h2>声音与通知</h2></div>
           </div>
@@ -322,9 +325,9 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
             <BellRing size={16} />
             测试通知与声音
           </button>
-        </section>
+          </section>
 
-        <section className="settings-section">
+          <section className="settings-section">
           <div className="section-heading">
             <div><span className="eyebrow">事件</span><h2>监听来源</h2></div>
           </div>
@@ -343,9 +346,9 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
               <Toggle checked={settings.monitorApps} label="前台应用切换" onChange={(monitorApps) => update({ monitorApps })} />
             </SettingsRow>
           </div>
-        </section>
+          </section>
 
-        <section className="settings-section">
+          <section className="settings-section">
           <div className="section-heading">
             <div><span className="eyebrow">应用</span><h2>启动</h2></div>
           </div>
@@ -357,7 +360,8 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
               <span className="fixed-status">未修改</span>
             </SettingsRow>
           </div>
-        </section>
+          </section>
+        </div>
       </div>
     </div>
   );

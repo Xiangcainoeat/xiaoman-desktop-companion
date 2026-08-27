@@ -286,7 +286,7 @@ select:focus-visible {
 }
 
 .overlay-root.has-task-panel .overlay-pet-hitbox {
-  right: 40px;
+  right: 48px;
   left: auto;
   transform: none;
 }
@@ -343,9 +343,15 @@ select:focus-visible {
 }
 
 .overlay-root.has-task-panel .pet-bubble {
-  right: 40px;
+  right: 52px;
   left: auto;
-  width: 238px;
+  width: 210px;
+  max-height: 54px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
   transform: none;
 }
 
@@ -360,6 +366,11 @@ select:focus-visible {
   opacity: 0;
   transform: translateX(5px);
   transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.overlay-root.has-task-panel .overlay-actions {
+  top: 98px;
+  right: 6px;
 }
 
 .overlay-root:hover .overlay-actions,
@@ -429,6 +440,7 @@ select:focus-visible {
   color: var(--ink);
   background: rgba(252, 253, 252, 0.98);
   box-shadow: 0 12px 30px rgba(26, 32, 28, 0.22);
+  overflow: hidden;
   user-select: text;
 }
 
@@ -445,8 +457,9 @@ select:focus-visible {
   min-width: 0;
   align-items: center;
   gap: 7px;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 750;
+  line-height: 18px;
 }
 
 .overlay-codex-title svg {
@@ -468,9 +481,9 @@ select:focus-visible {
   padding: 0 6px;
   border: 1px solid currentColor;
   border-radius: 4px;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 750;
-  line-height: 16px;
+  line-height: 17px;
   white-space: nowrap;
 }
 
@@ -484,8 +497,9 @@ select:focus-visible {
 
 .overlay-codex-count {
   color: var(--faint);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 700;
+  line-height: 14px;
 }
 
 .overlay-codex-warning {
@@ -494,13 +508,13 @@ select:focus-visible {
   border-left: 3px solid var(--amber);
   color: #725e39;
   background: var(--amber-soft);
-  font-size: 9px;
-  line-height: 13px;
+  font-size: 10px;
+  line-height: 15px;
 }
 
 .overlay-codex-list {
   display: flex;
-  min-height: 78px;
+  min-height: 0;
   flex: 1 1 auto;
   flex-direction: column;
   gap: 5px;
@@ -519,12 +533,13 @@ select:focus-visible {
 .overlay-codex-thread {
   display: grid;
   width: 100%;
+  flex: 0 0 auto;
   min-width: 0;
-  min-height: 44px;
-  grid-template-columns: 8px minmax(0, 1fr) auto;
+  min-height: 48px;
+  grid-template-columns: 10px minmax(0, 1fr) 52px;
   align-items: center;
-  gap: 7px;
-  padding: 6px 7px;
+  gap: 8px;
+  padding: 7px 8px;
   border: 1px solid var(--line);
   border-radius: 6px;
   color: var(--ink);
@@ -545,9 +560,16 @@ select:focus-visible {
 }
 
 .overlay-codex-thread > span:last-child {
+  min-width: 0;
+  max-width: 52px;
+  overflow: hidden;
   color: var(--muted);
-  font-size: 8px;
+  font-size: 11px;
   font-weight: 700;
+  line-height: 16px;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .overlay-thread-copy,
@@ -565,17 +587,18 @@ select:focus-visible {
 }
 
 .overlay-thread-copy strong {
-  font-size: 10px;
-  line-height: 15px;
+  font-size: 12px;
+  line-height: 18px;
 }
 
 .overlay-thread-copy small {
   color: var(--faint);
-  font-size: 8px;
-  line-height: 12px;
+  font-size: 10px;
+  line-height: 14px;
 }
 
 .overlay-codex-compose {
+  min-width: 0;
   flex: 0 0 auto;
   padding-top: 8px;
   border-top: 1px solid var(--line);
@@ -591,9 +614,11 @@ select:focus-visible {
 }
 
 .overlay-codex-selection strong {
+  display: block;
+  min-width: 0;
   overflow: hidden;
-  font-size: 10px;
-  line-height: 16px;
+  font-size: 12px;
+  line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -601,14 +626,15 @@ select:focus-visible {
 .overlay-codex-compose textarea {
   display: block;
   width: 100%;
-  height: 82px;
+  height: 64px;
+  min-height: 64px;
   padding: 8px 9px;
   border: 1px solid var(--line-strong);
   border-radius: 6px;
   color: var(--ink);
   background: #fff;
-  font-size: 10px;
-  line-height: 15px;
+  font-size: 12px;
+  line-height: 18px;
   resize: none;
 }
 
@@ -619,6 +645,7 @@ select:focus-visible {
 
 .overlay-codex-footer {
   display: grid;
+  min-height: 32px;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr) 32px;
   align-items: center;
@@ -627,11 +654,12 @@ select:focus-visible {
 }
 
 .overlay-codex-footer > span {
+  display: block;
   min-width: 0;
   overflow: hidden;
   color: var(--muted);
-  font-size: 9px;
-  line-height: 13px;
+  font-size: 10px;
+  line-height: 14px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -1472,6 +1500,13 @@ select:focus-visible {
   align-items: start;
 }
 
+.settings-column {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 22px;
+}
+
 .settings-section {
   min-width: 0;
 }
@@ -1511,6 +1546,14 @@ select:focus-visible {
 .settings-copy strong,
 .settings-copy small {
   display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.settings-copy {
+  min-width: 0;
 }
 
 .settings-copy strong {
