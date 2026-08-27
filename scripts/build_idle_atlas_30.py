@@ -132,13 +132,25 @@ def edge_contamination_count(frame: Image.Image) -> int:
     return int(np.count_nonzero(boundary & (green_spill | magenta_spill)))
 
 
+def red_pink_hue_mask(red: np.ndarray, green: np.ndarray, blue: np.ndarray) -> np.ndarray:
+    """Identify a pink/magenta hue by its channel relationship, not warmth."""
+    red_channel = np.asarray(red, dtype=np.int16)
+    green_channel = np.asarray(green, dtype=np.int16)
+    blue_channel = np.asarray(blue, dtype=np.int16)
+    return (
+        (red_channel >= 150)
+        & (red_channel - green_channel > 18)
+        & (blue_channel - green_channel > 8)
+    )
+
+
 def red_pink_edge_contamination_count(frame: Image.Image) -> int:
     pixels = np.asarray(frame.convert("RGBA"), dtype=np.int16)
     red, green, blue, alpha = [pixels[..., index] for index in range(4)]
     boundary = _boundary_mask(alpha)
     # Opaque warm fur and the tongue are valid. Restrict this check to
     # antialiased edge pixels where a matte can introduce a pink fringe.
-    red_pink = (alpha < ALPHA_OPAQUE) & (red - green > 18) & (blue - green > 8)
+    red_pink = (alpha < ALPHA_OPAQUE) & red_pink_hue_mask(red, green, blue)
     return int(np.count_nonzero(boundary & red_pink))
 
 
@@ -408,7 +420,12 @@ def validate_action_sequence(
         boundary = visible & (~_shift(visible.astype(np.uint8), 1, 0).astype(bool) | ~_shift(visible.astype(np.uint8), -1, 0).astype(bool))
         boundary |= visible & (~_shift(visible.astype(np.uint8), 0, 1).astype(bool) | ~_shift(visible.astype(np.uint8), 0, -1).astype(bool))
         red, green, blue = [pixels[..., index].astype(int) for index in range(3)]
-        edge_pixels += int(np.count_nonzero(boundary & ((green - np.maximum(red, blue) > 10) | ((alpha < ALPHA_OPAQUE) & (red > 150) & (blue > 120) & (red - green > 25)))))
+        edge_pixels += int(np.count_nonzero(
+            boundary & (
+                (green - np.maximum(red, blue) > 10)
+                | ((alpha < ALPHA_OPAQUE) & red_pink_hue_mask(red, green, blue))
+            )
+        ))
         matte_pixels += int(np.count_nonzero(hidden_rgb | matte))
         ys, xs = np.where(visible)
         if not len(xs) or xs.min() < safe[0] or ys.min() < safe[1] or xs.max() + 1 > safe[2] or ys.max() + 1 > safe[3]:

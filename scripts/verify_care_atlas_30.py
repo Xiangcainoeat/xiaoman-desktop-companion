@@ -12,7 +12,7 @@ import numpy as np
 from PIL import Image
 
 from build_care_atlas_30 import ALPHA_VISIBLE, CELL_HEIGHT, CELL_WIDTH, COLUMNS, FRAMES
-from build_idle_atlas_30 import DEFAULT_SAFE_INSET, validate_action_sequence
+from build_idle_atlas_30 import DEFAULT_SAFE_INSET, red_pink_hue_mask, validate_action_sequence
 
 
 EXPECTED = {
@@ -39,6 +39,12 @@ EXPECTED = {
 MID_ALPHA_MAX = 245
 EDGE_CONTAMINATION_LIMIT = 0
 MID_ALPHA_CONTAMINATION_LIMIT = 0
+# The curled sleep silhouette measures 4365 pixels at its smallest; keep a
+# meaningful floor below that observed minimum while retaining the care floor.
+MIN_VISIBLE_PIXELS_BY_KIND = {
+    "sleep": 4000,
+    "care": 5000,
+}
 
 
 def _expected(kind: str) -> dict[str, Any]:
@@ -82,18 +88,12 @@ def contamination_metrics(frame: Image.Image) -> dict[str, int]:
 
     # Strong purple/magenta is distinct from Xiaoman's blue eyes and bowls.
     magenta = boundary & (red >= 150) & (blue >= 150) & (red - green > 30) & (blue - green > 30)
-    red_pink = (
-        boundary
-        & (red >= 150)
-        & (red - green > 18)
-        & (blue - green > 8)
-        & ~magenta
-    )
+    red_pink = boundary & red_pink_hue_mask(red, green, blue) & ~magenta
     mid_alpha = (alpha > 0) & (alpha < MID_ALPHA_MAX)
     suspicious_mid_alpha = mid_alpha & (
         (green_dominance > 10)
         | ((red >= 150) & (blue >= 150) & (red - green > 30) & (blue - green > 30))
-        | ((red >= 150) & (red - green > 18) & (blue - green > 8))
+        | red_pink_hue_mask(red, green, blue)
     )
     return {
         "greenEdgeContaminationPixels": int(np.count_nonzero(green_edge)),
@@ -177,6 +177,7 @@ def _metadata_errors(metadata: object, kind: str, atlas: Image.Image) -> list[st
 
 def _validate_pixels(atlas: Image.Image, kind: str) -> tuple[list[str], list[dict[str, Any]], dict[str, dict[str, Any]]]:
     expected = _expected(kind)
+    minimum_visible_pixels = MIN_VISIBLE_PIXELS_BY_KIND[kind]
     errors: list[str] = []
     frame_results: list[dict[str, Any]] = []
     action_results: dict[str, dict[str, Any]] = {}
@@ -212,7 +213,7 @@ def _validate_pixels(atlas: Image.Image, kind: str) -> tuple[list[str], list[dic
                 **contamination,
             }
             frame_results.append(result)
-            if visible < 5000:
+            if visible < minimum_visible_pixels:
                 totals["emptyFrames"] += 1
                 errors.append(f"{action} frame {index} is empty")
             if any(corner != 0 for corner in corners):

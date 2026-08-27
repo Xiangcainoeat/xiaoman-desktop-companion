@@ -21,6 +21,23 @@ class CareAtlas30ContractTest(unittest.TestCase):
         atlas_row = row + index // 10
         return atlas.crop((column * 192, atlas_row * 208, (column + 1) * 192, (atlas_row + 1) * 208))
 
+    def _synthetic_action_atlas(
+        self,
+        rows: int,
+        action_rows: tuple[int, ...],
+        width: int,
+        height: int,
+    ) -> Image.Image:
+        atlas = Image.new("RGBA", (1920, rows * 208), (0, 0, 0, 0))
+        for row in action_rows:
+            for index in range(30):
+                frame = Image.new("RGBA", (192, 208), (0, 0, 0, 0))
+                left = 60 + index
+                top = 130
+                frame.paste((180, 145, 115, 255), (left, top, left + width, top + height))
+                atlas.alpha_composite(frame, ((index % 10) * 192, (row + index // 10) * 208))
+        return atlas
+
     def test_source_normalization_handles_eight_and_nine_column_sheets(self) -> None:
         import build_care_atlas_30
 
@@ -235,6 +252,31 @@ class CareAtlas30ContractTest(unittest.TestCase):
         report = verify_care_atlas_30.verify(Image.new("RGBA", (192, 208), (0, 0, 0, 0)), self._metadata("sleeping-30.json"), "sleep")
         self.assertFalse(report["ok"])
         self.assertTrue(any("dimensions" in error or "empty" in error for error in report["errors"]))
+
+    def test_verifier_allows_compact_sleep_body_but_rejects_a_tiny_body(self) -> None:
+        import verify_care_atlas_30
+
+        metadata = self._metadata("sleeping-30.json")
+        compact = self._synthetic_action_atlas(3, (0,), width=70, height=64)
+        compact_report = verify_care_atlas_30.verify(compact, metadata, "sleep")
+        self.assertTrue(compact_report["ok"], compact_report["errors"])
+        self.assertEqual(compact_report["actions"]["sleep"]["emptyFrames"], 0)
+
+        tiny = self._synthetic_action_atlas(3, (0,), width=20, height=20)
+        tiny_report = verify_care_atlas_30.verify(tiny, metadata, "sleep")
+        self.assertFalse(tiny_report["ok"])
+        self.assertTrue(any("sleep frame 0 is empty" in error for error in tiny_report["errors"]))
+
+    def test_verifier_keeps_care_body_floor_at_five_thousand_visible_pixels(self) -> None:
+        import verify_care_atlas_30
+
+        metadata = self._metadata("care-actions-30.json")
+        compact_care = self._synthetic_action_atlas(6, (0, 3), width=70, height=64)
+        report = verify_care_atlas_30.verify(compact_care, metadata, "care")
+
+        self.assertFalse(report["ok"])
+        self.assertTrue(any("bath frame 0 is empty" in error for error in report["errors"]))
+        self.assertTrue(any("feed-gift frame 0 is empty" in error for error in report["errors"]))
 
 
 if __name__ == "__main__":
