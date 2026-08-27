@@ -1,5 +1,6 @@
 import { appendActivity, clampStat, createDefaultData, decayStats, FOOD_IDS, makeId, STATE_LABELS } from "./shared/domain";
 import { applyBath, applyFeed, claimDailyQuest, completePetJob, openGiftBox, startPetJob } from "./shared/care";
+import { canHitDesktopBubble, DESKTOP_SESSION_DURATION_MS } from "./shared/desktop-interaction";
 import { settleGameResult } from "./shared/games";
 import type { XiaomanApi } from "./electron";
 import type {
@@ -8,10 +9,12 @@ import type {
   CompanionSettings,
   CodexThreadListResult,
   CursorPayload,
+  DesktopInteractionStatus,
   FoodId,
   GameId,
   JobId,
   InteractionAction,
+  QuickViewMode,
   ReminderInput,
   SoundName,
 } from "./shared/types";
@@ -33,9 +36,12 @@ function createMockApi(): XiaomanApi {
       codexBusy: false,
       codexStartedAt: null,
     },
+    desktopInteraction: { active: false, sessionId: null, startedAt: null, score: 0 },
   };
 
   let gameActive = false;
+  const desktopHitIds = new Set<string>();
+  let lastDesktopSessionId: string | null = null;
 
   const publish = () => {
     for (const listener of listeners) listener(structuredClone(current));
@@ -124,6 +130,7 @@ function createMockApi(): XiaomanApi {
       stateMessage: result.message ?? message,
       stateSource: "interaction",
       monitoring: current.monitoring,
+      desktopInteraction: current.desktopInteraction,
     };
     current.activity = appendActivity(current.activity, {
       source: "interaction",
@@ -184,6 +191,47 @@ function createMockApi(): XiaomanApi {
         throw new Error("没有这个小游戏");
       }
       return runCare({ kind: "complete-game", gameId, score }, "playful", "游戏完成", "pop", "完成互动游戏");
+    },
+    startDesktopBubbleSession: async () => {
+      if (!current.settings.gameModeEnabled) throw new Error("小游戏模式已关闭");
+      if (current.desktopInteraction.active) return structuredClone(current);
+      const now = Date.now();
+      current.desktopInteraction = {
+        active: true,
+        sessionId: makeId("preview-session"),
+        startedAt: now,
+        score: 0,
+      } satisfies DesktopInteractionStatus;
+      desktopHitIds.clear();
+      lastDesktopSessionId = null;
+      gameActive = true;
+      return publish();
+    },
+    hitDesktopBubble: async (sessionId: string, bubbleId: string) => {
+      if (!canHitDesktopBubble(current.desktopInteraction, sessionId, bubbleId, Date.now(), desktopHitIds)) {
+        throw new Error("泡泡命中无效");
+      }
+      desktopHitIds.add(bubbleId);
+      current.desktopInteraction = {
+        ...current.desktopInteraction,
+        score: current.desktopInteraction.score + 1,
+      };
+      return publish();
+    },
+    stopDesktopBubbleSession: async (sessionId: string, completed: boolean) => {
+      if (current.desktopInteraction.sessionId !== sessionId) {
+        if (!current.desktopInteraction.active && lastDesktopSessionId === sessionId) return structuredClone(current);
+        throw new Error("桌面互动 session 无效");
+      }
+      const score = current.desktopInteraction.score;
+      const expired = current.desktopInteraction.startedAt === null
+        || Date.now() >= current.desktopInteraction.startedAt + DESKTOP_SESSION_DURATION_MS;
+      lastDesktopSessionId = sessionId;
+      desktopHitIds.clear();
+      current.desktopInteraction = { active: false, sessionId: null, startedAt: null, score: 0 };
+      gameActive = false;
+      if (completed && !expired) return runCare({ kind: "complete-game", gameId: "bubble-pop", score }, "playful", "游戏完成", "pop", "完成桌面泡泡互动");
+      return publish();
     },
     saveReminder: async (input: ReminderInput) => {
       const index = input.id ? current.reminders.findIndex((item) => item.id === input.id) : -1;
@@ -269,10 +317,12 @@ function createMockApi(): XiaomanApi {
       transport: "native",
       message: message.trim() ? "浏览器预览仅模拟回复，未调用 Codex；请使用 Electron 应用" : "请输入回复内容",
     }),
+    showQuickWindow: (_mode: QuickViewMode) => undefined,
     setOverlayTaskPanel: () => undefined,
     showCenter: () => undefined,
     toggleOverlay: () => undefined,
     moveOverlayBy: () => undefined,
+    setOverlayMouseMode: () => undefined,
     showOverlayMenu: () => undefined,
     onSnapshot: (listener) => {
       listeners.add(listener);

@@ -6,6 +6,7 @@ import type {
   CodexReplyResult,
   CodexThreadListResult,
   CursorPayload,
+  QuickViewMode,
   FoodId,
   GameId,
   JobId,
@@ -26,6 +27,9 @@ export interface XiaomanApi {
   claimDailyQuest(questId: string): Promise<AppSnapshot>;
   setGameActive(active: boolean): void;
   completeGame(gameId: GameId, score: number): Promise<AppSnapshot>;
+  startDesktopBubbleSession(): Promise<AppSnapshot>;
+  hitDesktopBubble(sessionId: string, bubbleId: string): Promise<AppSnapshot>;
+  stopDesktopBubbleSession(sessionId: string, completed: boolean): Promise<AppSnapshot>;
   saveReminder(input: ReminderInput): Promise<AppSnapshot>;
   removeReminder(id: string): Promise<AppSnapshot>;
   toggleReminder(id: string): Promise<AppSnapshot>;
@@ -41,8 +45,10 @@ export interface XiaomanApi {
   replyCodexThread(threadId: string, message: string): Promise<CodexReplyResult>;
   setOverlayTaskPanel(open: boolean): void;
   showCenter(): void;
+  showQuickWindow(mode: QuickViewMode): void;
   toggleOverlay(): void;
   moveOverlayBy(deltaX: number, deltaY: number): void;
+  setOverlayMouseMode(mode: "passthrough" | "interactive"): void;
   showOverlayMenu(): void;
   onSnapshot(callback: (snapshot: AppSnapshot) => void): () => void;
   onCursor(callback: (payload: CursorPayload) => void): () => void;

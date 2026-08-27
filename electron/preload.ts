@@ -11,6 +11,7 @@ import type {
   GameId,
   JobId,
   InteractionAction,
+  QuickViewMode,
   ReminderInput,
   SoundName,
 } from "../src/shared/types";
@@ -27,6 +28,11 @@ contextBridge.exposeInMainWorld("xiaoman", {
   claimDailyQuest: (questId: string): Promise<AppSnapshot> => ipcRenderer.invoke("care:claim-daily-quest", questId),
   setGameActive: (active: boolean): void => ipcRenderer.send("game:set-active", active),
   completeGame: (gameId: GameId, score: number): Promise<AppSnapshot> => ipcRenderer.invoke("game:complete", gameId, score),
+  startDesktopBubbleSession: (): Promise<AppSnapshot> => ipcRenderer.invoke("desktop-bubble:start"),
+  hitDesktopBubble: (sessionId: string, bubbleId: string): Promise<AppSnapshot> =>
+    ipcRenderer.invoke("desktop-bubble:hit", sessionId, bubbleId),
+  stopDesktopBubbleSession: (sessionId: string, completed: boolean): Promise<AppSnapshot> =>
+    ipcRenderer.invoke("desktop-bubble:stop", sessionId, completed),
   saveReminder: (input: ReminderInput): Promise<AppSnapshot> => ipcRenderer.invoke("reminder:save", input),
   removeReminder: (id: string): Promise<AppSnapshot> => ipcRenderer.invoke("reminder:remove", id),
   toggleReminder: (id: string): Promise<AppSnapshot> => ipcRenderer.invoke("reminder:toggle", id),
@@ -44,8 +50,10 @@ contextBridge.exposeInMainWorld("xiaoman", {
     ipcRenderer.invoke("codex:thread:reply", threadId, message),
   setOverlayTaskPanel: (open: boolean): void => ipcRenderer.send("overlay:task-panel", open),
   showCenter: (): void => ipcRenderer.send("center:show"),
+  showQuickWindow: (mode: QuickViewMode): void => ipcRenderer.send("quick:show", mode),
   toggleOverlay: (): void => ipcRenderer.send("overlay:toggle"),
   moveOverlayBy: (deltaX: number, deltaY: number): void => ipcRenderer.send("overlay:move-by", deltaX, deltaY),
+  setOverlayMouseMode: (mode: "passthrough" | "interactive"): void => ipcRenderer.send("overlay:mouse-mode", mode),
   showOverlayMenu: (): void => ipcRenderer.send("overlay:context-menu"),
   onSnapshot: (callback: (snapshot: AppSnapshot) => void): (() => void) => {
     const listener = (_event: Electron.IpcRendererEvent, snapshot: AppSnapshot) => callback(snapshot);

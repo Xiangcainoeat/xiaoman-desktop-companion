@@ -257,6 +257,7 @@ export interface AppSnapshot extends PersistedData {
   stateMessage: string;
   stateSource: string;
   monitoring: MonitoringStatus;
+  desktopInteraction: DesktopInteractionStatus;
 }
 
 export interface ReminderInput {

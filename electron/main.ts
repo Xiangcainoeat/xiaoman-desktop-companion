@@ -54,6 +54,11 @@ import {
 } from "../src/shared/overlay-layout";
 import { mapCodexThreadStatus } from "../src/shared/codex-ui";
 import {
+  canHitDesktopBubble,
+  DESKTOP_BUBBLE_MAX_HITS,
+  DESKTOP_SESSION_DURATION_MS,
+} from "../src/shared/desktop-interaction";
+import {
   PET_STATES,
   SOUND_NAMES,
   type AppRule,
@@ -64,6 +69,7 @@ import {
   type CodexReplyResult,
   type CodexThreadListResult,
   type CodexThreadSummary,
+  type DesktopInteractionStatus,
   type FoodId,
   type GameId,
   type GameSettlement,
@@ -74,6 +80,7 @@ import {
   type Reminder,
   type ReminderInput,
   type SoundName,
+  type QuickViewMode,
 } from "../src/shared/types";
 
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
@@ -236,10 +243,131 @@ export function canCompleteGame(gameActive: boolean, gameModeEnabled: boolean): 
   return gameActive && gameModeEnabled;
 }
 
+export interface DesktopBubbleSessionState {
+  status: DesktopInteractionStatus;
+  hitIds: ReadonlySet<string>;
+  lastSessionId: string | null;
+}
+
+export function createDesktopBubbleSessionState(): DesktopBubbleSessionState {
+  return {
+    status: { active: false, sessionId: null, startedAt: null, score: 0 },
+    hitIds: new Set(),
+    lastSessionId: null,
+  };
+}
+
+export function startDesktopBubbleSessionState(
+  state: DesktopBubbleSessionState,
+  now: number,
+  gameModeEnabled: boolean,
+  gameActive: boolean,
+  sessionIdFactory = () => makeId("desktop-session"),
+): DesktopBubbleSessionState {
+  if (state.status.active || !gameModeEnabled || gameActive) return state;
+  return {
+    status: {
+      active: true,
+      sessionId: sessionIdFactory(),
+      startedAt: now,
+      score: 0,
+    },
+    hitIds: new Set(),
+    lastSessionId: null,
+  };
+}
+
+export function hitDesktopBubbleState(
+  state: DesktopBubbleSessionState,
+  sessionId: string,
+  bubbleId: string,
+  now: number,
+): { accepted: boolean; state: DesktopBubbleSessionState } {
+  if (!canHitDesktopBubble(state.status, sessionId, bubbleId, now, state.hitIds)) {
+    return { accepted: false, state };
+  }
+  const hitIds = new Set(state.hitIds);
+  hitIds.add(bubbleId);
+  return {
+    accepted: true,
+    state: {
+      ...state,
+      status: { ...state.status, score: Math.min(DESKTOP_BUBBLE_MAX_HITS, state.status.score + 1) },
+      hitIds,
+    },
+  };
+}
+
+export function stopDesktopBubbleSessionState(
+  state: DesktopBubbleSessionState,
+  sessionId: string,
+  completed: boolean,
+  now: number,
+): { state: DesktopBubbleSessionState; settlement: GameSettlement | null; accepted: boolean } {
+  if (!state.status.active) {
+    return {
+      state,
+      settlement: null,
+      accepted: state.lastSessionId === sessionId,
+    };
+  }
+  if (state.status.sessionId !== sessionId) return { state, settlement: null, accepted: false };
+
+  const expired = state.status.startedAt === null
+    || now >= state.status.startedAt + DESKTOP_SESSION_DURATION_MS;
+  const nextState: DesktopBubbleSessionState = {
+    status: { active: false, sessionId: null, startedAt: null, score: 0 },
+    hitIds: new Set(),
+    lastSessionId: sessionId,
+  };
+  return {
+    state: nextState,
+    settlement: completed && !expired ? settleGameResult("bubble-pop", state.status.score) : null,
+    accepted: true,
+  };
+}
+
+interface QuickWindowLike {
+  isDestroyed(): boolean;
+  show(): void;
+  focus(): void;
+}
+
+export function ensureQuickWindow<T extends QuickWindowLike>(
+  current: T | null,
+  mode: QuickViewMode,
+  createWindow: () => T,
+  loadMode: (window: T, mode: QuickViewMode) => void,
+): T {
+  const window = current && !current.isDestroyed() ? current : createWindow();
+  loadMode(window, mode);
+  window.show();
+  window.focus();
+  return window;
+}
+
+export function isTrustedSender(
+  sender: unknown,
+  senderFrame: unknown,
+  trustedContents: readonly unknown[],
+): boolean {
+  const mainFrame = (sender as { mainFrame?: unknown } | null)?.mainFrame;
+  return trustedContents.includes(sender) && senderFrame === mainFrame;
+}
+
+export function setOverlayMouseModeForWindow(
+  window: { setIgnoreMouseEvents(ignore: boolean, options?: { forward: boolean }): void },
+  mode: "passthrough" | "interactive",
+): void {
+  if (mode === "passthrough") window.setIgnoreMouseEvents(true, { forward: true });
+  else window.setIgnoreMouseEvents(false);
+}
+
 let store: CompanionStore;
 let data: PersistedData;
 let overlayWindow: BrowserWindow | null = null;
 let centerWindow: BrowserWindow | null = null;
+let quickWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let codexMonitor: CodexSessionMonitor | null = null;
 let codexSessionsService: CodexSessionsService;
@@ -250,6 +378,7 @@ let autoSleepTimer: NodeJS.Timeout | null = null;
 let cursorTimer: NodeJS.Timeout | null = null;
 let stateTimer: NodeJS.Timeout | null = null;
 let overlayPositionSaveTimer: NodeJS.Timeout | null = null;
+let desktopSessionExpiryTimer: NodeJS.Timeout | null = null;
 let overlayTaskPanelOpen = false;
 let codexThreadCache: { at: number; result: CodexThreadListResult } | null = null;
 let codexThreadListInFlight: Promise<CodexThreadListResult> | null = null;
@@ -258,6 +387,8 @@ let quitting = false;
 let currentAppRule: AppRule | null = null;
 let stateSequence = 0;
 let gameActive = false;
+let desktopSessionState = createDesktopBubbleSessionState();
+let overlayMouseMode: "passthrough" | "interactive" = "interactive";
 let lastSystemIdleSeconds: number | null = null;
 let careRandomSource: () => number = () => Math.random();
 
@@ -298,6 +429,7 @@ function snapshot(): AppSnapshot {
     stateMessage: runtimeState.message,
     stateSource: runtimeState.source,
     monitoring: { ...monitoring },
+    desktopInteraction: { ...desktopSessionState.status },
   };
 }
 
@@ -307,7 +439,7 @@ function persist(): void {
 
 function broadcast(): void {
   const next = snapshot();
-  for (const window of [overlayWindow, centerWindow]) {
+  for (const window of [overlayWindow, centerWindow, quickWindow]) {
     if (window && !window.isDestroyed()) window.webContents.send("snapshot:changed", next);
   }
   updateTrayMenu();
@@ -470,6 +602,7 @@ function claimDailyQuest(questId: string): AppSnapshot {
 
 function completeGame(gameId: GameId, score: number): AppSnapshot {
   if (!canCompleteGame(gameActive, data.settings.gameModeEnabled)) throw new Error("没有正在进行的游戏");
+  if (desktopSessionState.status.active) throw new Error("桌面泡泡互动正在进行");
   const result = runCareMutation({ kind: "complete-game", gameId, score }, "完成互动游戏", "playful", "游戏完成", "pop");
   gameActive = false;
   return result;
@@ -843,6 +976,7 @@ function configurePowerMonitor(): void {
 }
 
 function setGameActive(active: boolean): void {
+  if (!active && desktopSessionState.status.active) return;
   gameActive = active && data.settings.gameModeEnabled;
   if (!gameActive || !(data.sleeping && data.sleepReason === "inactivity")) return;
   data = { ...data, sleeping: false, sleepReason: null };
@@ -855,6 +989,87 @@ function setGameActive(active: boolean): void {
   triggerState("playful", "一起玩吧", "interaction", 2600, 90, false);
   emitSound("pop");
   persistAndBroadcast();
+}
+
+function clearDesktopSessionExpiryTimer(): void {
+  if (desktopSessionExpiryTimer) clearTimeout(desktopSessionExpiryTimer);
+  desktopSessionExpiryTimer = null;
+}
+
+function clearDesktopBubbleSessionWithoutReward(shouldBroadcast = true): void {
+  clearDesktopSessionExpiryTimer();
+  if (!desktopSessionState.status.active) return;
+  const sessionId = desktopSessionState.status.sessionId;
+  if (!sessionId) return;
+  desktopSessionState = stopDesktopBubbleSessionState(desktopSessionState, sessionId, false, Date.now()).state;
+  gameActive = false;
+  if (shouldBroadcast) broadcast();
+}
+
+function expireDesktopBubbleSession(sessionId: string): void {
+  if (desktopSessionState.status.sessionId !== sessionId) return;
+  clearDesktopBubbleSessionWithoutReward();
+}
+
+function scheduleDesktopSessionExpiry(sessionId: string, startedAt: number): void {
+  clearDesktopSessionExpiryTimer();
+  desktopSessionExpiryTimer = setTimeout(() => expireDesktopBubbleSession(sessionId), Math.max(0, startedAt + DESKTOP_SESSION_DURATION_MS - Date.now()));
+}
+
+export function startDesktopBubbleSession(): Promise<AppSnapshot> {
+  if (!data.settings.gameModeEnabled) return Promise.reject(new Error("小游戏模式已关闭"));
+  const now = Date.now();
+  if (desktopSessionState.status.active
+    && desktopSessionState.status.startedAt !== null
+    && now >= desktopSessionState.status.startedAt + DESKTOP_SESSION_DURATION_MS) {
+    const expiredSessionId = desktopSessionState.status.sessionId;
+    if (expiredSessionId) expireDesktopBubbleSession(expiredSessionId);
+  }
+  if (desktopSessionState.status.active) return Promise.resolve(snapshot());
+  if (gameActive) return Promise.reject(new Error("已有游戏正在进行"));
+  desktopSessionState = startDesktopBubbleSessionState(desktopSessionState, now, data.settings.gameModeEnabled, gameActive);
+  const sessionId = desktopSessionState.status.sessionId;
+  if (!sessionId || desktopSessionState.status.startedAt === null) return Promise.reject(new Error("无法开始桌面互动"));
+  setGameActive(true);
+  scheduleDesktopSessionExpiry(sessionId, desktopSessionState.status.startedAt);
+  broadcast();
+  return Promise.resolve(snapshot());
+}
+
+export function hitDesktopBubble(sessionId: string, bubbleId: string): Promise<AppSnapshot> {
+  const now = Date.now();
+  if (desktopSessionState.status.startedAt !== null
+    && now >= desktopSessionState.status.startedAt + DESKTOP_SESSION_DURATION_MS) {
+    const activeSessionId = desktopSessionState.status.sessionId;
+    if (activeSessionId) expireDesktopBubbleSession(activeSessionId);
+  }
+  const result = hitDesktopBubbleState(desktopSessionState, sessionId, bubbleId, now);
+  if (!result.accepted) return Promise.reject(new Error("泡泡命中无效"));
+  desktopSessionState = result.state;
+  broadcast();
+  return Promise.resolve(snapshot());
+}
+
+export function stopDesktopBubbleSession(sessionId: string, completed: boolean): Promise<AppSnapshot> {
+  const now = Date.now();
+  const result = stopDesktopBubbleSessionState(desktopSessionState, sessionId, completed, now);
+  if (!result.accepted) return Promise.reject(new Error("桌面互动 session 无效"));
+  clearDesktopSessionExpiryTimer();
+  desktopSessionState = result.state;
+  if (result.settlement) {
+    const settled = runCareMutation(
+      { kind: "complete-game", gameId: "bubble-pop", score: result.settlement.score },
+      "完成桌面泡泡互动",
+      "playful",
+      "泡泡互动完成",
+      "pop",
+    );
+    gameActive = false;
+    return Promise.resolve(settled);
+  }
+  gameActive = false;
+  broadcast();
+  return Promise.resolve(snapshot());
 }
 
 function runMaintenance(): void {
@@ -1080,13 +1295,16 @@ function assetPath(fileName: string): string {
     : path.join(app.getAppPath(), "dist", "pet", fileName);
 }
 
-async function loadView(window: BrowserWindow, view: "overlay" | "center"): Promise<void> {
+async function loadView(window: BrowserWindow, view: "overlay" | "center" | "quick", mode?: QuickViewMode): Promise<void> {
   if (isDevelopment) {
     const url = new URL(process.env.VITE_DEV_SERVER_URL!);
     url.searchParams.set("view", view);
+    if (view === "quick" && mode) url.searchParams.set("mode", mode);
     await window.loadURL(url.toString());
   } else {
-    await window.loadFile(path.join(app.getAppPath(), "dist", "index.html"), { query: { view } });
+    await window.loadFile(path.join(app.getAppPath(), "dist", "index.html"), {
+      query: view === "quick" && mode ? { view, mode } : { view },
+    });
   }
 }
 
@@ -1102,9 +1320,9 @@ function assertTrustedSender(
   sender: IpcMainInvokeEvent["sender"],
   senderFrame: IpcMainInvokeEvent["senderFrame"],
 ): void {
-  const trustedContents = [overlayWindow?.webContents, centerWindow?.webContents]
+  const trustedContents = [overlayWindow?.webContents, centerWindow?.webContents, quickWindow?.webContents]
     .filter((contents) => contents && !contents.isDestroyed());
-  if (!trustedContents.includes(sender) || senderFrame !== sender.mainFrame) {
+  if (!isTrustedSender(sender, senderFrame, trustedContents)) {
     throw new Error("Rejected IPC call from an untrusted renderer");
   }
 }
@@ -1153,6 +1371,7 @@ function createOverlayWindow(): void {
     },
   });
   hardenRendererWindow(overlayWindow);
+  setOverlayMouseModeForWindow(overlayWindow, overlayMouseMode);
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   overlayWindow.setHiddenInMissionControl(true);
   overlayWindow.on("close", (event) => {
@@ -1205,6 +1424,64 @@ function showCenter(): void {
   if (!centerWindow || centerWindow.isDestroyed()) createCenterWindow();
   centerWindow?.show();
   centerWindow?.focus();
+}
+
+function createQuickWindow(): BrowserWindow {
+  const display = screen.getPrimaryDisplay();
+  const width = 390;
+  const height = 560;
+  const window = new BrowserWindow({
+    width,
+    height,
+    x: display.workArea.x + display.workArea.width - width - 28,
+    y: display.workArea.y + 76,
+    transparent: true,
+    frame: false,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    show: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    hasShadow: false,
+    backgroundColor: "#00000000",
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  });
+  hardenRendererWindow(window);
+  window.on("close", (event) => {
+    if (!quitting) {
+      event.preventDefault();
+      window.hide();
+    }
+  });
+  window.on("closed", () => {
+    if (quickWindow === window) quickWindow = null;
+  });
+  window.webContents.on("render-process-gone", () => {
+    if (quickWindow === window) quickWindow = null;
+  });
+  window.on("ready-to-show", () => broadcast());
+  return window;
+}
+
+export function showQuickWindow(mode: QuickViewMode): void {
+  quickWindow = ensureQuickWindow(
+    quickWindow,
+    mode,
+    createQuickWindow,
+    (window, nextMode) => { void loadView(window, "quick", nextMode); },
+  );
+}
+
+export function setOverlayMouseMode(mode: "passthrough" | "interactive"): void {
+  overlayMouseMode = mode;
+  if (overlayWindow && !overlayWindow.isDestroyed()) setOverlayMouseModeForWindow(overlayWindow, mode);
 }
 
 function toggleOverlay(): void {
@@ -1327,7 +1604,10 @@ function applySettingsSideEffects(previous: CompanionSettings): void {
     app.setLoginItemSettings({ openAtLogin: data.settings.startAtLogin });
   }
   if (previous.codexReplyTransport !== data.settings.codexReplyTransport) codexThreadCache = null;
-  if (previous.gameModeEnabled && !data.settings.gameModeEnabled) gameActive = false;
+  if (previous.gameModeEnabled && !data.settings.gameModeEnabled) {
+    clearDesktopBubbleSessionWithoutReward(false);
+    gameActive = false;
+  }
   monitoring.notifications = !data.settings.systemNotifications
     ? "off"
     : Notification.isSupported()
@@ -1427,6 +1707,24 @@ function registerIpcHandlers(): void {
     if (!data.settings.gameModeEnabled) throw new Error("小游戏模式已关闭");
     return completeGame(gameId, score);
   });
+  ipcMain.handle("desktop-bubble:start", (event) => {
+    assertTrustedInvoke(event);
+    return startDesktopBubbleSession();
+  });
+  ipcMain.handle("desktop-bubble:hit", (event, sessionId: unknown, bubbleId: unknown) => {
+    assertTrustedInvoke(event);
+    if (typeof sessionId !== "string" || !sessionId || typeof bubbleId !== "string" || !bubbleId) {
+      throw new Error("泡泡命中参数无效");
+    }
+    return hitDesktopBubble(sessionId, bubbleId);
+  });
+  ipcMain.handle("desktop-bubble:stop", (event, sessionId: unknown, completed: unknown) => {
+    assertTrustedInvoke(event);
+    if (typeof sessionId !== "string" || !sessionId || typeof completed !== "boolean") {
+      throw new Error("桌面互动结束参数无效");
+    }
+    return stopDesktopBubbleSession(sessionId, completed);
+  });
   ipcMain.handle("reminder:save", (_event, input: ReminderInput) => {
     const index = input.id ? data.reminders.findIndex((item) => item.id === input.id) : -1;
     const reminder = normalizedReminder(input, index >= 0 ? data.reminders[index] : undefined);
@@ -1501,6 +1799,16 @@ function registerIpcHandlers(): void {
   ipcMain.handle("codex:thread:reply", (event, threadId: string, message: string) => {
     assertTrustedInvoke(event);
     return replyToCodexThread(threadId, message);
+  });
+  ipcMain.on("quick:show", (event, mode: unknown) => {
+    assertTrustedSender(event.sender, event.senderFrame);
+    if (mode !== "care" && mode !== "interaction") throw new Error("快捷窗口模式无效");
+    showQuickWindow(mode);
+  });
+  ipcMain.on("overlay:mouse-mode", (event, mode: unknown) => {
+    assertTrustedSender(event.sender, event.senderFrame);
+    if (mode !== "passthrough" && mode !== "interactive") throw new Error("Overlay 鼠标模式无效");
+    setOverlayMouseMode(mode);
   });
   ipcMain.on("center:show", () => showCenter());
   ipcMain.on("overlay:toggle", () => toggleOverlay());
