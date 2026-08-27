@@ -1,5 +1,10 @@
 # Care Atlas Convergence Report
 
+> Historical pre-expansion candidate report. Its 10-pose source and stale
+> public-output handoff were superseded by the accepted 6x6/36-source assets
+> documented in `work/xiaoman-care-assets/smooth-action-qa-report.json` and
+> `work/xiaoman-care-assets/expanded-source-provenance.json`.
+
 Date: 2026-08-28
 Worktree: `/Users/zk/.config/superpowers/worktrees/xiaoman-desktop-companion-release/xiaoman-care-and-games`
 Branch: `feature/xiaoman-care-and-games`

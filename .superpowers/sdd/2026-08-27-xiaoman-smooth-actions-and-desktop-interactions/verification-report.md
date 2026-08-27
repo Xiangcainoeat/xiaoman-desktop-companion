@@ -1,5 +1,11 @@
 # Smooth Action Atlas Verification
 
+> Historical pre-expansion report. The failures below describe the earlier
+> 10-pose candidate and are retained as red/diagnostic evidence; they are
+> superseded by the accepted 6x6/36-source build documented in
+> `work/xiaoman-care-assets/smooth-action-qa-report.json` and
+> `work/xiaoman-care-assets/expanded-source-provenance.json`.
+
 Date: 2026-08-27
 Worktree: `/Users/zk/.config/superpowers/worktrees/xiaoman-desktop-companion-release/xiaoman-care-and-games`
 
