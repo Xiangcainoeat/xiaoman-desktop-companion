@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   CircleOff,
   Code2,
+  Eye,
   Fish,
   Gamepad2,
   Heart,
@@ -12,11 +13,13 @@ import {
   Sparkles,
   Zap,
 } from "lucide-react";
+import { useState } from "react";
 import { STATE_LABELS } from "../shared/domain";
 import type { AppSnapshot, InteractionAction } from "../shared/types";
 import { bridge } from "../useCompanion";
 import { EmptyState, StatBar } from "./Controls";
 import { PetSprite } from "./PetSprite";
+import { ActionPreview } from "./ActionPreview";
 
 function statusText(status: string): string {
   if (status === "watching" || status === "available") return "已连接";
@@ -30,6 +33,7 @@ function formatActivityTime(at: number): string {
 }
 
 export function OverviewView({ snapshot }: { snapshot: AppSnapshot }) {
+  const [showActionPreview, setShowActionPreview] = useState(false);
   const actions: Array<{
     action: InteractionAction;
     label: string;
@@ -87,6 +91,13 @@ export function OverviewView({ snapshot }: { snapshot: AppSnapshot }) {
             </button>
           ))}
         </div>
+        <button className="preview-trigger" type="button" onClick={() => setShowActionPreview(true)}>
+          <Eye size={17} />
+          <span>动作预览</span>
+        </button>
+        {showActionPreview && (
+          <ActionPreview settings={snapshot.settings} onClose={() => setShowActionPreview(false)} />
+        )}
       </section>
 
       <div className="overview-columns">

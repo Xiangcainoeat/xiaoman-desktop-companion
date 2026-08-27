@@ -22,18 +22,22 @@ import type { AnimationClock } from "../shared/animation";
 import type { CursorPositionSample } from "../shared/gaze";
 import type { CompanionSettings, PetMotion, PetProfile, PetState } from "../shared/types";
 
+export type CareMotion = "care-bath" | "care-feed";
+export type PetSpriteMotion = PetMotion | CareMotion;
+export type PetSpriteState = PetState | "bathing";
+
 interface PetSpriteProps {
-  state: PetState;
+  state: PetSpriteState;
   settings: CompanionSettings;
   size?: number;
   className?: string;
-  motion?: PetMotion | null;
+  motion?: PetSpriteMotion | null;
   gazeSuppressed?: boolean;
   onGazeActivityChange?: (active: boolean) => void;
 }
 
 interface AnimationSpec {
-  atlas: "standard" | "idle";
+  atlas: "standard" | "idle" | "sleeping" | "care";
   row: number;
   frames: number;
   fps: number;
@@ -95,6 +99,11 @@ const MOTION_SPEC: Record<PetMotion, AnimationSpec> = {
   "idle-scratch": { atlas: "idle", row: 6, frames: 30, fps: 5.1, columns: 10, atlasRows: 9 },
 };
 
+const CARE_MOTION_SPEC: Record<CareMotion, AnimationSpec> = {
+  "care-bath": { atlas: "care", row: 0, frames: 30, fps: 5.2, columns: 10, atlasRows: 6 },
+  "care-feed": { atlas: "care", row: 3, frames: 30, fps: 5.2, columns: 10, atlasRows: 6 },
+};
+
 const LOOK_STATES = new Set<PetState>(["idle", "working", "happy", "celebrating", "sleepy"]);
 
 const LOOK_ATLAS_FALLBACKS: Record<PetProfile, LookAtlasMetadata> = {
@@ -116,7 +125,7 @@ const LOOK_ATLAS_FALLBACKS: Record<PetProfile, LookAtlasMetadata> = {
   },
 };
 
-function MoodGlyph({ state }: { state: PetState }) {
+function MoodGlyph({ state }: { state: PetSpriteState }) {
   if (state === "hungry") return <Fish aria-hidden="true" />;
   if (state === "eating") return <Utensils aria-hidden="true" />;
   if (state === "affectionate" || state === "happy") return <Heart aria-hidden="true" />;
@@ -192,8 +201,10 @@ export function PetSprite({
   }, [motion, state]);
 
   const animation = useMemo<AnimationSpec>(() => {
-    if (motion && !(settings.petProfile === "native" && motion.startsWith("idle-"))) {
-      return MOTION_SPEC[motion];
+    if (motion && !(settings.petProfile === "native" && (motion.startsWith("idle-") || motion.startsWith("care-")))) {
+      return motion.startsWith("care-")
+        ? CARE_MOTION_SPEC[motion as CareMotion]
+        : MOTION_SPEC[motion as PetMotion];
     }
     if (settled) {
       return {
@@ -205,12 +216,24 @@ export function PetSprite({
         atlasRows: 11,
       };
     }
-    const row = STATE_ROW[state];
+    if (settings.petProfile === "native" && motion === "care-bath") {
+      return { atlas: "standard", row: 0, frames: STANDARD_ATLAS_FRAME_COUNTS[0], fps: 3.4, columns: 8, atlasRows: 11 };
+    }
+    if (settings.petProfile === "enhanced" && state === "sleeping") {
+      return { atlas: "sleeping", row: 0, frames: 30, fps: 5.2, columns: 10, atlasRows: 3 };
+    }
+    if (settings.petProfile === "enhanced" && state === "bathing") {
+      return CARE_MOTION_SPEC["care-bath"];
+    }
+    if (settings.petProfile === "enhanced" && state === "eating") {
+      return CARE_MOTION_SPEC["care-feed"];
+    }
+    const row = STATE_ROW[state as PetState];
     return {
       atlas: "standard",
       row,
       frames: STANDARD_ATLAS_FRAME_COUNTS[row],
-      fps: STATE_FPS[state],
+      fps: STATE_FPS[state as PetState],
       columns: 8,
       atlasRows: 11,
     };
@@ -283,14 +306,23 @@ export function PetSprite({
       height: dimensions.height,
       backgroundImage: animation.atlas === "idle"
         ? "url('./pet/idle-actions-30.webp')"
-        : `url('${root}/spritesheet.webp')`,
+        : animation.atlas === "sleeping"
+          ? "url('./pet/sleeping-30.webp')"
+          : animation.atlas === "care"
+            ? "url('./pet/care-actions-30.webp')"
+            : `url('${root}/spritesheet.webp')`,
       backgroundSize: `${size * animation.columns}px ${dimensions.height * animation.atlasRows}px`,
       backgroundPosition: `${-framePosition.column * size}px ${-framePosition.row * dimensions.height}px`,
     };
   }, [animation, dimensions.height, dimensions.width, framePosition, settings.petProfile, size]);
 
   useEffect(() => {
-    const canLook = settings.gazeEnabled && !gazeSuppressed && !motion && !reducedMotion && LOOK_STATES.has(state);
+    const canLook = settings.gazeEnabled
+      && !gazeSuppressed
+      && !motion
+      && !reducedMotion
+      && state !== "bathing"
+      && LOOK_STATES.has(state);
 
     const setLooking = (active: boolean) => {
       const changed = lookingRef.current !== active;

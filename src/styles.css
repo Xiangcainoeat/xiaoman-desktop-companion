@@ -241,6 +241,71 @@ select:focus-visible {
   animation: sleep-drift 2.4s ease-in-out infinite;
 }
 
+.preview-trigger {
+  display: inline-flex;
+  gap: 7px;
+  align-items: center;
+  margin-top: 14px;
+  padding: 8px 0;
+  border: 0;
+  color: var(--green);
+  background: transparent;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.preview-trigger:hover { color: var(--coral); }
+
+.action-preview {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.action-preview-heading,
+.action-preview-actions {
+  display: flex;
+  align-items: center;
+}
+
+.action-preview-heading { justify-content: space-between; }
+.action-preview-heading h3 { margin: 3px 0 0; }
+
+.action-preview-stage {
+  display: grid;
+  min-height: 220px;
+  margin: 14px 0;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.action-preview-actions {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.action-preview-actions button {
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--ink);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.action-preview-actions button.is-selected {
+  border-color: var(--green);
+  color: var(--green);
+  background: rgba(62, 124, 90, 0.08);
+}
+
 @keyframes mood-in {
   from { opacity: 0; transform: scale(0.65); }
   to { opacity: 1; transform: scale(1); }
