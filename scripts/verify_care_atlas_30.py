@@ -12,6 +12,7 @@ import numpy as np
 from PIL import Image
 
 from build_care_atlas_30 import ALPHA_VISIBLE, CELL_HEIGHT, CELL_WIDTH, COLUMNS, FRAMES
+from build_idle_atlas_30 import validate_action_sequence
 
 
 EXPECTED = {
@@ -259,6 +260,15 @@ def verify(atlas: Image.Image, metadata: object = None, kind: str | None = None)
         errors.extend(_metadata_errors(metadata, kind, atlas))
     pixel_errors, frames, actions = _validate_pixels(atlas, kind)
     errors.extend(pixel_errors)
+    sequence_reports: dict[str, dict[str, object]] = {}
+    for row, action in expected["row_actions"].items():
+        action_frames = [_frame(atlas, row, index) for index in range(FRAMES)]
+        opaque = np.concatenate([
+            np.asarray(frame.convert("RGBA"))[..., :3][np.asarray(frame.getchannel("A")) >= 245]
+            for frame in action_frames
+        ], axis=0)
+        reference = np.median(opaque, axis=0) if len(opaque) else (0, 0, 0)
+        sequence_reports[action] = validate_action_sequence(action_frames, reference, 8)
     return {
         "ok": not errors,
         "kind": kind,
@@ -272,6 +282,7 @@ def verify(atlas: Image.Image, metadata: object = None, kind: str | None = None)
         "checkedRows": sorted(expected["row_actions"]),
         "errors": errors,
         "actions": actions,
+        "sequence": sequence_reports,
         "frames": frames,
     }
 
@@ -300,7 +311,8 @@ def main() -> None:
         args.report.parent.mkdir(parents=True, exist_ok=True)
         args.report.write_text(json.dumps(report, ensure_ascii=True, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(report, ensure_ascii=True))
-    if not report["ok"]:
+    sequence_failures = [name for name, result in report.get("sequence", {}).items() if not result.get("ok")]
+    if not report["ok"] or sequence_failures:
         raise SystemExit("care atlas verification failed")
 
 

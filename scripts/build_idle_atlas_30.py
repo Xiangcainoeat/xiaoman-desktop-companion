@@ -250,15 +250,15 @@ def _union_bounds(bounds: Iterable[tuple[int, int, int, int]]) -> tuple[int, int
 
 
 def _composite_clipped(destination: Image.Image, foreground: Image.Image, xy: tuple[int, int]) -> None:
+    """Composite only complete foregrounds; clipping would hide broken assets."""
     left, top = xy
     right = left + foreground.width
     bottom = top + foreground.height
-    clip_left, clip_top = max(0, left), max(0, top)
-    clip_right, clip_bottom = min(destination.width, right), min(destination.height, bottom)
-    if clip_left >= clip_right or clip_top >= clip_bottom:
-        return
-    cropped = foreground.crop((clip_left - left, clip_top - top, clip_right - left, clip_bottom - top))
-    destination.alpha_composite(cropped, (clip_left, clip_top))
+    if left < 0 or top < 0 or right > destination.width or bottom > destination.height:
+        raise ValueError(
+            f"foreground placement {(left, top, right, bottom)} exceeds destination {destination.size}"
+        )
+    destination.alpha_composite(foreground, xy)
 
 
 def _matte_regression() -> dict[str, bool]:
@@ -276,6 +276,7 @@ def _matte_regression() -> dict[str, bool]:
 def normalize_action_frames(
     source_frames: list[Image.Image],
     scale_multiplier: float = 1.0,
+    safe_inset: int | tuple[int, int, int, int] = 8,
 ) -> tuple[list[Image.Image], dict[str, object]]:
     """Normalize action motion around a shared neutral subject size.
 
@@ -284,8 +285,18 @@ def normalize_action_frames(
     It scales the complete foreground uniformly, preserving the cat's aspect
     ratio while keeping the feet on the same baseline.
     """
+    if not source_frames:
+        raise ValueError("source_frames must not be empty")
     if not np.isfinite(scale_multiplier) or scale_multiplier <= 0:
         raise ValueError("scale_multiplier must be a positive finite number")
+    if isinstance(safe_inset, int):
+        inset = (safe_inset,) * 4
+    elif len(safe_inset) == 4:
+        inset = tuple(int(value) for value in safe_inset)
+    else:
+        raise ValueError("safe_inset must be an integer or (left, top, right, bottom)")
+    if any(value < 0 for value in inset):
+        raise ValueError("safe_inset values must be non-negative")
     keyed_frames: list[Image.Image] = []
     matte_stats: list[dict[str, int]] = []
     for source in source_frames:
@@ -293,18 +304,35 @@ def normalize_action_frames(
         keyed_frames.append(despill_edges(keyed))
         matte_stats.append(stats)
     frame_bounds = [_foreground_bbox(frame) for frame in keyed_frames]
+    union_bbox = _union_bounds(frame_bounds)
     neutral_indices = list(range(min(4, len(frame_bounds)))) + list(range(max(0, len(frame_bounds) - 4), len(frame_bounds)))
     neutral_dimensions = np.array([
         (frame_bounds[index][2] - frame_bounds[index][0], frame_bounds[index][3] - frame_bounds[index][1])
         for index in neutral_indices
     ], dtype=np.float32)
     neutral_width, neutral_height = np.median(neutral_dimensions, axis=0)
-    scale = min(NEUTRAL_TARGET_WIDTH / neutral_width, NEUTRAL_TARGET_HEIGHT / neutral_height)
+    union_width = union_bbox[2] - union_bbox[0]
+    union_height = union_bbox[3] - union_bbox[1]
+    scale = min(NEUTRAL_TARGET_WIDTH / union_width, NEUTRAL_TARGET_HEIGHT / union_height)
     scale *= float(scale_multiplier)
     neutral_size = (
         max(1, round(neutral_width * scale)),
         max(1, round(neutral_height * scale)),
     )
+    scaled_union_size = (max(1, round(union_width * scale)), max(1, round(union_height * scale)))
+    registration_left = (CELL_WIDTH - scaled_union_size[0]) // 2
+    registration_top = 202 - scaled_union_size[1]
+    safe_box = (
+        inset[0], inset[1], CELL_WIDTH - inset[2], CELL_HEIGHT - inset[3],
+    )
+    if (
+        registration_left < safe_box[0]
+        or registration_top < safe_box[1]
+        or registration_left + scaled_union_size[0] > safe_box[2]
+        or registration_top + scaled_union_size[1] > max(safe_box[3], 202)
+    ):
+        raise ValueError(f"union foreground exceeds safe inset {inset}: {scaled_union_size}")
+
     normalized: list[Image.Image] = []
     for keyed, bounds in zip(keyed_frames, frame_bounds):
         cropped = keyed.crop(bounds)
@@ -314,16 +342,95 @@ def normalize_action_frames(
         )
         foreground = cropped.resize(target_size, Image.Resampling.LANCZOS)
         frame = Image.new("RGBA", (CELL_WIDTH, CELL_HEIGHT), (0, 0, 0, 0))
-        _composite_clipped(frame, foreground, ((CELL_WIDTH - foreground.width) // 2, 202 - foreground.height))
-        normalized.append(despill_edges(frame))
+        offset_x = round((bounds[0] - union_bbox[0]) * scale)
+        x = registration_left + offset_x
+        y = 202 - foreground.height
+        _composite_clipped(frame, foreground, (x, y))
+        cleaned = despill_edges(frame)
+        pixels = np.asarray(cleaned).copy()
+        pixels[pixels[..., 3] < ALPHA_VISIBLE, :3] = 0
+        pixels[pixels[..., 3] < ALPHA_VISIBLE, 3] = 0
+        normalized.append(Image.fromarray(pixels, "RGBA"))
     return normalized, {
         "scale": float(round(float(scale), 6)),
         "scaleMultiplier": float(round(float(scale_multiplier), 6)),
         "sharedScale": True,
+        "sharedRegistration": True,
+        "unionBBox": list(union_bbox),
+        "safeInset": list(inset),
+        "baseline": 202,
         "neutralReferenceSize": [NEUTRAL_TARGET_WIDTH, NEUTRAL_TARGET_HEIGHT],
         "neutralSubjectSize": list(neutral_size),
         "backgroundPixelsRemoved": sum(item["backgroundPixelsRemoved"] for item in matte_stats),
         "backgroundHolePixelsRemoved": sum(item["backgroundHolePixelsRemoved"] for item in matte_stats),
+    }
+
+
+def _safe_box(safe_inset: int | tuple[int, int, int, int], size: tuple[int, int]) -> tuple[int, int, int, int]:
+    inset = (safe_inset,) * 4 if isinstance(safe_inset, int) else tuple(safe_inset)
+    if len(inset) != 4 or any(int(value) < 0 for value in inset):
+        raise ValueError("safe_inset must be an integer or (left, top, right, bottom)")
+    return int(inset[0]), int(inset[1]), size[0] - int(inset[2]), size[1] - int(inset[3])
+
+
+def validate_action_sequence(
+    frames: list[Image.Image],
+    reference_rgb: Image.Image | np.ndarray | tuple[int, int, int],
+    safe_inset: int | tuple[int, int, int, int] = 8,
+) -> dict[str, object]:
+    """Return deterministic action quality metrics without modifying frames."""
+    if not frames:
+        raise ValueError("frames must not be empty")
+    safe = _safe_box(safe_inset, frames[0].size)
+    arrays = [np.asarray(frame.convert("RGBA"), dtype=np.uint8) for frame in frames]
+    duplicate_pairs = sum(np.array_equal(previous, current) for previous, current in zip(arrays, arrays[1:]))
+    duplicate_ratio = duplicate_pairs / max(1, len(frames) - 1)
+    edge_pixels = 0
+    matte_pixels = 0
+    bbox_violations = 0
+    signatures: list[np.ndarray] = []
+    for pixels in arrays:
+        alpha = pixels[..., 3]
+        visible = alpha >= ALPHA_VISIBLE
+        hidden_rgb = (alpha == 0) & np.any(pixels[..., :3] != 0, axis=2)
+        matte = visible & (pixels[..., 1].astype(int) - np.maximum(pixels[..., 0], pixels[..., 2]).astype(int) > 10)
+        boundary = visible & (~_shift(visible.astype(np.uint8), 1, 0).astype(bool) | ~_shift(visible.astype(np.uint8), -1, 0).astype(bool))
+        boundary |= visible & (~_shift(visible.astype(np.uint8), 0, 1).astype(bool) | ~_shift(visible.astype(np.uint8), 0, -1).astype(bool))
+        red, green, blue = [pixels[..., index].astype(int) for index in range(3)]
+        edge_pixels += int(np.count_nonzero(boundary & ((green - np.maximum(red, blue) > 10) | ((red > 150) & (blue > 120) & (red - green > 25)))))
+        matte_pixels += int(np.count_nonzero(hidden_rgb | matte))
+        ys, xs = np.where(visible)
+        if not len(xs) or xs.min() < safe[0] or ys.min() < safe[1] or xs.max() + 1 > safe[2] or ys.max() + 1 > safe[3]:
+            bbox_violations += 1
+        opaque = pixels[alpha >= ALPHA_OPAQUE, :3]
+        if len(opaque):
+            signatures.append(np.median(opaque, axis=0).astype(np.float32))
+    reference = np.asarray(reference_rgb.convert("RGB") if isinstance(reference_rgb, Image.Image) else reference_rgb, dtype=np.float32)
+    if reference.shape != (3,):
+        reference = np.median(reference.reshape(-1, 3), axis=0)
+    color_drift = max((float(np.max(np.abs(signature - reference))) for signature in signatures), default=0.0)
+    return {
+        "duplicateRatio": round(float(duplicate_ratio), 6),
+        "edgePixels": edge_pixels,
+        "mattePixels": matte_pixels,
+        "bboxViolations": bbox_violations,
+        "colorDrift": round(color_drift, 6),
+        "ok": (
+            duplicate_ratio < 0.1
+            and edge_pixels == 0
+            and matte_pixels == 0
+            and bbox_violations == 0
+            and color_drift <= COLOR_DRIFT_LIMIT
+        ),
+        "errors": [
+            name for name, failed in (
+                ("duplicateRatio", duplicate_ratio >= 0.1),
+                ("edgePixels", edge_pixels > 0),
+                ("mattePixels", matte_pixels > 0),
+                ("bboxViolations", bbox_violations > 0),
+                ("colorDrift", color_drift > COLOR_DRIFT_LIMIT),
+            ) if failed
+        ],
     }
 
 
@@ -415,6 +522,7 @@ def build_atlas(sources: dict[str, Path]) -> tuple[Image.Image, dict[str, object
         action_frame_reports: list[dict[str, int | str]] = []
         signatures = [_color_signature(frame) for frame in normalized_frames]
         continuity = _continuity_metrics(normalized_frames, signatures)
+        sequence_contract = validate_action_sequence(normalized_frames, np.median(np.stack(signatures), axis=0), 8)
         for index, frame in enumerate(normalized_frames):
             row = action_index * ROWS_PER_ACTION + index // COLUMNS
             column = index % COLUMNS
@@ -433,6 +541,7 @@ def build_atlas(sources: dict[str, Path]) -> tuple[Image.Image, dict[str, object
                 "maxAdjacentAreaDeltaRatio", "maxAdjacentCenterDelta", "maxAdjacentBottomDelta",
             )}},
             "maxColorDrift": continuity["maxColorDrift"],
+            "sequence": sequence_contract,
             "backgroundHolePixelsRemoved": registration["backgroundHolePixelsRemoved"],
         }
         total_hole_pixels_removed += int(registration["backgroundHolePixelsRemoved"])
@@ -484,6 +593,8 @@ def main() -> None:
             and registration.get("scale", 0) > 0
             and registration.get("sharedScale") is True
             and registration.get("maxAdjacentAreaDeltaRatio", ADJACENT_AREA_JUMP_LIMIT + 1) <= ADJACENT_AREA_JUMP_LIMIT
+            and isinstance(summary.get("sequence"), dict)
+            and summary["sequence"].get("ok") is True
         )
     report["ok"] = all(
         action_is_clean(summary)

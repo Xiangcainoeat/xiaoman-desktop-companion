@@ -16,6 +16,7 @@ from build_idle_atlas_30 import (
     chroma_to_alpha,
     despill_edges,
     normalize_action_frames,
+    validate_action_sequence,
 )
 
 
@@ -126,6 +127,15 @@ def _prepare_frames(source: Image.Image) -> list[Image.Image]:
     frames = expand_to_frame_count(extract_source_frames(source))
     normalized, _ = normalize_action_frames(frames)
     return [_trim_edge_fragments(_clean_green_boundary(frame)) for frame in normalized]
+
+
+def _sequence_contract(frames: list[Image.Image]) -> dict[str, object]:
+    pixels = np.concatenate([
+        np.asarray(frame.convert("RGBA"))[..., :3][np.asarray(frame.getchannel("A")) >= 245]
+        for frame in frames
+    ], axis=0)
+    reference = np.median(pixels, axis=0) if len(pixels) else (0, 0, 0)
+    return validate_action_sequence(frames, reference, 8)
 
 
 def _trim_edge_fragments(frame: Image.Image) -> Image.Image:
@@ -262,6 +272,15 @@ def build_assets(sleep_source: Path, care_source: Path, output_dir: Path) -> dic
     for index, frame in enumerate(care_frames):
         care_atlas.alpha_composite(frame, ((index % COLUMNS) * CELL_WIDTH, (3 + index // COLUMNS) * CELL_HEIGHT))
     care_reports = [_frame_report(frame, "bath", index) for index, frame in enumerate(bath_frames)] + [_frame_report(frame, "feed-gift", index) for index, frame in enumerate(care_frames)]
+    bath_contract = _sequence_contract(bath_frames)
+    care_contract = _sequence_contract(care_frames)
+    sleep_contract = _sequence_contract(sleeping_frames)
+    for entry in sleep_reports:
+        entry["sequence"] = sleep_contract
+    for entry in care_reports[:FRAMES]:
+        entry["sequence"] = bath_contract
+    for entry in care_reports[FRAMES:]:
+        entry["sequence"] = care_contract
 
     sleep_path = output_dir / "sleeping-30.webp"
     care_path = output_dir / "care-actions-30.webp"
