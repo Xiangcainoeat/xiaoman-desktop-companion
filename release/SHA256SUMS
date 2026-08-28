@@ -1,7 +1,7 @@
-936bd1cf24aa55ff0821f8023366ccf7c452a9507c611127488fad0a189e8e80  Xiaoman-Desktop-Companion-1.4.0-arm64.dmg
-f61600c9263558faae520b7e2389dd87ece15c3c1c66f86e9055a0b7b44bcf35  Xiaoman-Desktop-Companion-1.4.0-arm64.dmg.blockmap
-48117bbe2b489db272b7b1110c9f1462d26fc176f1acb86bf06d6a177728f159  Xiaoman-Desktop-Companion-1.4.0-arm64.zip
-1aaffcc02c176125c948ef3c52bce3cdab2d7d7cad88922d42473207683db1de  Xiaoman-Desktop-Companion-1.4.0-arm64.zip.blockmap
+4b7073fdb786cda8a61bcafbb525e750559b3af90f9eaade5666f0d935df5d01  Xiaoman-Desktop-Companion-1.4.0-arm64.dmg
+cf54424fcc5a15d4555368f6255bc4104933b470355a51d29277176a2a03b0cd  Xiaoman-Desktop-Companion-1.4.0-arm64.dmg.blockmap
+acec886f73b0ab7186f1555ad834233cffab431d69a99c94582a754fecbac537  Xiaoman-Desktop-Companion-1.4.0-arm64.zip
+9217db22b309d2fde9ed186b531b6030157a5a0048151354edd7e927c5238c68  Xiaoman-Desktop-Companion-1.4.0-arm64.zip.blockmap
 3052bf897e0192f34b4ec0cc5ede7edb5b265372452c8d02e33f3d5a755d6cbc  builder-debug.yml
 afe1d449c0fc798a7eed7d7c897a0f6a98eb4b7f12ada09cdc53206be729421c  qa/animation-report.json
 b4f1b03abec21c56927aaf3a10fce1ae306a7b80d44a4030a0cc07de68360a25  qa/care-sleep-game-smoke-test.md
@@ -11,4 +11,4 @@ b4f1b03abec21c56927aaf3a10fce1ae306a7b80d44a4030a0cc07de68360a25  qa/care-sleep-
 7876eab1fe1e70177db8e56e804a137d621d50675d19a4a813b1b3046b58a0b9  qa/native-profile-hashes.json
 5ec29fad9f9607103c941b5c7472115f24c4a09300b53ddfc2368644396b2ab9  qa/native-reply-smoke-test.md
 0c208a14bf52f36089938ee3fd855a0e561f74047f7673cb13f1ca045fd801bd  qa/reply-smoke-test.md
-4ac5689b6baa7f98837e66130312db0ac8db5f29e9c33b0c5729e31823308468  xiaoman-desktop-companion-source-v1.4.0.zip
+760a13b34f9ccb13f9e4ae00876e38132741d3c3bf8e113ee56d73990e54bd0e  xiaoman-desktop-companion-source-v1.4.0.zip
