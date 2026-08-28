@@ -14,6 +14,7 @@ import type {
   JobId,
   InteractionAction,
   OverlayInteractionReport,
+  OverlayPanelMode,
   ReminderInput,
   SoundName,
 } from "./shared/types";
@@ -48,12 +49,12 @@ export interface XiaomanApi {
   openCodexThread(threadId: string): Promise<CodexOpenResult>;
   replyCodexThread(threadId: string, message: string): Promise<CodexReplyResult>;
   setOverlayTaskPanel(open: boolean): void;
+  setOverlayPanel(mode: OverlayPanelMode | null): void;
   showCenter(tab?: CenterTab): void;
   showQuickWindow(mode: QuickViewMode): void;
   quitApp(): void;
   toggleOverlay(): void;
   moveOverlayBy(deltaX: number, deltaY: number): void;
-  moveQuickWindowBy(deltaX: number, deltaY: number): void;
   setOverlayMouseMode(mode: "passthrough" | "interactive"): void;
   reportOverlayHitRegions(report: OverlayInteractionReport): void;
   showOverlayMenu(): void;
@@ -62,6 +63,7 @@ export interface XiaomanApi {
   onSound(callback: (sound: SoundName) => void): () => void;
   onCenterTab(callback: (tab: CenterTab) => void): () => void;
   onOverlayTaskPanel(callback: (open: boolean) => void): () => void;
+  onOverlayPanel(callback: (mode: OverlayPanelMode | null) => void): () => void;
 }
 
 declare global {

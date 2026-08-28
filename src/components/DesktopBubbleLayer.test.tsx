@@ -72,8 +72,8 @@ describe("desktop bubble interaction contract", () => {
 
   it("keeps the bubble layer outside the pet drag hitbox and adds quick entries", () => {
     expect(overlaySource).toContain("<DesktopBubbleLayer");
-    expect(overlaySource).toContain('bridge.showQuickWindow("care")');
-    expect(overlaySource).toContain('bridge.showQuickWindow("interaction")');
+    expect(overlaySource).toContain('openQuickPanel("care")');
+    expect(overlaySource).toContain('openQuickPanel("interaction")');
     expect(overlaySource).toContain("stopPropagation");
     expect(overlaySource).toContain("setOverlayMouseMode");
   });

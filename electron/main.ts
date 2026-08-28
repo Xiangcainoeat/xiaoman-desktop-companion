@@ -86,6 +86,7 @@ import {
   MAX_OVERLAY_HIT_REGIONS,
   type OverlayHitRegion,
   type OverlayInteractionReport,
+  type OverlayPanelMode,
   type PersistedData,
   type PetState,
   type Reminder,
@@ -614,8 +615,6 @@ let overlayWindow: BrowserWindow | null = null;
 let centerWindow: BrowserWindow | null = null;
 let pendingCenterTab: CenterTab | null = null;
 let centerWindowLoaded = false;
-let quickWindow: BrowserWindow | null = null;
-let quickLoadController: QuickLoadController<BrowserWindow> | null = null;
 let tray: Tray | null = null;
 let codexMonitor: CodexSessionMonitor | null = null;
 let codexSessionsService: CodexSessionsService;
@@ -627,7 +626,7 @@ let cursorTimer: NodeJS.Timeout | null = null;
 let stateTimer: NodeJS.Timeout | null = null;
 let overlayPositionSaveTimer: NodeJS.Timeout | null = null;
 let desktopSessionExpiryTimer: NodeJS.Timeout | null = null;
-let overlayTaskPanelOpen = false;
+let overlayPanelMode: OverlayPanelMode | null = null;
 let codexThreadCache: { at: number; result: CodexThreadListResult } | null = null;
 let codexThreadListInFlight: Promise<CodexThreadListResult> | null = null;
 const codexReplyStarts = new Set<string>();
@@ -689,15 +688,17 @@ function persist(): void {
 
 function broadcast(): void {
   const next = snapshot();
-  for (const window of [overlayWindow, centerWindow, quickWindow]) {
+  for (const window of [overlayWindow, centerWindow]) {
     if (window && !window.isDestroyed()) window.webContents.send("snapshot:changed", next);
   }
   updateTrayMenu();
 }
 
-function broadcastOverlayTaskPanelState(): void {
+function broadcastOverlayPanelState(): void {
   if (overlayWindow && !overlayWindow.isDestroyed()) {
-    overlayWindow.webContents.send("overlay:task-panel-state", overlayTaskPanelOpen);
+    overlayWindow.webContents.send("overlay:panel-state", overlayPanelMode);
+    // Keep the boolean event for older renderer builds during an in-place update.
+    overlayWindow.webContents.send("overlay:task-panel-state", overlayPanelMode === "codex");
   }
 }
 
@@ -1665,7 +1666,7 @@ function assertTrustedSender(
   sender: IpcMainInvokeEvent["sender"],
   senderFrame: IpcMainInvokeEvent["senderFrame"],
 ): void {
-  const trustedContents = [overlayWindow?.webContents, centerWindow?.webContents, quickWindow?.webContents]
+  const trustedContents = [overlayWindow?.webContents, centerWindow?.webContents]
     .filter((contents) => contents && !contents.isDestroyed());
   if (!isTrustedSender(sender, senderFrame, trustedContents)) {
     throw new Error("Rejected IPC call from an untrusted renderer");
@@ -1693,7 +1694,7 @@ function effectiveOverlayHitRegionReport(): OverlayInteractionReport | null {
   const report = overlayHitRegionState.report;
   if (!report) return null;
   const bubblesEnabled = Boolean(data?.settings?.gameModeEnabled && desktopSessionState.status.active);
-  const interactiveActive = report.interactiveActive || overlayTaskPanelOpen;
+  const interactiveActive = report.interactiveActive || overlayPanelMode !== null;
   if (report.bubbleActive && !bubblesEnabled) {
     return { ...report, bubbleActive: false, bubbleRegions: [], interactiveActive };
   }
@@ -1731,7 +1732,7 @@ function applyOverlayMousePolicy(): void {
 }
 
 function overlayDimensions(petSize = data.settings.petSize): { width: number; height: number } {
-  return calculateOverlayDimensions(petSize, overlayTaskPanelOpen);
+  return calculateOverlayDimensions(petSize, overlayPanelMode);
 }
 
 function defaultOverlayPosition(): { x: number; y: number } {
@@ -1813,7 +1814,7 @@ function createOverlayWindow(): void {
   window.on("close", (event) => {
     if (!quitting) {
       event.preventDefault();
-      setOverlayTaskPanel(false);
+      setOverlayPanel(null);
       overlayMouseMode = "passthrough";
       window.hide();
       applyOverlayMousePolicy();
@@ -1825,6 +1826,7 @@ function createOverlayWindow(): void {
     if (data.settings.overlayVisible) window.showInactive();
     applyOverlayMousePolicy();
     broadcast();
+    broadcastOverlayPanelState();
   });
   loadViewSafely(window, "overlay");
 }
@@ -1908,65 +1910,11 @@ function showCenter(tab?: CenterTab): void {
   flushPendingCenterTab();
 }
 
-function createQuickWindow(): BrowserWindow {
-  const display = screen.getPrimaryDisplay();
-  const width = 390;
-  const height = 560;
-  const window = new BrowserWindow({
-    width,
-    height,
-    x: display.workArea.x + display.workArea.width - width - 28,
-    y: display.workArea.y + 76,
-    transparent: true,
-    frame: false,
-    resizable: false,
-    maximizable: false,
-    minimizable: false,
-    fullscreenable: false,
-    show: false,
-    skipTaskbar: true,
-    alwaysOnTop: true,
-    hasShadow: false,
-    backgroundColor: "#00000000",
-    webPreferences: {
-      preload: path.join(__dirname, "preload.js"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-    },
-  });
-  hardenRendererWindow(window);
-  window.on("close", (event) => {
-    if (!quitting) {
-      event.preventDefault();
-      window.hide();
-    }
-  });
-  window.on("closed", () => {
-    if (quickWindow === window) {
-      quickLoadController?.invalidate(window);
-      quickWindow = null;
-    }
-  });
-  window.webContents.on("render-process-gone", () => {
-    if (quickWindow !== window) return;
-    quickLoadController?.invalidate(window);
-    quickWindow = teardownQuickWindow(quickWindow, window);
-  });
-  window.on("ready-to-show", () => broadcast());
-  return window;
-}
-
-function closeQuickWindow(): void {
-  if (quickWindow && !quickWindow.isDestroyed()) quickWindow.hide();
-}
-
 function closeAuxiliaryPanelsForSleep(): void {
   clearDesktopBubbleSessionWithoutReward(false);
   gameActive = false;
   resetOverlayHitRegionState();
-  closeQuickWindow();
-  setOverlayTaskPanel(false);
+  setOverlayPanel(null);
   applyOverlayMousePolicy();
 }
 
@@ -1975,20 +1923,8 @@ export function showQuickWindow(mode: QuickViewMode): void {
     notifySleeping();
     return;
   }
-  // The task panel and compact care/interaction window share one auxiliary
-  // surface. Opening either one closes the other before navigation starts.
-  if (overlayTaskPanelOpen) setOverlayTaskPanel(false);
-  quickLoadController ??= createQuickLoadController(
-    (window, nextMode) => loadView(window, "quick", nextMode),
-    (window) => quickWindow === window && !window.isDestroyed(),
-    (error) => reportViewLoadError("quick", error),
-  );
-  quickWindow = ensureQuickWindow(
-    quickWindow,
-    mode,
-    createQuickWindow,
-    (window, nextMode) => quickLoadController?.enqueue(window, nextMode),
-  );
+  // Care and interaction replace the Codex panel in the same transparent host.
+  setOverlayPanel(mode);
 }
 
 export function setOverlayMouseMode(mode: OverlayMouseMode): void {
@@ -2103,22 +2039,6 @@ function moveOverlayBy(deltaX: number, deltaY: number): void {
   scheduleOverlayPositionSave();
 }
 
-function moveQuickWindowBy(deltaX: number, deltaY: number): void {
-  if (!quickWindow || quickWindow.isDestroyed() || !Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return;
-  const bounds = quickWindow.getBounds();
-  const target = {
-    x: Math.round(bounds.x + Math.max(-120, Math.min(120, deltaX))),
-    y: Math.round(bounds.y + Math.max(-120, Math.min(120, deltaY))),
-    width: bounds.width,
-    height: bounds.height,
-  };
-  const workArea = screen.getDisplayMatching(target).workArea;
-  const margin = 12;
-  const x = Math.max(workArea.x + margin, Math.min(target.x, workArea.x + workArea.width - bounds.width - margin));
-  const y = Math.max(workArea.y + margin, Math.min(target.y, workArea.y + workArea.height - bounds.height - margin));
-  quickWindow.setPosition(x, y, false);
-}
-
 function resizeOverlayForPet(): void {
   if (!overlayWindow || overlayWindow.isDestroyed()) return;
   const bounds = overlayWindow.getBounds();
@@ -2136,23 +2056,29 @@ function resizeOverlayForPet(): void {
   data.overlayPosition = persistedOverlayPosition(target, data.settings.petSize);
 }
 
-function setOverlayTaskPanel(open: boolean): void {
-  if (open && !canOpenAuxiliaryPanel(data.sleeping)) {
+function setOverlayPanel(mode: OverlayPanelMode | null): void {
+  if (mode !== null && !canOpenAuxiliaryPanel(data.sleeping)) {
     notifySleeping();
     return;
   }
-  const next = Boolean(open) && data.settings.codexSessionControls;
-  if (overlayTaskPanelOpen === next) return;
-  if (next) closeQuickWindow();
-  overlayTaskPanelOpen = next;
-  overlayMouseMode = next ? "interactive" : "passthrough";
+  const next = mode === "codex" && !data.settings.codexSessionControls ? null : mode;
+  if (overlayPanelMode === next) return;
+  overlayPanelMode = next;
+  overlayMouseMode = next !== null ? "interactive" : "passthrough";
   resizeOverlayForPet();
-  if (next && overlayWindow && !overlayWindow.isDestroyed()) {
+  if (next !== null && overlayWindow && !overlayWindow.isDestroyed()) {
     overlayWindow.show();
     overlayWindow.focus();
   }
+  if (next === null && !data.settings.overlayVisible && overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.hide();
+  }
   applyOverlayMousePolicy();
-  broadcastOverlayTaskPanelState();
+  broadcastOverlayPanelState();
+}
+
+function setOverlayTaskPanel(open: boolean): void {
+  setOverlayPanel(open ? "codex" : null);
 }
 
 function applySettingsSideEffects(previous: CompanionSettings): void {
@@ -2169,7 +2095,9 @@ function applySettingsSideEffects(previous: CompanionSettings): void {
   if (previous.monitorApps !== data.settings.monitorApps) configureApplicationMonitor();
   if (previous.gazeFrameRate !== data.settings.gazeFrameRate) configureCursorTimer();
   if (previous.petSize !== data.settings.petSize) resizeOverlayForPet();
-  if (previous.codexSessionControls && !data.settings.codexSessionControls) setOverlayTaskPanel(false);
+  if (previous.codexSessionControls && !data.settings.codexSessionControls && overlayPanelMode === "codex") {
+    setOverlayPanel(null);
+  }
   if (previous.startAtLogin !== data.settings.startAtLogin && app.isPackaged) {
     app.setLoginItemSettings({ openAtLogin: data.settings.startAtLogin });
   }
@@ -2408,13 +2336,16 @@ function registerIpcHandlers(): void {
     assertTrustedOverlaySender(event.sender, event.senderFrame);
     if (typeof open === "boolean") setOverlayTaskPanel(open);
   });
+  ipcMain.on("overlay:panel", (event, mode: unknown) => {
+    assertTrustedOverlaySender(event.sender, event.senderFrame);
+    if (mode !== null && mode !== "codex" && mode !== "care" && mode !== "interaction") {
+      throw new Error("Overlay 面板模式无效");
+    }
+    setOverlayPanel(mode as OverlayPanelMode | null);
+  });
   ipcMain.on("overlay:move-by", (event, deltaX: number, deltaY: number) => {
     assertTrustedOverlaySender(event.sender, event.senderFrame);
     moveOverlayBy(deltaX, deltaY);
-  });
-  ipcMain.on("quick:move-by", (event, deltaX: number, deltaY: number) => {
-    assertTrustedSender(event.sender, event.senderFrame);
-    moveQuickWindowBy(deltaX, deltaY);
   });
   ipcMain.on("overlay:context-menu", (event) => {
     assertTrustedOverlaySender(event.sender, event.senderFrame);

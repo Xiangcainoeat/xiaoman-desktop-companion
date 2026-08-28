@@ -64,27 +64,18 @@ describe("quick action ownership", () => {
     expect(quickSource).toContain("catch");
   });
 
-  it("offers an explicit close control for the frameless quick window", () => {
-    expect(quickSource).toContain('title="关闭快捷窗口"');
-    expect(quickSource).toContain('aria-label="关闭快捷窗口"');
-    expect(quickSource).toContain("window.close()");
+  it("offers an explicit close control for the embedded panel", () => {
+    expect(quickSource).toContain('title="关闭面板"');
+    expect(quickSource).toContain('aria-label="关闭面板"');
+    expect(quickSource).toContain("onClose");
   });
 
-  it("marks only the header as draggable so the controls remain clickable", () => {
+  it("leaves window movement to the shared pet drag host", () => {
     const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
     expect(styles).toContain(".quick-header");
-    expect(styles).toContain("-webkit-app-region: no-drag");
     expect(styles).toContain(".quick-header-actions");
-    expect(styles).toContain("-webkit-app-region: no-drag");
-    expect(quickSource).toContain("bridge.moveQuickWindowBy");
-    expect(quickSource).toContain("setPointerCapture");
-  });
-
-  it("moves the frameless quick window from the header without dragging controls", () => {
-    expect(quickSource).toContain("const quickDragRef = useRef");
-    expect(quickSource).toContain("onPointerMove={quickHeaderPointerMove}");
-    expect(quickSource).toContain("onPointerUp={quickHeaderPointerUp}");
-    expect(quickSource).toContain("onLostPointerCapture={quickHeaderPointerCancel}");
+    expect(quickSource).not.toContain("moveQuickWindowBy");
+    expect(quickSource).not.toContain("setPointerCapture");
   });
 
   it("does not leak Codex, CLI, gaze, notification, or settings controls into quick views", () => {

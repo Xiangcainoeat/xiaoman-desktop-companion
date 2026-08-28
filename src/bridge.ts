@@ -17,6 +17,7 @@ import type {
   GameStartResult,
   JobId,
   InteractionAction,
+  OverlayPanelMode,
   QuickViewMode,
   OverlayInteractionReport,
   ReminderInput,
@@ -27,6 +28,8 @@ function createMockApi(): XiaomanApi {
   const listeners = new Set<(snapshot: AppSnapshot) => void>();
   const soundListeners = new Set<(sound: SoundName) => void>();
   const centerTabListeners = new Set<(tab: CenterTab) => void>();
+  const overlayPanelListeners = new Set<(mode: OverlayPanelMode | null) => void>();
+  let overlayPanelMode: OverlayPanelMode | null = null;
   const data = createDefaultData();
   let current: AppSnapshot = {
     ...data,
@@ -52,6 +55,10 @@ function createMockApi(): XiaomanApi {
   const publish = () => {
     for (const listener of listeners) listener(structuredClone(current));
     return structuredClone(current);
+  };
+  const setOverlayPanel = (mode: OverlayPanelMode | null): void => {
+    overlayPanelMode = mode;
+    for (const listener of overlayPanelListeners) listener(mode);
   };
   const clearDesktopSessionExpiryTimer = () => {
     if (desktopSessionExpiryTimer) clearTimeout(desktopSessionExpiryTimer);
@@ -406,16 +413,16 @@ function createMockApi(): XiaomanApi {
       transport: "native",
       message: message.trim() ? "浏览器预览仅模拟回复，未调用 Codex；请使用 Electron 应用" : "请输入回复内容",
     }),
-    showQuickWindow: (_mode: QuickViewMode) => undefined,
+    showQuickWindow: (mode: QuickViewMode) => setOverlayPanel(mode),
     quitApp: () => undefined,
-    setOverlayTaskPanel: () => undefined,
+    setOverlayTaskPanel: (open: boolean) => setOverlayPanel(open ? "codex" : null),
+    setOverlayPanel,
     showCenter: (tab?: CenterTab) => {
       if (!tab) return;
       for (const listener of centerTabListeners) listener(tab);
     },
     toggleOverlay: () => undefined,
     moveOverlayBy: () => undefined,
-    moveQuickWindowBy: () => undefined,
     setOverlayMouseMode: () => undefined,
     reportOverlayHitRegions: (_report: OverlayInteractionReport) => undefined,
     showOverlayMenu: () => undefined,
@@ -444,7 +451,19 @@ function createMockApi(): XiaomanApi {
       centerTabListeners.add(listener);
       return () => centerTabListeners.delete(listener);
     },
-    onOverlayTaskPanel: (_listener) => () => undefined,
+    onOverlayTaskPanel: (listener) => {
+      const handler = (mode: OverlayPanelMode | null) => listener(mode === "codex");
+      overlayPanelListeners.add(handler);
+      queueMicrotask(() => handler(overlayPanelMode));
+      return () => overlayPanelListeners.delete(handler);
+    },
+    onOverlayPanel: (listener) => {
+      overlayPanelListeners.add(listener);
+      queueMicrotask(() => {
+        if (overlayPanelListeners.has(listener)) listener(overlayPanelMode);
+      });
+      return () => overlayPanelListeners.delete(listener);
+    },
   };
 }
 

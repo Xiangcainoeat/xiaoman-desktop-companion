@@ -5,7 +5,7 @@ import { Overlay } from "./components/Overlay";
 export function QuickRouteError() {
   return (
     <main className="quick-root quick-route-error">
-      <span className="eyebrow">小满 · 快捷窗口</span>
+      <span className="eyebrow">小满 · 快捷面板</span>
       <h1>暂时无法打开</h1>
       <p>请从桌宠侧边栏重新选择一个快捷功能。</p>
     </main>

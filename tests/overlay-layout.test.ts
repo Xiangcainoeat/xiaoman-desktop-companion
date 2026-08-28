@@ -18,4 +18,14 @@ describe("desktop overlay layout", () => {
     expect(overlayDimensions(150, false)).toEqual({ width: 260, height: 320 });
     expect(overlayDimensions(340, true)).toEqual({ width: 776, height: 468 });
   });
+
+  it("keeps Codex, care, and interaction on the same expanded host geometry", () => {
+    const modes = ["codex", "care", "interaction"] as const;
+    const dimensions = modes.map((mode) => overlayDimensions(240, mode));
+    expect(dimensions).toEqual([
+      { width: 676, height: 430 },
+      { width: 676, height: 430 },
+      { width: 676, height: 430 },
+    ]);
+  });
 });

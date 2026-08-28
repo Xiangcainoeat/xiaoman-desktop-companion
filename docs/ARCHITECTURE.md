@@ -2,14 +2,14 @@
 
 ## Process model
 
-The app uses one Electron main process and three sandboxed renderer window
-types. The center and quick windows are reused rather than duplicated.
+The app uses one Electron main process and two sandboxed renderer window
+types. The overlay owns the pet and every compact panel mode; the center is
+the full control surface.
 
 | Component | Responsibility |
 | --- | --- |
-| Overlay window | Transparent pet, gaze, drag/hover interactions and compact Codex reply panel |
+| Overlay window | Transparent pet, gaze, drag/hover interactions and the single compact panel host |
 | Control center | Feature switches, task controls, stats, reminders, app rules, activity and settings |
-| Quick window | Compact care or interaction actions; it is one reusable window with a mode query |
 | Main process | State priority, timers, persistence, notifications, tray, cursor sampling and IPC validation |
 | Preload bridge | Explicit typed IPC methods; no general Node or filesystem access |
 | Codex monitor | Append-only, read-only lifecycle classification of local JSONL records |
@@ -17,6 +17,13 @@ types. The center and quick windows are reused rather than duplicated.
 | App monitor | Reads only the localized name of the frontmost macOS application |
 
 All renderer windows run with `contextIsolation: true`, `nodeIntegration: false`, and `sandbox: true`.
+
+The overlay panel mode is one of `codex`, `care` or `interaction`, or `null`.
+All non-null modes use the same expanded host geometry and the same left-side
+panel rectangle. Opening a mode replaces the previous mode instead of creating
+another BrowserWindow. The compact panel header has no window drag region;
+only the pet hitbox sends `overlay:move-by`, so dragging the pet moves the
+entire host just like the native Codex pet.
 
 ## State priority
 

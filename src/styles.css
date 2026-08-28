@@ -345,6 +345,11 @@ select:focus-visible {
   background: transparent;
   cursor: default;
   user-select: none;
+  -webkit-app-region: no-drag;
+}
+
+.overlay-root * {
+  -webkit-app-region: no-drag;
 }
 
 .overlay-pet-hitbox {
@@ -359,6 +364,7 @@ select:focus-visible {
   transform: translateX(-50%);
 }
 
+.overlay-root.has-auxiliary-panel .overlay-pet-hitbox,
 .overlay-root.has-task-panel .overlay-pet-hitbox {
   right: 48px;
   left: auto;
@@ -500,6 +506,7 @@ select:focus-visible {
   border-color: rgba(62, 124, 90, 0.55);
 }
 
+.overlay-root.has-auxiliary-panel .pet-bubble,
 .overlay-root.has-task-panel .pet-bubble {
   right: 52px;
   left: auto;
@@ -526,6 +533,7 @@ select:focus-visible {
   transition: opacity 160ms ease, transform 160ms ease;
 }
 
+.overlay-root.has-auxiliary-panel .overlay-actions,
 .overlay-root.has-task-panel .overlay-actions {
   top: 98px;
   right: 6px;
@@ -568,6 +576,7 @@ select:focus-visible {
   opacity: 1;
 }
 
+.overlay-root.has-auxiliary-panel .overlay-need-meter,
 .overlay-root.has-task-panel .overlay-need-meter {
   left: auto;
   width: 180px;
@@ -581,7 +590,7 @@ select:focus-visible {
   background: var(--coral);
 }
 
-/* Compact transparent quick windows */
+/* Compact panel content embedded in the transparent overlay */
 .quick-root {
   display: flex;
   width: 100%;
@@ -613,13 +622,7 @@ select:focus-visible {
   gap: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--line);
-  /* The frameless window uses an explicit IPC drag path for reliable movement. */
-  -webkit-app-region: no-drag;
-  cursor: grab;
-}
-
-.quick-header:active {
-  cursor: grabbing;
+  cursor: default;
 }
 
 .quick-header-actions {
@@ -983,7 +986,8 @@ select:focus-visible {
   line-height: 18px;
 }
 
-.overlay-codex-panel {
+.overlay-codex-panel,
+.overlay-quick-panel {
   position: absolute;
   z-index: 10;
   top: 10px;
@@ -1002,6 +1006,26 @@ select:focus-visible {
   box-shadow: 0 12px 30px rgba(26, 32, 28, 0.22);
   overflow: hidden;
   user-select: text;
+}
+
+.overlay-quick-panel {
+  height: auto;
+}
+
+.overlay-quick-panel .quick-header {
+  flex: 0 0 auto;
+}
+
+.overlay-quick-panel .quick-content {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.overlay-quick-panel .quick-feedback {
+  flex: 0 0 auto;
 }
 
 .overlay-codex-header {

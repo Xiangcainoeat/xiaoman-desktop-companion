@@ -15,6 +15,7 @@ import type {
   InteractionAction,
   OverlayHitRegion,
   OverlayInteractionReport,
+  OverlayPanelMode,
   QuickViewMode,
   ReminderInput,
   SoundName,
@@ -52,6 +53,8 @@ const centerTabListeners = new Set<(tab: CenterTab) => void>();
 let pendingCenterTab: CenterTab | null = null;
 const overlayTaskPanelListeners = new Set<(open: boolean) => void>();
 let pendingOverlayTaskPanelState: boolean | null = null;
+const overlayPanelListeners = new Set<(mode: OverlayPanelMode | null) => void>();
+let pendingOverlayPanelState: OverlayPanelMode | null | undefined;
 
 ipcRenderer.on("center:select-tab", (_event, value: unknown) => {
   if (!isCenterTab(value)) return;
@@ -69,6 +72,15 @@ ipcRenderer.on("overlay:task-panel-state", (_event, value: unknown) => {
     return;
   }
   for (const listener of overlayTaskPanelListeners) listener(value);
+});
+
+ipcRenderer.on("overlay:panel-state", (_event, value: unknown) => {
+  const mode = value === "codex" || value === "care" || value === "interaction" ? value : null;
+  if (overlayPanelListeners.size === 0) {
+    pendingOverlayPanelState = mode;
+    return;
+  }
+  for (const listener of overlayPanelListeners) listener(mode);
 });
 
 function rounded(value: number): number {
@@ -120,7 +132,7 @@ function installOverlayHitRegionReporter(): void {
         .map((element) => readOverlayHitRegion(element, "pet")),
       ...Array.from(document.querySelectorAll(".overlay-actions"))
         .map((element) => readOverlayHitRegion(element, "actions")),
-      ...Array.from(document.querySelectorAll(".overlay-codex-panel"))
+      ...Array.from(document.querySelectorAll(".overlay-codex-panel, .overlay-quick-panel"))
         .map((element) => readOverlayHitRegion(element, "task")),
     ].filter((region): region is OverlayHitRegion => region !== null);
     const boundedBubbles = bubbleRegions.slice(0, MAX_OVERLAY_HIT_REGIONS);
@@ -128,7 +140,7 @@ function installOverlayHitRegionReporter(): void {
     const payload = {
       bubbleActive: document.querySelector(".desktop-bubble") !== null,
       interactiveActive: activePetPointers.size > 0
-        || document.querySelector(".overlay-root.has-task-panel") !== null,
+        || document.querySelector(".overlay-root.has-auxiliary-panel") !== null,
       bubbleRegions: boundedBubbles,
       interactiveRegions: boundedInteractive,
     } satisfies Omit<OverlayInteractionReport, "revision">;
@@ -254,12 +266,12 @@ contextBridge.exposeInMainWorld("xiaoman", {
   replyCodexThread: (threadId: string, message: string): Promise<CodexReplyResult> =>
     ipcRenderer.invoke("codex:thread:reply", threadId, message),
   setOverlayTaskPanel: (open: boolean): void => ipcRenderer.send("overlay:task-panel", open),
+  setOverlayPanel: (mode: OverlayPanelMode | null): void => ipcRenderer.send("overlay:panel", mode),
   showCenter: (tab?: CenterTab): void => ipcRenderer.send("center:show", tab),
   showQuickWindow: (mode: QuickViewMode): void => ipcRenderer.send("quick:show", mode),
   quitApp: (): void => ipcRenderer.send("app:quit"),
   toggleOverlay: (): void => ipcRenderer.send("overlay:toggle"),
   moveOverlayBy: (deltaX: number, deltaY: number): void => ipcRenderer.send("overlay:move-by", deltaX, deltaY),
-  moveQuickWindowBy: (deltaX: number, deltaY: number): void => ipcRenderer.send("quick:move-by", deltaX, deltaY),
   setOverlayMouseMode: (mode: "passthrough" | "interactive"): void => ipcRenderer.send("overlay:mouse-mode", mode),
   reportOverlayHitRegions: (report: OverlayInteractionReport): void => ipcRenderer.send("overlay:hit-regions", report),
   showOverlayMenu: (): void => ipcRenderer.send("overlay:context-menu"),
@@ -299,6 +311,17 @@ contextBridge.exposeInMainWorld("xiaoman", {
       });
     }
     return () => overlayTaskPanelListeners.delete(callback);
+  },
+  onOverlayPanel: (callback: (mode: OverlayPanelMode | null) => void): (() => void) => {
+    overlayPanelListeners.add(callback);
+    if (pendingOverlayPanelState !== undefined) {
+      const mode = pendingOverlayPanelState;
+      pendingOverlayPanelState = undefined;
+      queueMicrotask(() => {
+        if (overlayPanelListeners.has(callback)) callback(mode);
+      });
+    }
+    return () => overlayPanelListeners.delete(callback);
   },
 });
 

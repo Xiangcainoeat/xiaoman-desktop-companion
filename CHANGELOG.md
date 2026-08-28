@@ -2,7 +2,7 @@
 
 ## 1.4.0 - 2026-08-27
 
-- Follow-up polish: compact care and interaction windows now use an explicit trusted Electron drag path and remain mutually exclusive with the Codex task panel; sleep locks auxiliary panels and reports “小满睡着了” until wake.
+- Follow-up polish: care, interaction and Codex task controls now share one expanded overlay host with identical geometry; only pressing and holding Xiaoman moves that host, while panel headers remain stationary. Sleep locks auxiliary panels and reports “小满睡着了” until wake.
 - Reworked enhanced care playback to use the native-colored lick loop for feeding and the native idle loop for bathing, with discrete frame selection and only tiny compositor motion; the curled sleep loop now traverses all 30 source frames.
 - Added a persistent local care loop with fullness, cleanliness, energy, affection, experience and levels.
 - Added inventory-backed feeding for fish snacks, milk, tuna bites and salmon; zero inventory never changes stats.

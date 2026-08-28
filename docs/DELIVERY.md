@@ -42,11 +42,13 @@ The host has two independent pet profiles. `enhanced` loads the complete `public
 
 Version 1.4.0 adds the local care economy: four inventory-backed foods, cleanliness and bathing, one active job with offline settlement, five daily quests, weighted gift boxes, idempotent Codex completion rewards and three bounded mini-games. The control center keeps these in separate `养成照料` and `互动游戏` views; `概览` shows only a read-only summary and handoff.
 
-The overlay also exposes two compact, frameless shortcuts: `养成` opens the
-care actions without settings, and `互动` opens desktop bubbles, petting and
-the game handoff. `更多游戏` requests the `互动游戏` tab directly, including
-when the center window has to cold-start; it does not create a second center
-window.
+The overlay also exposes two compact shortcuts: `养成` and `互动`. They are
+content modes inside the same transparent host as the Codex task panel, so all
+three panels have the same position and dimensions and only one can be visible
+at a time. The panel header is not a drag handle; pressing and holding Xiaoman
+itself moves the host and preserves the running motion. `更多游戏` requests
+the `互动游戏` tab directly, including when the center window has to
+cold-start; it does not create a second center window or a quick window.
 
 The sleep atlas and retained care atlas are deterministic 30-frame RGBA resources. Run `npm run verify:care-atlas` to validate dimensions, transparency, frame occupancy and edge contamination. The enhanced runtime routes feeding through the native-colored `idle-actions-30.webp` lick row and bathing through the native standard idle row, so the generated care atlas remains available for provenance and validation without reintroducing its warm/orange subject. Game target sources and the extraction script are retained under `work/xiaoman-care-assets/` and `scripts/extract_game_targets.py`; the application itself does not require Python or Pillow.
 

@@ -10,10 +10,11 @@ import {
   resolveDragMotion,
 } from "../shared/motion";
 import type { DragState } from "../shared/motion";
-import type { PetMotion } from "../shared/types";
+import type { OverlayPanelMode, PetMotion } from "../shared/types";
 import { OverlayCodexPanel } from "./OverlayCodexPanel";
 import { DesktopBubbleLayer } from "./DesktopBubbleLayer";
 import { PetSprite } from "./PetSprite";
+import { QuickActionsView } from "./QuickActionsView";
 import { bridge, useCompanion } from "../useCompanion";
 
 const MOTION_ALLOWED_STATES = new Set(["idle", "working", "happy", "sleepy"]);
@@ -60,8 +61,10 @@ export function Overlay() {
   const [idleMotion, setIdleMotion] = useState<PetMotion | null>(null);
   const [idlePhrase, setIdlePhrase] = useState<string | null>(null);
   const [gazeActive, setGazeActive] = useState(false);
-  const [tasksOpen, setTasksOpen] = useState(false);
+  const [panelMode, setPanelMode] = useState<OverlayPanelMode | null>(null);
   const bubbleInteractiveRef = useRef(false);
+  const tasksOpen = panelMode === "codex";
+  const hasAuxiliaryPanel = panelMode !== null;
 
   const clearMotionTimer = useCallback(() => {
     if (motionTimerRef.current !== null) window.clearTimeout(motionTimerRef.current);
@@ -94,26 +97,32 @@ export function Overlay() {
   const handleGazeActivity = useCallback((active: boolean) => setGazeActive(active), []);
   const handleBubbleInteractiveChange = useCallback((active: boolean) => {
     bubbleInteractiveRef.current = active;
-    if (active || tasksOpen) bridge.setOverlayMouseMode("interactive");
+    if (active || hasAuxiliaryPanel) bridge.setOverlayMouseMode("interactive");
     else bridge.setOverlayMouseMode("passthrough");
-  }, [tasksOpen]);
+  }, [hasAuxiliaryPanel]);
   const enterInteractiveArea = useCallback(() => bridge.setOverlayMouseMode("interactive"), []);
   const leaveInteractiveArea = useCallback(() => {
-    if (!bubbleInteractiveRef.current && !tasksOpen) bridge.setOverlayMouseMode("passthrough");
-  }, [tasksOpen]);
+    if (!bubbleInteractiveRef.current && !hasAuxiliaryPanel) bridge.setOverlayMouseMode("passthrough");
+  }, [hasAuxiliaryPanel]);
   const notifySleeping = useCallback(() => {
     void bridge.interact("pet").catch(() => undefined);
   }, []);
-  const setTaskPanel = useCallback((open: boolean) => {
-    if (open && snapshot?.sleeping) {
+  const setPanel = useCallback((mode: OverlayPanelMode | null) => {
+    if (mode !== null && snapshot?.sleeping) {
       notifySleeping();
       return;
     }
-    setTasksOpen(open);
-    bridge.setOverlayTaskPanel(open);
-    bridge.setOverlayMouseMode(open || bubbleInteractiveRef.current ? "interactive" : "passthrough");
+    setPanelMode(mode);
+    bridge.setOverlayPanel(mode);
+    bridge.setOverlayMouseMode(mode !== null || bubbleInteractiveRef.current ? "interactive" : "passthrough");
   }, [notifySleeping, snapshot?.sleeping]);
-  const closeTaskPanel = useCallback(() => setTaskPanel(false), [setTaskPanel]);
+  const setTaskPanel = useCallback((open: boolean) => {
+    setPanel(open ? "codex" : null);
+  }, [setPanel]);
+  const closePanel = useCallback(() => setPanel(null), [setPanel]);
+  const openQuickPanel = useCallback((mode: Extract<OverlayPanelMode, "care" | "interaction">) => {
+    setPanel(mode);
+  }, [setPanel]);
 
   useEffect(() => () => {
     if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current);
@@ -121,7 +130,7 @@ export function Overlay() {
     clearHoverMotion();
     dragRef.current = resetDragState(dragRef.current);
     clickSuppressionRef.current = false;
-    bridge.setOverlayTaskPanel(false);
+    bridge.setOverlayPanel(null);
   }, [clearHoverMotion, clearMotionTimer]);
 
   useEffect(() => {
@@ -139,19 +148,19 @@ export function Overlay() {
   }, [resetPointerInteraction]);
 
   useEffect(() => {
-    if (tasksOpen && snapshot && !snapshot.settings.codexSessionControls) {
-      setTasksOpen(false);
-      bridge.setOverlayTaskPanel(false);
+    if (panelMode === "codex" && snapshot && !snapshot.settings.codexSessionControls) {
+      setPanelMode(null);
+      bridge.setOverlayPanel(null);
     }
-  }, [snapshot?.settings.codexSessionControls, tasksOpen]);
+  }, [panelMode, snapshot?.settings.codexSessionControls]);
 
-  useEffect(() => bridge.onOverlayTaskPanel((open) => setTasksOpen(open)), []);
+  useEffect(() => bridge.onOverlayPanel((mode) => setPanelMode(mode)), []);
 
   useEffect(() => {
-    if (!snapshot?.sleeping || !tasksOpen) return;
-    setTasksOpen(false);
+    if (!snapshot?.sleeping || !hasAuxiliaryPanel) return;
+    setPanelMode(null);
     bridge.setOverlayMouseMode("passthrough");
-  }, [snapshot?.sleeping, tasksOpen]);
+  }, [hasAuxiliaryPanel, snapshot?.sleeping]);
 
   useEffect(() => {
     if (
@@ -393,14 +402,17 @@ export function Overlay() {
 
   return (
     <main
-      className={`overlay-root ${tasksOpen ? "has-task-panel" : ""}`}
+      className={`overlay-root ${hasAuxiliaryPanel ? "has-auxiliary-panel has-task-panel" : ""} ${panelMode ? `panel-${panelMode}` : ""}`}
       onContextMenu={handleContextMenu}
     >
-      {tasksOpen && (
+      {panelMode === "codex" && (
         <OverlayCodexPanel
-          onClose={closeTaskPanel}
+          onClose={closePanel}
           replyTransport={snapshot.settings.codexReplyTransport}
         />
+      )}
+      {(panelMode === "care" || panelMode === "interaction") && (
+        <QuickActionsView mode={panelMode} embedded onClose={closePanel} />
       )}
       <DesktopBubbleLayer snapshot={snapshot} onInteractiveChange={handleBubbleInteractiveChange} />
       <div className={`pet-bubble source-${snapshot.stateSource}`} aria-live="polite">
@@ -437,7 +449,7 @@ export function Overlay() {
           settings={snapshot.settings}
           size={snapshot.settings.petSize}
           motion={motion}
-          gazeSuppressed={tasksOpen}
+          gazeSuppressed={hasAuxiliaryPanel}
           onGazeActivityChange={handleGazeActivity}
           className="overlay-pet"
         />
@@ -479,7 +491,7 @@ export function Overlay() {
           onClick={(event) => {
             event.stopPropagation();
             if (snapshot.sleeping) notifySleeping();
-            else bridge.showQuickWindow("care");
+            else openQuickPanel("care");
           }}
         >
           <Heart size={18} />
@@ -492,7 +504,7 @@ export function Overlay() {
           onClick={(event) => {
             event.stopPropagation();
             if (snapshot.sleeping) notifySleeping();
-            else bridge.showQuickWindow("interaction");
+            else openQuickPanel("interaction");
           }}
         >
           <Gamepad2 size={18} />

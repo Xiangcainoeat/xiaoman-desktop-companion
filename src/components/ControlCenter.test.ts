@@ -41,12 +41,13 @@ describe("direct games navigation", () => {
   });
 
   it("keeps the task panel and compact window mutually exclusive", () => {
-    expect(mainSource).toContain("function closeQuickWindow");
-    expect(mainSource).toContain("closeQuickWindow();");
+    expect(mainSource).toContain("let overlayPanelMode: OverlayPanelMode | null = null;");
+    expect(mainSource).toContain('"overlay:panel-state"');
+    expect(mainSource).toContain("setOverlayPanel");
     expect(mainSource).toContain('"overlay:task-panel-state"');
-    expect(preloadSource).toContain("onOverlayTaskPanel");
-    expect(typeSource).toContain("onOverlayTaskPanel");
-    expect(bridgeSource).toContain("onOverlayTaskPanel");
+    expect(preloadSource).toContain("onOverlayPanel");
+    expect(typeSource).toContain("onOverlayPanel");
+    expect(bridgeSource).toContain("onOverlayPanel");
   });
 
   it("makes sleeping modal and clears desktop interaction", () => {
@@ -63,12 +64,13 @@ describe("direct games navigation", () => {
     expect(overlaySource).toContain('if (snapshot.sleeping) notifySleeping();\n            else bridge.showCenter();');
   });
 
-  it("routes quick-window movement through the trusted Electron boundary", () => {
-    expect(mainSource).toContain('ipcMain.on("quick:move-by"');
-    expect(mainSource).toContain("moveQuickWindowBy(deltaX, deltaY);");
-    expect(preloadSource).toContain("moveQuickWindowBy");
-    expect(typeSource).toContain("moveQuickWindowBy");
-    expect(bridgeSource).toContain("moveQuickWindowBy:");
+  it("routes every panel movement through the pet-owned overlay boundary", () => {
+    expect(mainSource).toContain('ipcMain.on("overlay:move-by"');
+    expect(overlaySource).toContain("bridge.moveOverlayBy");
+    expect(quickSource).not.toContain("moveQuickWindowBy");
+    expect(preloadSource).not.toContain("quick:move-by");
+    expect(typeSource).not.toContain("moveQuickWindowBy");
+    expect(bridgeSource).not.toContain("moveQuickWindowBy");
   });
 
   it("handles sleeping tray actions without an unhandled rejected promise", () => {
