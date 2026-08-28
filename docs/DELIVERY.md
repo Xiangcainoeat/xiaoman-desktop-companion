@@ -48,7 +48,7 @@ the game handoff. `更多游戏` requests the `互动游戏` tab directly, inclu
 when the center window has to cold-start; it does not create a second center
 window.
 
-The care and sleep atlases are deterministic 30-frame RGBA resources. Run `npm run verify:care-atlas` to validate dimensions, transparency, frame occupancy and edge contamination. Game target sources and the extraction script are retained under `work/xiaoman-care-assets/` and `scripts/extract_game_targets.py`; the application itself does not require Python or Pillow.
+The sleep atlas and retained care atlas are deterministic 30-frame RGBA resources. Run `npm run verify:care-atlas` to validate dimensions, transparency, frame occupancy and edge contamination. The enhanced runtime routes feeding through the native-colored `idle-actions-30.webp` lick row and bathing through the native standard idle row, so the generated care atlas remains available for provenance and validation without reintroducing its warm/orange subject. Game target sources and the extraction script are retained under `work/xiaoman-care-assets/` and `scripts/extract_game_targets.py`; the application itself does not require Python or Pillow.
 
 The default Codex reply channel is native IPC. It discovers the exact owner of the selected thread through `~/.codex/ipc/ipc.sock` and sends the text to that existing window. CLI queue/resume remains available only after selecting `CLI 兼容` in settings. Native reply smoke-test scope and the known platform boundary are recorded in `release/qa/native-reply-smoke-test.md`.
 

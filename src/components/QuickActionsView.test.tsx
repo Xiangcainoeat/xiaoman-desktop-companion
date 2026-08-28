@@ -70,6 +70,23 @@ describe("quick action ownership", () => {
     expect(quickSource).toContain("window.close()");
   });
 
+  it("marks only the header as draggable so the controls remain clickable", () => {
+    const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+    expect(styles).toContain(".quick-header");
+    expect(styles).toContain("-webkit-app-region: no-drag");
+    expect(styles).toContain(".quick-header-actions");
+    expect(styles).toContain("-webkit-app-region: no-drag");
+    expect(quickSource).toContain("bridge.moveQuickWindowBy");
+    expect(quickSource).toContain("setPointerCapture");
+  });
+
+  it("moves the frameless quick window from the header without dragging controls", () => {
+    expect(quickSource).toContain("const quickDragRef = useRef");
+    expect(quickSource).toContain("onPointerMove={quickHeaderPointerMove}");
+    expect(quickSource).toContain("onPointerUp={quickHeaderPointerUp}");
+    expect(quickSource).toContain("onLostPointerCapture={quickHeaderPointerCancel}");
+  });
+
   it("does not leak Codex, CLI, gaze, notification, or settings controls into quick views", () => {
     for (const forbidden of ["ControlCenter", "Codex", "CLI", "注视", "通知", "updateSettings"]) {
       expect(quickSource).not.toContain(forbidden);

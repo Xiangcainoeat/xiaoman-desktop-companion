@@ -70,7 +70,7 @@ No relay endpoint, API key, original user-photo path or private configuration is
 
 Version 1.4.0 adds a separate local care loop and three small games. The visual sources and deterministic post-processing records are kept under `work/xiaoman-care-assets/`:
 
-- `expanded-sleep-source.png`, `expanded-bath-source.png` and `expanded-feed-gift-source.png` are the accepted 6x6 supplementary sheets (36 source poses each); `public/pet/sleeping-30.webp` and `public/pet/care-actions-30.webp` are the validated 10x3/10x6, 30-frame runtime atlases.
+- `expanded-sleep-source.png`, `expanded-bath-source.png` and `expanded-feed-gift-source.png` are the accepted 6x6 supplementary sheets (36 source poses each); `public/pet/sleeping-30.webp` and `public/pet/care-actions-30.webp` remain validated 10x3/10x6, 30-frame retained atlases. Enhanced runtime feeding/bathing currently uses the native-colored idle and standard rows to preserve Xiaoman's original palette and silhouette.
 - `sleep-source.png` and `care-source.png` remain the original 3x10-compatible sources and deterministic fallback inputs; the expanded builder keeps the bath frames at row 0 and feed/gift frames at row 3.
 - `game-fish-source.png` and `game-bubble-source.png` are the generated game illustrations. `scripts/extract_game_targets.py` removes the plain background, preserves alpha and emits `public/game/fish-target.png` and `public/game/bubble-target.png`.
 - `*-verify-report.json` and contact sheets record frame occupancy, transparent corners, hidden RGB and green-edge checks. Re-run both care checks with `npm run verify:care-atlas`.

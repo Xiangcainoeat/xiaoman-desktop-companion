@@ -17,7 +17,7 @@ import {
   X,
   Zap,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent } from "react";
 import { JOBS } from "../shared/care";
 import { STATE_LABELS } from "../shared/domain";
 import type { AppSnapshot, FoodId, JobId, QuickViewMode } from "../shared/types";
@@ -117,6 +117,12 @@ export function QuickActionsView({ mode }: { mode: QuickViewMode }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
   const [now, setNow] = useState(() => Date.now());
+  const quickDragRef = useRef<{ active: boolean; pointerId: number | null; x: number; y: number }>({
+    active: false,
+    pointerId: null,
+    x: 0,
+    y: 0,
+  });
 
   useEffect(() => {
     if (mode !== "care" || !snapshot?.activeJob) return undefined;
@@ -138,6 +144,45 @@ export function QuickActionsView({ mode }: { mode: QuickViewMode }) {
     }
   };
 
+  const quickHeaderPointerDown = (event: PointerEvent<HTMLElement>) => {
+    if (event.button !== 0 || !event.isPrimary) return;
+    const target = event.target;
+    if (target instanceof Element && target.closest("button, input, select, textarea, a")) return;
+    quickDragRef.current = {
+      active: true,
+      pointerId: event.pointerId,
+      x: event.screenX,
+      y: event.screenY,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  };
+
+  const quickHeaderPointerMove = (event: PointerEvent<HTMLElement>) => {
+    const drag = quickDragRef.current;
+    if (!drag.active || drag.pointerId !== event.pointerId) return;
+    const deltaX = event.screenX - drag.x;
+    const deltaY = event.screenY - drag.y;
+    if (!Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return;
+    if (Math.hypot(deltaX, deltaY) < 0.5) return;
+    bridge.moveQuickWindowBy(deltaX, deltaY);
+    drag.x = event.screenX;
+    drag.y = event.screenY;
+    event.preventDefault();
+  };
+
+  const quickHeaderPointerUp = (event: PointerEvent<HTMLElement>) => {
+    const drag = quickDragRef.current;
+    if (!drag.active || drag.pointerId !== event.pointerId) return;
+    quickDragRef.current = { active: false, pointerId: null, x: 0, y: 0 };
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
+  const quickHeaderPointerCancel = (event: PointerEvent<HTMLElement>) => {
+    quickDragRef.current = { active: false, pointerId: null, x: 0, y: 0 };
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+  };
+
   if (!snapshot) {
     return <main className="quick-root quick-loading"><span className="loading-pulse" /><strong>小满正在准备</strong></main>;
   }
@@ -148,7 +193,14 @@ export function QuickActionsView({ mode }: { mode: QuickViewMode }) {
 
   return (
     <main className={`quick-root quick-${mode}`} onPointerDown={(event) => event.stopPropagation()} onMouseDown={(event) => event.stopPropagation()}>
-      <header className="quick-header">
+      <header
+        className="quick-header"
+        onPointerDown={quickHeaderPointerDown}
+        onPointerMove={quickHeaderPointerMove}
+        onPointerUp={quickHeaderPointerUp}
+        onPointerCancel={quickHeaderPointerCancel}
+        onLostPointerCapture={quickHeaderPointerCancel}
+      >
         <div>
           <span className="eyebrow">小满 · 快捷操作</span>
           <h1>{mode === "care" ? "养成照料" : "互动"}</h1>

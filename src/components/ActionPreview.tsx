@@ -47,9 +47,9 @@ const ACTION_DURATION_MS: Record<ActionPreviewActionId, number> = {
   "running-left": 8 / 7.4 * 1_000,
   "running-right": 8 / 7.4 * 1_000,
   jumping: 5 / 6.2 * 1_000,
-  "care-bath": 30 / 5.2 * 1_000,
-  "care-feed": 30 / 5.2 * 1_000,
-  sleeping: 30 / 5.2 * 1_000,
+  "care-bath": 30 / 4.8 * 1_000,
+  "care-feed": 30 / 5.6 * 1_000,
+  sleeping: 30 / 3.8 * 1_000,
 };
 
 function spriteForAction(action: ActionPreviewActionId): {

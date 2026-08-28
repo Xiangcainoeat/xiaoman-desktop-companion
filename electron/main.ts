@@ -34,7 +34,13 @@ import {
   startPetJob as startCareJob,
 } from "../src/shared/care";
 import { settleGameResult } from "../src/shared/games";
-import { shouldAutoSleep, type AutoSleepInput } from "../src/shared/sleep";
+import {
+  canOpenAuxiliaryPanel,
+  isSleepAllowedInteraction,
+  shouldAutoSleep,
+  SLEEPING_NOTICE,
+  type AutoSleepInput,
+} from "../src/shared/sleep";
 import {
   appendActivity,
   clampStat,
@@ -689,6 +695,12 @@ function broadcast(): void {
   updateTrayMenu();
 }
 
+function broadcastOverlayTaskPanelState(): void {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.webContents.send("overlay:task-panel-state", overlayTaskPanelOpen);
+  }
+}
+
 function persistAndBroadcast(): void {
   persist();
   broadcast();
@@ -708,6 +720,7 @@ function triggerState(
   shouldBroadcast = true,
 ): void {
   const now = Date.now();
+  if (data?.sleeping && state !== "sleeping" && source !== "interaction") return;
   // Care actions do not hide a live Codex task or an active reminder.
   if (source === "interaction" && (monitoring.codexBusy || runtimeState.source === "codex" || runtimeState.source === "reminder")) return;
   if (runtimeState.expiresAt && runtimeState.expiresAt > now && priority < runtimeState.priority) return;
@@ -738,14 +751,14 @@ function recomputeState(force = false): void {
   let source = "ambient";
   let priority = 10;
 
-  if (monitoring.codexBusy) {
+  if (data.sleeping) {
+    message = SLEEPING_NOTICE;
+    source = "interaction";
+    priority = 96;
+  } else if (monitoring.codexBusy) {
     message = "Codex 正在处理任务";
     source = "codex";
     priority = 70;
-  } else if (data.sleeping) {
-    message = "小满睡着了";
-    source = "interaction";
-    priority = 45;
   } else if (state === "hungry" || state === "dirty" || state === "sleepy") {
     source = "needs";
     priority = 40;
@@ -756,6 +769,20 @@ function recomputeState(force = false): void {
   }
 
   runtimeState = { state, message, source, priority, expiresAt: null };
+  broadcast();
+}
+
+function notifySleeping(): void {
+  if (!data?.sleeping) return;
+  clearStateTimer();
+  stateSequence += 1;
+  runtimeState = {
+    state: "sleeping",
+    message: SLEEPING_NOTICE,
+    source: "interaction",
+    priority: 96,
+    expiresAt: null,
+  };
   broadcast();
 }
 
@@ -810,6 +837,10 @@ function runCareMutation(
   wakesInactivity = true,
   durationMs = 4200,
 ): AppSnapshot {
+  if (data.sleeping) {
+    notifySleeping();
+    throw new Error(SLEEPING_NOTICE);
+  }
   const now = Date.now();
   rolloverDailyQuests(now);
   const inputData = { ...data, stats: decayStats(data.stats, data.sleeping, now) };
@@ -845,6 +876,10 @@ function claimDailyQuest(questId: string): AppSnapshot {
 }
 
 function completeGame(gameId: GameId, score: number): AppSnapshot {
+  if (data.sleeping) {
+    notifySleeping();
+    throw new Error(SLEEPING_NOTICE);
+  }
   expireDesktopBubbleSessionIfNeeded();
   if (!canCompleteGame(gameActive, data.settings.gameModeEnabled, desktopSessionState.status.active)) {
     if (desktopSessionState.status.active) throw new Error("桌面泡泡互动正在进行");
@@ -870,6 +905,10 @@ function wakeForGameInteraction(title = "开始互动游戏"): void {
 }
 
 async function performInteraction(action: InteractionAction): Promise<AppSnapshot> {
+  if (data.sleeping && !isSleepAllowedInteraction(action)) {
+    notifySleeping();
+    return snapshot();
+  }
   if (action === "feed") return feedFood("fish-snack");
   const now = Date.now();
   data = { ...data, stats: { ...decayStats(data.stats, data.sleeping, now), lastUpdatedAt: now } };
@@ -903,13 +942,14 @@ async function performInteraction(action: InteractionAction): Promise<AppSnapsho
   } else if (action === "sleep") {
     data.sleeping = true;
     data.sleepReason = "manual";
+    closeAuxiliaryPanelsForSleep();
     data.activity = appendActivity(data.activity, {
       source: "interaction",
       title: "小满去睡觉",
       detail: "开始恢复精力",
       state: "sleeping",
     });
-    triggerState("sleeping", "晚安", "interaction", null, 45, false);
+    triggerState("sleeping", SLEEPING_NOTICE, "interaction", null, 96, false);
     emitSound("purr");
   } else if (action === "wake") {
     data.sleeping = false;
@@ -1202,13 +1242,14 @@ function runAutoSleepCheck(): void {
   if (!shouldAutoSleepForRuntime(input)) return;
 
   data = { ...data, sleeping: true, sleepReason: "inactivity" };
+  closeAuxiliaryPanelsForSleep();
   data.activity = appendActivity(data.activity, {
     source: "system",
     title: "小满进入睡眠",
     detail: "系统空闲时间达到自动睡眠阈值",
     state: "sleeping",
   });
-  triggerState("sleeping", "晚安", "system", null, 45, false);
+  triggerState("sleeping", SLEEPING_NOTICE, "system", null, 96, false);
   emitSound("purr");
   persistAndBroadcast();
 }
@@ -1237,6 +1278,10 @@ function configurePowerMonitor(): void {
 }
 
 function setGameActive(active: boolean): boolean {
+  if (data.sleeping) {
+    notifySleeping();
+    return false;
+  }
   expireDesktopBubbleSessionIfNeeded();
   const transition = transitionGameActivity(
     gameActive,
@@ -1252,6 +1297,10 @@ function setGameActive(active: boolean): boolean {
 }
 
 function startGameSession(): GameStartResult {
+  if (data.sleeping) {
+    notifySleeping();
+    return { accepted: false, message: SLEEPING_NOTICE };
+  }
   expireDesktopBubbleSessionIfNeeded();
   if (!data.settings.gameModeEnabled) {
     return { accepted: false, message: "小游戏模式已关闭" };
@@ -1301,6 +1350,10 @@ function scheduleDesktopSessionExpiry(sessionId: string, startedAt: number): voi
 }
 
 export function startDesktopBubbleSession(): Promise<AppSnapshot> {
+  if (data.sleeping) {
+    notifySleeping();
+    return Promise.reject(new Error(SLEEPING_NOTICE));
+  }
   const now = Date.now();
   expireDesktopBubbleSessionIfNeeded(now);
   if (!data.settings.gameModeEnabled) return Promise.reject(new Error("小游戏模式已关闭"));
@@ -1316,6 +1369,10 @@ export function startDesktopBubbleSession(): Promise<AppSnapshot> {
 }
 
 export function hitDesktopBubble(sessionId: string, bubbleId: string): Promise<AppSnapshot> {
+  if (data.sleeping) {
+    notifySleeping();
+    return Promise.reject(new Error(SLEEPING_NOTICE));
+  }
   const now = Date.now();
   expireDesktopBubbleSessionIfNeeded(now);
   const result = hitDesktopBubbleState(desktopSessionState, sessionId, bubbleId, now);
@@ -1326,6 +1383,10 @@ export function hitDesktopBubble(sessionId: string, bubbleId: string): Promise<A
 }
 
 export function stopDesktopBubbleSession(sessionId: string, completed: boolean): Promise<AppSnapshot> {
+  if (data.sleeping) {
+    notifySleeping();
+    return Promise.reject(new Error(SLEEPING_NOTICE));
+  }
   const now = Date.now();
   const result = stopDesktopBubbleSessionState(desktopSessionState, sessionId, completed, now);
   if (!result.accepted) return Promise.reject(new Error("桌面互动 session 无效"));
@@ -1896,7 +1957,27 @@ function createQuickWindow(): BrowserWindow {
   return window;
 }
 
+function closeQuickWindow(): void {
+  if (quickWindow && !quickWindow.isDestroyed()) quickWindow.hide();
+}
+
+function closeAuxiliaryPanelsForSleep(): void {
+  clearDesktopBubbleSessionWithoutReward(false);
+  gameActive = false;
+  resetOverlayHitRegionState();
+  closeQuickWindow();
+  setOverlayTaskPanel(false);
+  applyOverlayMousePolicy();
+}
+
 export function showQuickWindow(mode: QuickViewMode): void {
+  if (!canOpenAuxiliaryPanel(data.sleeping)) {
+    notifySleeping();
+    return;
+  }
+  // The task panel and compact care/interaction window share one auxiliary
+  // surface. Opening either one closes the other before navigation starts.
+  if (overlayTaskPanelOpen) setOverlayTaskPanel(false);
   quickLoadController ??= createQuickLoadController(
     (window, nextMode) => loadView(window, "quick", nextMode),
     (window) => quickWindow === window && !window.isDestroyed(),
@@ -1917,6 +1998,10 @@ export function setOverlayMouseMode(mode: OverlayMouseMode): void {
 
 function toggleOverlay(): void {
   if (!overlayWindow) return;
+  if (data.sleeping && overlayWindow.isVisible()) {
+    notifySleeping();
+    return;
+  }
   data.settings.overlayVisible = !overlayWindow.isVisible();
   if (data.settings.overlayVisible) {
     overlayWindow.showInactive();
@@ -1949,29 +2034,48 @@ function updateTrayMenu(): void {
     { label: "打开控制中心", click: () => showCenter() },
     { label: data.settings.overlayVisible ? "隐藏小满" : "显示小满", click: () => toggleOverlay() },
     { type: "separator" },
-    { label: "喂鱼干", click: () => performInteraction("feed") },
-    { label: "摸摸", click: () => performInteraction("pet") },
-    { label: "一起玩", click: () => performInteraction("play") },
-    { label: data.sleeping ? "叫醒" : "睡觉", click: () => performInteraction(data.sleeping ? "wake" : "sleep") },
+    { label: "喂鱼干", click: () => performMenuInteraction("feed") },
+    { label: "摸摸", click: () => performMenuInteraction("pet") },
+    { label: "一起玩", click: () => performMenuInteraction("play") },
+    { label: data.sleeping ? "叫醒" : "睡觉", click: () => performMenuInteraction(data.sleeping ? "wake" : "sleep") },
     { type: "separator" },
     { label: "退出小满桌面伴侣", click: () => app.quit() },
   ];
   tray.setContextMenu(Menu.buildFromTemplate(template));
 }
 
+function showCenterFromOverlayMenu(): void {
+  if (data.sleeping) {
+    notifySleeping();
+    return;
+  }
+  showCenter();
+}
+
 function showOverlayContextMenu(): void {
   const template: MenuItemConstructorOptions[] = [
-    { label: "喂鱼干", click: () => performInteraction("feed") },
-    { label: "摸摸", click: () => performInteraction("pet") },
-    { label: "一起玩", click: () => performInteraction("play") },
-    { label: data.sleeping ? "叫醒" : "睡觉", click: () => performInteraction(data.sleeping ? "wake" : "sleep") },
+    { label: "喂鱼干", click: () => performMenuInteraction("feed") },
+    { label: "摸摸", click: () => performMenuInteraction("pet") },
+    { label: "一起玩", click: () => performMenuInteraction("play") },
+    { label: data.sleeping ? "叫醒" : "睡觉", click: () => performMenuInteraction(data.sleeping ? "wake" : "sleep") },
     { type: "separator" },
-    { label: "打开控制中心", click: () => showCenter() },
+    { label: "打开控制中心", click: () => showCenterFromOverlayMenu() },
     { label: "隐藏小满", click: () => toggleOverlay() },
     { type: "separator" },
     { label: "退出小满桌面伴侣", click: () => app.quit() },
   ];
   Menu.buildFromTemplate(template).popup({ window: overlayWindow ?? undefined });
+}
+
+function performMenuInteraction(action: InteractionAction): void {
+  void performInteraction(action).catch((error) => {
+    if (data.sleeping) {
+      notifySleeping();
+      return;
+    }
+    const detail = error instanceof Error ? error.message : String(error);
+    console.warn(`[xiaoman] menu interaction failed${detail ? `: ${detail}` : ""}`);
+  });
 }
 
 function scheduleOverlayPositionSave(): void {
@@ -1999,6 +2103,22 @@ function moveOverlayBy(deltaX: number, deltaY: number): void {
   scheduleOverlayPositionSave();
 }
 
+function moveQuickWindowBy(deltaX: number, deltaY: number): void {
+  if (!quickWindow || quickWindow.isDestroyed() || !Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return;
+  const bounds = quickWindow.getBounds();
+  const target = {
+    x: Math.round(bounds.x + Math.max(-120, Math.min(120, deltaX))),
+    y: Math.round(bounds.y + Math.max(-120, Math.min(120, deltaY))),
+    width: bounds.width,
+    height: bounds.height,
+  };
+  const workArea = screen.getDisplayMatching(target).workArea;
+  const margin = 12;
+  const x = Math.max(workArea.x + margin, Math.min(target.x, workArea.x + workArea.width - bounds.width - margin));
+  const y = Math.max(workArea.y + margin, Math.min(target.y, workArea.y + workArea.height - bounds.height - margin));
+  quickWindow.setPosition(x, y, false);
+}
+
 function resizeOverlayForPet(): void {
   if (!overlayWindow || overlayWindow.isDestroyed()) return;
   const bounds = overlayWindow.getBounds();
@@ -2017,8 +2137,13 @@ function resizeOverlayForPet(): void {
 }
 
 function setOverlayTaskPanel(open: boolean): void {
+  if (open && !canOpenAuxiliaryPanel(data.sleeping)) {
+    notifySleeping();
+    return;
+  }
   const next = Boolean(open) && data.settings.codexSessionControls;
   if (overlayTaskPanelOpen === next) return;
+  if (next) closeQuickWindow();
   overlayTaskPanelOpen = next;
   overlayMouseMode = next ? "interactive" : "passthrough";
   resizeOverlayForPet();
@@ -2027,6 +2152,7 @@ function setOverlayTaskPanel(open: boolean): void {
     overlayWindow.focus();
   }
   applyOverlayMousePolicy();
+  broadcastOverlayTaskPanelState();
 }
 
 function applySettingsSideEffects(previous: CompanionSettings): void {
@@ -2285,6 +2411,10 @@ function registerIpcHandlers(): void {
   ipcMain.on("overlay:move-by", (event, deltaX: number, deltaY: number) => {
     assertTrustedOverlaySender(event.sender, event.senderFrame);
     moveOverlayBy(deltaX, deltaY);
+  });
+  ipcMain.on("quick:move-by", (event, deltaX: number, deltaY: number) => {
+    assertTrustedSender(event.sender, event.senderFrame);
+    moveQuickWindowBy(deltaX, deltaY);
   });
   ipcMain.on("overlay:context-menu", (event) => {
     assertTrustedOverlaySender(event.sender, event.senderFrame);

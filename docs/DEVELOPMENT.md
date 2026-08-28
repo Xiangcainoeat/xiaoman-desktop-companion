@@ -112,7 +112,7 @@ directly.
 
 ## Care and game assets
 
-The care loop uses `public/pet/sleeping-30.webp` and `public/pet/care-actions-30.webp`, each assembled and validated as fixed 192x208 cells. The accepted source sheets contain 36 generated poses each; the builder samples 30 registered runtime slots without cross-frame blending and keeps the feet on a shared baseline. Rebuild the accepted expanded sources with:
+The sleep pipeline uses `public/pet/sleeping-30.webp`; the generated `public/pet/care-actions-30.webp` remains assembled and validated as a retained source/provenance atlas. Enhanced runtime feeding uses the native-colored `idle-actions-30.webp` lick row and bathing uses the native standard idle row, with discrete frame selection and no cross-frame blending. The accepted supplementary sheets contain 36 generated poses each and can still be rebuilt with:
 
 ```bash
 sh scripts/run_image_python.sh scripts/build_care_atlas_30.py \

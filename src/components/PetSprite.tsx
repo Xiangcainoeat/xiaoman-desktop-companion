@@ -5,7 +5,11 @@ import {
   parseLookAtlasMetadata,
   type LookAtlasMetadata,
 } from "../shared/animation";
-import { SpritePlayer } from "./SpritePlayer";
+import {
+  buildClosedFrameSequence,
+  SpritePlayer,
+  type SpriteAnimationSpec,
+} from "./SpritePlayer";
 import { STANDARD_ATLAS_FRAME_COUNTS } from "../shared/domain";
 import { HOVER_JUMP_FPS, HOVER_JUMP_FRAME_COUNT } from "../shared/motion";
 import {
@@ -18,7 +22,6 @@ import {
   smoothAngle,
 } from "../shared/gaze";
 import { bridge } from "../useCompanion";
-import type { AnimationSpec } from "../shared/animation";
 import type { CursorPositionSample } from "../shared/gaze";
 import type { CompanionSettings, PetMotion, PetProfile, PetState } from "../shared/types";
 
@@ -36,7 +39,7 @@ interface PetSpriteProps {
   onGazeActivityChange?: (active: boolean) => void;
 }
 
-interface PetAnimationSpec extends AnimationSpec {
+interface PetAnimationSpec extends SpriteAnimationSpec {
   atlas: "standard" | "idle" | "sleeping" | "care";
   row: number;
   frames: number;
@@ -103,9 +106,61 @@ const MOTION_SPEC: Record<PetMotion, PetAnimationSpec> = {
   "idle-scratch": { atlas: "idle", row: 6, frames: 30, fps: 5.1, columns: 10, atlasRows: 9 },
 };
 
+const NATURAL_ACTION_PLAYBACK_FRAMES = 30;
+const NATURAL_BATH_SOURCE_FRAMES = STANDARD_ATLAS_FRAME_COUNTS[0];
+const NATURAL_BATH_FRAME_SEQUENCE = buildClosedFrameSequence(
+  NATURAL_BATH_SOURCE_FRAMES,
+  NATURAL_ACTION_PLAYBACK_FRAMES,
+);
+const NATURAL_FEED_FRAME_SEQUENCE = buildClosedFrameSequence(30, NATURAL_ACTION_PLAYBACK_FRAMES);
+const NATURAL_SLEEP_FRAME_SEQUENCE = buildClosedFrameSequence(30, NATURAL_ACTION_PLAYBACK_FRAMES);
+
+// Keep the native fur palette and silhouette; the tiny compositor motion
+// supplies a calm cue without an oversized generated prop.
+const NATURAL_BATH_BASE_SPEC: PetAnimationSpec = {
+  atlas: "standard",
+  row: 0,
+  frames: NATURAL_ACTION_PLAYBACK_FRAMES,
+  atlasFrames: NATURAL_BATH_SOURCE_FRAMES,
+  frameSequence: NATURAL_BATH_FRAME_SEQUENCE,
+  fps: 4.8,
+  columns: 8,
+  atlasRows: 11,
+  playback: "natural",
+  naturalMotion: { amplitudeY: 0.35, rotationDeg: 0.05, scaleAmplitude: 0.001, periodMs: 1_800 },
+};
+
+// The cleaned native-colored lick row reads as feeding when replayed as a
+// closed loop, without introducing the old warm/orange prop artwork.
+const NATURAL_FEED_BASE_SPEC: PetAnimationSpec = {
+  atlas: "idle",
+  row: 0,
+  frames: NATURAL_ACTION_PLAYBACK_FRAMES,
+  atlasFrames: 30,
+  frameSequence: NATURAL_FEED_FRAME_SEQUENCE,
+  fps: 5.6,
+  columns: 10,
+  atlasRows: 9,
+  playback: "natural",
+  naturalMotion: { amplitudeY: 0.25, rotationDeg: 0.04, scaleAmplitude: 0.001, periodMs: 1_500 },
+};
+
 const CARE_MOTION_SPEC: Record<CareMotion, PetAnimationSpec> = {
-  "care-bath": { atlas: "care", row: 0, frames: 30, fps: 5.2, columns: 10, atlasRows: 6 },
-  "care-feed": { atlas: "care", row: 3, frames: 30, fps: 5.2, columns: 10, atlasRows: 6 },
+  "care-bath": NATURAL_BATH_BASE_SPEC,
+  "care-feed": NATURAL_FEED_BASE_SPEC,
+};
+
+const NATURAL_SLEEPING_SPEC: PetAnimationSpec = {
+  atlas: "sleeping",
+  row: 0,
+  frames: NATURAL_ACTION_PLAYBACK_FRAMES,
+  atlasFrames: 30,
+  frameSequence: NATURAL_SLEEP_FRAME_SEQUENCE,
+  fps: 3.8,
+  columns: 10,
+  atlasRows: 3,
+  playback: "natural",
+  naturalMotion: { amplitudeY: 0.35, scaleAmplitude: 0.006, periodMs: 3_200 },
 };
 
 const LOOK_STATES = new Set<PetState>(["idle", "working", "happy", "celebrating", "sleepy"]);
@@ -200,10 +255,20 @@ export function PetSprite({
   }, [motion, state]);
 
   const animation = useMemo<PetAnimationSpec>(() => {
-    if (motion && !(settings.petProfile === "native" && (motion.startsWith("idle-") || motion.startsWith("care-")))) {
-      return motion.startsWith("care-")
-        ? CARE_MOTION_SPEC[motion as CareMotion]
-        : MOTION_SPEC[motion as PetMotion];
+    if (motion?.startsWith("care-")) {
+      return CARE_MOTION_SPEC[motion as CareMotion];
+    }
+    if (motion && !(settings.petProfile === "native" && motion.startsWith("idle-"))) {
+      return MOTION_SPEC[motion as PetMotion];
+    }
+    if (settings.petProfile === "enhanced" && state === "sleeping") {
+      return NATURAL_SLEEPING_SPEC;
+    }
+    if (settings.petProfile === "enhanced" && state === "bathing") {
+      return CARE_MOTION_SPEC["care-bath"];
+    }
+    if (settings.petProfile === "enhanced" && state === "eating") {
+      return CARE_MOTION_SPEC["care-feed"];
     }
     if (settled) {
       return {
@@ -214,18 +279,6 @@ export function PetSprite({
         columns: 8,
         atlasRows: 11,
       };
-    }
-    if (settings.petProfile === "native" && motion === "care-bath") {
-      return { atlas: "standard", row: 0, frames: STANDARD_ATLAS_FRAME_COUNTS[0], fps: 3.4, columns: 8, atlasRows: 11 };
-    }
-    if (settings.petProfile === "enhanced" && state === "sleeping") {
-      return { atlas: "sleeping", row: 0, frames: 30, fps: 5.2, columns: 10, atlasRows: 3 };
-    }
-    if (settings.petProfile === "enhanced" && state === "bathing") {
-      return CARE_MOTION_SPEC["care-bath"];
-    }
-    if (settings.petProfile === "enhanced" && state === "eating") {
-      return CARE_MOTION_SPEC["care-feed"];
     }
     const row = STATE_ROW[state as PetState];
     return {
@@ -434,7 +487,7 @@ export function PetSprite({
           paused={reducedMotion}
           onLoop={() => {
             loopsRef.current += 1;
-            if (!motion && state !== "idle" && !settledRef.current && loopsRef.current >= 3) {
+            if (!motion && state !== "idle" && state !== "sleeping" && !settledRef.current && loopsRef.current >= 3) {
               settledRef.current = true;
               setSettled(true);
             }

@@ -53,6 +53,7 @@ export interface XiaomanApi {
   quitApp(): void;
   toggleOverlay(): void;
   moveOverlayBy(deltaX: number, deltaY: number): void;
+  moveQuickWindowBy(deltaX: number, deltaY: number): void;
   setOverlayMouseMode(mode: "passthrough" | "interactive"): void;
   reportOverlayHitRegions(report: OverlayInteractionReport): void;
   showOverlayMenu(): void;
@@ -60,6 +61,7 @@ export interface XiaomanApi {
   onCursor(callback: (payload: CursorPayload) => void): () => void;
   onSound(callback: (sound: SoundName) => void): () => void;
   onCenterTab(callback: (tab: CenterTab) => void): () => void;
+  onOverlayTaskPanel(callback: (open: boolean) => void): () => void;
 }
 
 declare global {

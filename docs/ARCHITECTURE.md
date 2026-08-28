@@ -55,7 +55,7 @@ The enhanced `look-96.webp` source is assembled deterministically from a repaire
 
 ## Care and progression
 
-The care domain is shared pure TypeScript rather than renderer-owned state. A feed operation validates and consumes one inventory item before applying that food's bounded stat effects. Bathing increases cleanliness and uses the dedicated 30-frame care atlas. Jobs, gift boxes, daily quests and Codex completion rewards all return a new `PersistedData` value; the main process is the only writer and appends one activity record per successful operation.
+The care domain is shared pure TypeScript rather than renderer-owned state. A feed operation validates and consumes one inventory item before applying that food's bounded stat effects. Bathing increases cleanliness; the enhanced renderer uses the native-colored idle loop for bathing and the native-colored lick loop for feeding, while the validated generated care atlas remains a retained asset/provenance record. Jobs, gift boxes, daily quests and Codex completion rewards all return a new `PersistedData` value; the main process is the only writer and appends one activity record per successful operation.
 
 The progression economy has deliberately separate sources and sinks:
 

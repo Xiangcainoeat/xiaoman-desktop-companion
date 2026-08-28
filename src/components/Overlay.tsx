@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Code2, Fish, Gamepad2, Heart, PanelTopOpen, Power } from "lucide-react";
+import { Code2, Gamepad2, Heart, Moon, PanelTopOpen, Power, Sun } from "lucide-react";
 import {
   chooseIdleMotion,
   hoverJumpDurationMs,
@@ -101,11 +101,18 @@ export function Overlay() {
   const leaveInteractiveArea = useCallback(() => {
     if (!bubbleInteractiveRef.current && !tasksOpen) bridge.setOverlayMouseMode("passthrough");
   }, [tasksOpen]);
+  const notifySleeping = useCallback(() => {
+    void bridge.interact("pet").catch(() => undefined);
+  }, []);
   const setTaskPanel = useCallback((open: boolean) => {
+    if (open && snapshot?.sleeping) {
+      notifySleeping();
+      return;
+    }
     setTasksOpen(open);
     bridge.setOverlayTaskPanel(open);
     bridge.setOverlayMouseMode(open || bubbleInteractiveRef.current ? "interactive" : "passthrough");
-  }, []);
+  }, [notifySleeping, snapshot?.sleeping]);
   const closeTaskPanel = useCallback(() => setTaskPanel(false), [setTaskPanel]);
 
   useEffect(() => () => {
@@ -137,6 +144,14 @@ export function Overlay() {
       bridge.setOverlayTaskPanel(false);
     }
   }, [snapshot?.settings.codexSessionControls, tasksOpen]);
+
+  useEffect(() => bridge.onOverlayTaskPanel((open) => setTasksOpen(open)), []);
+
+  useEffect(() => {
+    if (!snapshot?.sleeping || !tasksOpen) return;
+    setTasksOpen(false);
+    bridge.setOverlayMouseMode("passthrough");
+  }, [snapshot?.sleeping, tasksOpen]);
 
   useEffect(() => {
     if (
@@ -272,6 +287,11 @@ export function Overlay() {
       resetPointerInteraction();
       return;
     }
+    if (snapshot.sleeping) {
+      resetPointerInteraction();
+      notifySleeping();
+      return;
+    }
     resetPointerInteraction();
     clearMotionTimer();
     dragRef.current = {
@@ -321,6 +341,7 @@ export function Overlay() {
 
   const pointerEnter = () => {
     enterInteractiveArea();
+    if (snapshot.sleeping) return;
     if (!snapshot.settings.hoverJumpEnabled || !canUseTransientMotion || dragRef.current.active) return;
     clearHoverMotion();
     setHoverMotion("jumping");
@@ -335,16 +356,24 @@ export function Overlay() {
   };
 
   const petClick = () => {
+    if (snapshot.sleeping) {
+      notifySleeping();
+      return;
+    }
     if (clickSuppressionRef.current || dragRef.current.moved) {
       clickSuppressionRef.current = false;
       dragRef.current.moved = false;
       return;
     }
     if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current);
-    clickTimerRef.current = window.setTimeout(() => void bridge.interact("pet"), 210);
+    clickTimerRef.current = window.setTimeout(() => void bridge.interact("pet").catch(() => undefined), 210);
   };
 
   const openCenter = () => {
+    if (snapshot.sleeping) {
+      notifySleeping();
+      return;
+    }
     if (clickTimerRef.current !== null) window.clearTimeout(clickTimerRef.current);
     clickTimerRef.current = null;
     bridge.showCenter();
@@ -395,7 +424,8 @@ export function Overlay() {
         onKeyDown={(event) => {
           if (event.key === "Enter" || event.key === " ") {
             event.preventDefault();
-            void bridge.interact("pet");
+            if (snapshot.sleeping) notifySleeping();
+            else void bridge.interact("pet").catch(() => undefined);
           }
         }}
         role="button"
@@ -429,16 +459,17 @@ export function Overlay() {
           </button>
         )}
         <button
-          className="icon-button overlay-action"
+          className={`icon-button overlay-action ${snapshot.sleeping ? "is-active" : ""}`}
           type="button"
-          title="喂鱼干"
-          aria-label="喂鱼干"
+          title={snapshot.sleeping ? "叫醒小满" : "让小满睡觉"}
+          aria-label={snapshot.sleeping ? "叫醒小满" : "让小满睡觉"}
+          aria-pressed={snapshot.sleeping}
           onClick={(event) => {
             event.stopPropagation();
-            void bridge.interact("feed");
+            void bridge.interact(snapshot.sleeping ? "wake" : "sleep").catch(() => undefined);
           }}
         >
-          <Fish size={18} />
+          {snapshot.sleeping ? <Sun size={18} /> : <Moon size={18} />}
         </button>
         <button
           className="icon-button overlay-action"
@@ -447,7 +478,8 @@ export function Overlay() {
           aria-label="打开养成"
           onClick={(event) => {
             event.stopPropagation();
-            bridge.showQuickWindow("care");
+            if (snapshot.sleeping) notifySleeping();
+            else bridge.showQuickWindow("care");
           }}
         >
           <Heart size={18} />
@@ -459,7 +491,8 @@ export function Overlay() {
           aria-label="打开互动"
           onClick={(event) => {
             event.stopPropagation();
-            bridge.showQuickWindow("interaction");
+            if (snapshot.sleeping) notifySleeping();
+            else bridge.showQuickWindow("interaction");
           }}
         >
           <Gamepad2 size={18} />
@@ -471,7 +504,8 @@ export function Overlay() {
           aria-label="打开控制中心"
           onClick={(event) => {
             event.stopPropagation();
-            bridge.showCenter();
+            if (snapshot.sleeping) notifySleeping();
+            else bridge.showCenter();
           }}
         >
           <PanelTopOpen size={18} />

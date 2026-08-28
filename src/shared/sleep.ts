@@ -1,4 +1,6 @@
-import type { SleepReason } from "./types";
+import type { InteractionAction, SleepReason } from "./types";
+
+export const SLEEPING_NOTICE = "小满睡着了";
 
 export interface AutoSleepInput {
   enabled: boolean;
@@ -25,4 +27,13 @@ export function shouldAutoSleep(input: AutoSleepInput): boolean {
 
 export function shouldAutoWake(input: AutoWakeInput): boolean {
   return input.explicitWake || (input.sleepReason === "inactivity" && input.hasUserActivity);
+}
+
+/** Manual sleep is a modal pet state: only the explicit sleep toggle remains available. */
+export function isSleepAllowedInteraction(action: InteractionAction): boolean {
+  return action === "sleep" || action === "wake";
+}
+
+export function canOpenAuxiliaryPanel(sleeping: boolean): boolean {
+  return !sleeping;
 }

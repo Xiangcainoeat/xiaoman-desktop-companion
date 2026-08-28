@@ -613,6 +613,13 @@ select:focus-visible {
   gap: 10px;
   padding-bottom: 8px;
   border-bottom: 1px solid var(--line);
+  /* The frameless window uses an explicit IPC drag path for reliable movement. */
+  -webkit-app-region: no-drag;
+  cursor: grab;
+}
+
+.quick-header:active {
+  cursor: grabbing;
 }
 
 .quick-header-actions {
@@ -620,6 +627,11 @@ select:focus-visible {
   align-items: center;
   gap: 6px;
   flex: 0 0 auto;
+  -webkit-app-region: no-drag;
+}
+
+.quick-header-actions * {
+  -webkit-app-region: no-drag;
 }
 
 .quick-header h1 {

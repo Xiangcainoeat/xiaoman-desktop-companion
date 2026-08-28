@@ -50,6 +50,8 @@ function isCenterTab(value: unknown): value is CenterTab {
 
 const centerTabListeners = new Set<(tab: CenterTab) => void>();
 let pendingCenterTab: CenterTab | null = null;
+const overlayTaskPanelListeners = new Set<(open: boolean) => void>();
+let pendingOverlayTaskPanelState: boolean | null = null;
 
 ipcRenderer.on("center:select-tab", (_event, value: unknown) => {
   if (!isCenterTab(value)) return;
@@ -58,6 +60,15 @@ ipcRenderer.on("center:select-tab", (_event, value: unknown) => {
     return;
   }
   for (const listener of centerTabListeners) listener(value);
+});
+
+ipcRenderer.on("overlay:task-panel-state", (_event, value: unknown) => {
+  if (typeof value !== "boolean") return;
+  if (overlayTaskPanelListeners.size === 0) {
+    pendingOverlayTaskPanelState = value;
+    return;
+  }
+  for (const listener of overlayTaskPanelListeners) listener(value);
 });
 
 function rounded(value: number): number {
@@ -248,6 +259,7 @@ contextBridge.exposeInMainWorld("xiaoman", {
   quitApp: (): void => ipcRenderer.send("app:quit"),
   toggleOverlay: (): void => ipcRenderer.send("overlay:toggle"),
   moveOverlayBy: (deltaX: number, deltaY: number): void => ipcRenderer.send("overlay:move-by", deltaX, deltaY),
+  moveQuickWindowBy: (deltaX: number, deltaY: number): void => ipcRenderer.send("quick:move-by", deltaX, deltaY),
   setOverlayMouseMode: (mode: "passthrough" | "interactive"): void => ipcRenderer.send("overlay:mouse-mode", mode),
   reportOverlayHitRegions: (report: OverlayInteractionReport): void => ipcRenderer.send("overlay:hit-regions", report),
   showOverlayMenu: (): void => ipcRenderer.send("overlay:context-menu"),
@@ -276,6 +288,17 @@ contextBridge.exposeInMainWorld("xiaoman", {
       });
     }
     return () => centerTabListeners.delete(callback);
+  },
+  onOverlayTaskPanel: (callback: (open: boolean) => void): (() => void) => {
+    overlayTaskPanelListeners.add(callback);
+    if (pendingOverlayTaskPanelState !== null) {
+      const open = pendingOverlayTaskPanelState;
+      pendingOverlayTaskPanelState = null;
+      queueMicrotask(() => {
+        if (overlayTaskPanelListeners.has(callback)) callback(open);
+      });
+    }
+    return () => overlayTaskPanelListeners.delete(callback);
   },
 });
 

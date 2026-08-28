@@ -315,6 +315,28 @@ describe("desktop interaction Electron boundary", () => {
     await expect(api.completeGame("bubble-pop", 0)).resolves.toBeTruthy();
   });
 
+  it("locks care and interaction while sleeping and leaves wake available", async () => {
+    vi.stubGlobal("window", { setTimeout, addEventListener: vi.fn(), removeEventListener: vi.fn() });
+    const api = createMockApiForTests();
+    const sleeping = await api.interact("sleep");
+    const interactionsBefore = sleeping.stats.interactions;
+    const affectionBefore = sleeping.stats.affection;
+
+    await expect(api.interact("pet")).resolves.toMatchObject({
+      sleeping: true,
+      stateMessage: "小满睡着了",
+    });
+    await expect(api.feedFood("fish-snack")).rejects.toThrow("小满睡着了");
+    await expect(api.bathePet()).rejects.toThrow("小满睡着了");
+
+    const stillSleeping = await api.getSnapshot();
+    expect(stillSleeping.stats.interactions).toBe(interactionsBefore);
+    expect(stillSleeping.stats.affection).toBe(affectionBefore);
+
+    const awake = await api.interact("wake");
+    expect(awake.sleeping).toBe(false);
+  });
+
   it("serializes latest quick loads and contains navigation failures", async () => {
     const window = {};
     const calls: string[] = [];

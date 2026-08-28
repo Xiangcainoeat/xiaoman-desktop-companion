@@ -2,6 +2,7 @@ import { appendActivity, clampStat, createDefaultData, decayStats, FOOD_IDS, mak
 import { applyBath, applyFeed, claimDailyQuest, completePetJob, openGiftBox, startPetJob } from "./shared/care";
 import { canHitDesktopBubble, DESKTOP_SESSION_DURATION_MS } from "./shared/desktop-interaction";
 import { settleGameResult } from "./shared/games";
+import { isSleepAllowedInteraction, SLEEPING_NOTICE } from "./shared/sleep";
 import type { XiaomanApi } from "./electron";
 import type {
   AppRuleInput,
@@ -82,13 +83,22 @@ function createMockApi(): XiaomanApi {
       expireDesktopSessionAndPublishIfNeeded();
     }, Math.max(0, startedAt + DESKTOP_SESSION_DURATION_MS - Date.now()));
   };
+  const rejectSleepingCare = (): void => {
+    if (current.sleeping) throw new Error(SLEEPING_NOTICE);
+  };
+  const notifySleeping = (): AppSnapshot => {
+    current.state = "sleeping";
+    current.stateMessage = SLEEPING_NOTICE;
+    current.stateSource = "interaction";
+    return publish();
+  };
   const temporaryState = (state: AppSnapshot["state"], message: string, sound: SoundName, durationMs = 2600) => {
     current.state = state;
     current.stateMessage = message;
     if (sound !== "none") for (const listener of soundListeners) listener(sound);
     window.setTimeout(() => {
-      current.state = "idle";
-      current.stateMessage = STATE_LABELS.idle;
+      current.state = current.sleeping ? "sleeping" : "idle";
+      current.stateMessage = current.sleeping ? SLEEPING_NOTICE : STATE_LABELS.idle;
       publish();
     }, durationMs);
   };
@@ -108,6 +118,7 @@ function createMockApi(): XiaomanApi {
     sound: SoundName,
     title: string,
   ): AppSnapshot => {
+    rejectSleepingCare();
     const now = Date.now();
     const baseData = {
       ...current,
@@ -179,6 +190,7 @@ function createMockApi(): XiaomanApi {
   };
 
   const interact = async (action: InteractionAction) => {
+    if (current.sleeping && !isSleepAllowedInteraction(action)) return notifySleeping();
     if (action === "feed") return runCare({ kind: "feed", foodId: "fish-snack" }, "eating", "鱼干真香", "crunch", "喂了小满");
     const now = Date.now();
     const mapping: Record<InteractionAction, { state: AppSnapshot["state"]; message: string; sound: SoundName }> = {
@@ -199,7 +211,14 @@ function createMockApi(): XiaomanApi {
     current.sleeping = action === "sleep" ? true : action === "wake" ? false : current.sleeping;
     current.sleepReason = action === "sleep" ? "manual" : action === "wake" ? null : current.sleepReason;
     current.stats.interactions += 1;
-    temporaryState(mapping[action].state, mapping[action].message, mapping[action].sound);
+    if (action === "sleep") {
+      current.state = "sleeping";
+      current.stateMessage = SLEEPING_NOTICE;
+      current.stateSource = "interaction";
+      for (const listener of soundListeners) listener(mapping[action].sound);
+    } else {
+      temporaryState(mapping[action].state, mapping[action].message, mapping[action].sound);
+    }
     current.activity = appendActivity(current.activity, {
       source: "interaction",
       title: mapping[action].message,
@@ -224,6 +243,7 @@ function createMockApi(): XiaomanApi {
     claimDailyQuest: async (questId: string) => runCare({ kind: "claim-quest", questId }, "celebrating", "领取成功", "chime", "领取每日任务奖励"),
     startGameSession: async (): Promise<GameStartResult> => {
       expireDesktopSessionAndPublishIfNeeded();
+      if (current.sleeping) return { accepted: false, message: SLEEPING_NOTICE };
       if (!current.settings.gameModeEnabled) return { accepted: false, message: "小游戏模式已关闭" };
       if (current.desktopInteraction.active) return { accepted: false, message: "桌面泡泡互动正在进行" };
       if (gameActive) return { accepted: false, message: "已有游戏正在进行" };
@@ -232,10 +252,12 @@ function createMockApi(): XiaomanApi {
     },
     setGameActive: (active: boolean) => {
       expireDesktopSessionAndPublishIfNeeded();
+      if (current.sleeping) return;
       if (current.desktopInteraction.active) return;
       gameActive = Boolean(active) && current.settings.gameModeEnabled;
     },
     completeGame: async (gameId: GameId, score: number) => {
+      rejectSleepingCare();
       if (!current.settings.gameModeEnabled) throw new Error("小游戏模式已关闭");
       if (gameId !== "rock-paper-scissors" && gameId !== "fish-catch" && gameId !== "bubble-pop") {
         throw new Error("没有这个小游戏");
@@ -250,6 +272,7 @@ function createMockApi(): XiaomanApi {
       }
     },
     startDesktopBubbleSession: async () => {
+      rejectSleepingCare();
       expireDesktopSessionAndPublishIfNeeded();
       if (!current.settings.gameModeEnabled) throw new Error("小游戏模式已关闭");
       if (current.desktopInteraction.active) return structuredClone(current);
@@ -267,6 +290,7 @@ function createMockApi(): XiaomanApi {
       return publish();
     },
     hitDesktopBubble: async (sessionId: string, bubbleId: string) => {
+      rejectSleepingCare();
       expireDesktopSessionAndPublishIfNeeded();
       if (!canHitDesktopBubble(current.desktopInteraction, sessionId, bubbleId, Date.now(), desktopHitIds)) {
         throw new Error("泡泡命中无效");
@@ -279,6 +303,7 @@ function createMockApi(): XiaomanApi {
       return publish();
     },
     stopDesktopBubbleSession: async (sessionId: string, completed: boolean) => {
+      rejectSleepingCare();
       expireDesktopSessionAndPublishIfNeeded();
       if (current.desktopInteraction.sessionId !== sessionId) {
         if (!current.desktopInteraction.active && lastDesktopSessionId === sessionId) return structuredClone(current);
@@ -390,6 +415,7 @@ function createMockApi(): XiaomanApi {
     },
     toggleOverlay: () => undefined,
     moveOverlayBy: () => undefined,
+    moveQuickWindowBy: () => undefined,
     setOverlayMouseMode: () => undefined,
     reportOverlayHitRegions: (_report: OverlayInteractionReport) => undefined,
     showOverlayMenu: () => undefined,
@@ -418,6 +444,7 @@ function createMockApi(): XiaomanApi {
       centerTabListeners.add(listener);
       return () => centerTabListeners.delete(listener);
     },
+    onOverlayTaskPanel: (_listener) => () => undefined,
   };
 }
 
