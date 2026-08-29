@@ -1,6 +1,7 @@
 # Source: Battle City
 
-- Upstream repository: https://github.com/shinima/battle-city
+- Upstream repository: https://github.com/feichao93/battle-city
+- Historical repository/author link: `shinima/battle-city` (redirects to the canonical repository above)
 - Fixed source commit: `745c369af6d4a02c71560265fd9448518e99c18d`
 - Prepared from: `tmp/article-games-20260829/unpacked/battle-city-master/build/0.3.0`
 - Source archive SHA-256: `85491847d143f03a483e8a032ba83bb816d70525035309c83c5a43ae2b672c25`
