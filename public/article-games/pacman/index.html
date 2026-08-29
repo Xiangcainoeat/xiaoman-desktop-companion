@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+  <title>吃豆人</title>
+  <link rel="icon" href="favicon.png">
+  <link rel="stylesheet" href="./static/style/index.css">
+  <style>
+    :root { color-scheme: dark; }
+    html, body { width: 960px; height: 640px; overflow: hidden; }
+    body { margin: 0; background: #10151f; font-family: system-ui, sans-serif; }
+    .game-wrap { width: 960px; height: 640px; padding: 0; }
+    .game-title,
+    .game-subtitle,
+    .mod-panel .ft { display: none; }
+    .mod-panel { margin: 0; }
+    .mod-panel canvas { display: block; width: 960px; height: 640px; }
+    .mod-panel .info p { margin: 0; color: #a9b5c8; }
+  </style>
+</head>
+<body>
+  <main class="game-wrap">
+    <h1 class="game-title">吃豆人</h1>
+    <p class="game-subtitle">方向键移动 · 空格暂停或继续 · 回车重新开始</p>
+    <div class="mod-panel">
+      <canvas id="canvas" width="960" height="640">当前环境不支持 Canvas。</canvas>
+      <div class="ft"><div class="info"><p>按方向键移动小精灵</p></div></div>
+    </div>
+  </main>
+  <script src="./static/script/game.js"></script>
+  <script src="./static/script/index.js"></script>
+  <script src="../xiaoman-frame-adapter.js"></script>
+</body>
+</html>

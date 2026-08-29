@@ -1,0 +1,18 @@
+{
+  "decision": "accept",
+  "severity": "minor",
+  "reviewed_by": "parent",
+  "failed_checks": [
+    "horizontal-5: 247.5 received a conflicting screen-right blind vote and matched the paired horizontal classification",
+    "horizontal-7: 157.5 and 202.5 were horizontally ambiguous at blind-sheet scale",
+    "vertical-7: 247.5 and 292.5 were vertically ambiguous at blind-sheet scale"
+  ],
+  "evidence": [
+    "All four cardinal directions pass blind validation and are unambiguous in the labeled normal-size direction sheet.",
+    "Independent final visual QA observed 157.5 as down-right, 202.5 and 247.5 as down-left, and 292.5 as up-left.",
+    "The labeled 16-pose sequence advances clockwise through the intended quadrants without a visible reversal.",
+    "Continuity warnings are metric-only and final visual review found no conspicuous snap, registration jump, scale pop, or identity change.",
+    "No cardinal mismatch, labeled wrong-quadrant pose, or major semantic failure is present."
+  ],
+  "notes": "The accepted issues are limited to intermediate-pose ambiguity in randomized blind thumbnails. They do not affect the readable direction or continuity of the normal-size in-app loop."
+}

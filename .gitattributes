@@ -1,0 +1,13 @@
+* text=auto eol=lf
+
+*.dmg binary
+*.gif binary
+*.icns binary
+*.png binary
+*.webp binary
+*.zip binary
+
+# Imported game snapshots are kept verbatim for attribution and reproducibility.
+# Their historical trailing whitespace is not a release-source error.
+public/article-games/** whitespace=-trailing-space,-space-before-tab
+vendor/article-games/** whitespace=-trailing-space,-space-before-tab

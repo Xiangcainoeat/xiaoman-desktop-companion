@@ -1,0 +1,24 @@
+node_modules/
+dist/
+dist-electron/
+/release/
+.DS_Store
+*.log
+coverage/
+scripts/__pycache__/
+tests/__pycache__/
+__pycache__/
+.venv/
+/work/xiaoman-pet-90/frames-90/
+/work/xiaoman-pet-90/frames-90-v2/
+
+# Local authoring inputs and generated packages must never enter a public repo.
+.env
+.env.*
+!.env.example
+references/
+refs/
+*.xmpet
+generation-report.json
+jobs.json
+/tmp/

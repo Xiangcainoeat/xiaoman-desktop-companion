@@ -1,0 +1,158 @@
+{
+  "ok": true,
+  "reviewed_by": "independent_visual_qa_worker",
+  "summary": "All 16 clockwise look directions preserve Xiaoman's identity and form a coherent loop. The four cardinals are unambiguous; four intermediate poses retain reviewed warnings for subtle blind-axis cues but remain in the correct labeled quadrants without reversal.",
+  "directions": [
+    {
+      "direction": "000",
+      "verdict": "pass",
+      "expected": "up",
+      "observed": "up",
+      "horizontal_evidence": "Pupils and muzzle remain centered.",
+      "vertical_evidence": "Both pupils sit high with the chin and head lifted.",
+      "reason": "Unmistakable up cardinal."
+    },
+    {
+      "direction": "022.5",
+      "verdict": "pass",
+      "expected": "up-right",
+      "observed": "up-right",
+      "horizontal_evidence": "Pupils and muzzle shift slightly screen-right.",
+      "vertical_evidence": "Pupils remain high and the chin stays lifted.",
+      "reason": "Clear first clockwise step."
+    },
+    {
+      "direction": "045",
+      "verdict": "pass",
+      "expected": "up-right",
+      "observed": "up-right",
+      "horizontal_evidence": "Nose, muzzle, and pupils turn screen-right.",
+      "vertical_evidence": "Eyes and head remain visibly elevated.",
+      "reason": "Balanced diagonal."
+    },
+    {
+      "direction": "067.5",
+      "verdict": "pass",
+      "expected": "up-right",
+      "observed": "up-right",
+      "horizontal_evidence": "Rightward head yaw and nose projection strengthen.",
+      "vertical_evidence": "Upper gaze and lifted chin remain visible.",
+      "reason": "Coherent approach to the 090 cardinal."
+    },
+    {
+      "direction": "090",
+      "verdict": "pass",
+      "expected": "right",
+      "observed": "right",
+      "horizontal_evidence": "Nose, muzzle, pupils, and head point unmistakably screen-right.",
+      "vertical_evidence": "Gaze is level without an up or down bias.",
+      "reason": "Unambiguous right cardinal."
+    },
+    {
+      "direction": "112.5",
+      "verdict": "pass",
+      "expected": "down-right",
+      "observed": "down-right",
+      "horizontal_evidence": "Nose, muzzle, and pupils remain screen-right.",
+      "vertical_evidence": "Pupils lower and the head begins pitching down.",
+      "reason": "Clear first downward step."
+    },
+    {
+      "direction": "135",
+      "verdict": "pass",
+      "expected": "down-right",
+      "observed": "down-right",
+      "horizontal_evidence": "Muzzle and pupils retain a screen-right offset.",
+      "vertical_evidence": "Bowed head and lowered gaze provide a strong down cue.",
+      "reason": "Coherent diagonal."
+    },
+    {
+      "direction": "157.5",
+      "verdict": "warning",
+      "expected": "down-right",
+      "observed": "down-right",
+      "horizontal_evidence": "A slight rightward nose and pupil offset remains visible.",
+      "vertical_evidence": "Deep head bow and low gaze clearly read down.",
+      "reason": "The blind horizontal cue was subtle, but labeled normal-size review and the ordered loop confirm the correct quadrant."
+    },
+    {
+      "direction": "180",
+      "verdict": "pass",
+      "expected": "down",
+      "observed": "down",
+      "horizontal_evidence": "The bowed face remains centered.",
+      "vertical_evidence": "Head and eyes point unmistakably downward.",
+      "reason": "Unambiguous down cardinal."
+    },
+    {
+      "direction": "202.5",
+      "verdict": "warning",
+      "expected": "down-left",
+      "observed": "down-left",
+      "horizontal_evidence": "Muzzle and pupils begin a subtle screen-left shift.",
+      "vertical_evidence": "Bowed head and lowered gaze remain strongly down.",
+      "reason": "The blind horizontal cue was subtle, but labeled review and clockwise progression confirm the correct quadrant."
+    },
+    {
+      "direction": "225",
+      "verdict": "pass",
+      "expected": "down-left",
+      "observed": "down-left",
+      "horizontal_evidence": "Nose, muzzle, and pupils turn screen-left.",
+      "vertical_evidence": "The head remains bowed with eyes below center.",
+      "reason": "Balanced diagonal."
+    },
+    {
+      "direction": "247.5",
+      "verdict": "warning",
+      "expected": "down-left",
+      "observed": "down-left",
+      "horizontal_evidence": "The normal-size head and muzzle remain screen-left despite a conflicting blind vote.",
+      "vertical_evidence": "Eyes and chin retain a slight downward pitch.",
+      "reason": "Blind axes were uncertain, but the 225 to 247.5 to 270 sequence stays in quadrant without reversal."
+    },
+    {
+      "direction": "270",
+      "verdict": "pass",
+      "expected": "left",
+      "observed": "left",
+      "horizontal_evidence": "Profile, nose, muzzle, and pupils point unmistakably screen-left.",
+      "vertical_evidence": "Gaze is level without an up or down bias.",
+      "reason": "Unambiguous left cardinal."
+    },
+    {
+      "direction": "292.5",
+      "verdict": "warning",
+      "expected": "up-left",
+      "observed": "up-left",
+      "horizontal_evidence": "Nose, muzzle, and pupils remain clearly screen-left.",
+      "vertical_evidence": "Eyes and chin begin visibly lifting.",
+      "reason": "The blind vertical cue was subtle, but labeled review and progression toward 315 confirm the correct quadrant."
+    },
+    {
+      "direction": "315",
+      "verdict": "pass",
+      "expected": "up-left",
+      "observed": "up-left",
+      "horizontal_evidence": "Muzzle and pupils remain screen-left.",
+      "vertical_evidence": "Raised eyes and lifted chin provide a clear up cue.",
+      "reason": "Coherent diagonal."
+    },
+    {
+      "direction": "337.5",
+      "verdict": "pass",
+      "expected": "up-left",
+      "observed": "up-left",
+      "horizontal_evidence": "A remaining leftward muzzle and pupil offset is visible.",
+      "vertical_evidence": "Strong raised gaze and chin aim upward.",
+      "reason": "Clear final step into 000 without reversal."
+    }
+  ],
+  "review_warnings": [
+    "157.5 and 202.5 have subtle blind horizontal cues but remain visibly down-right and down-left in the labeled loop.",
+    "247.5 received a blind opposite-horizontal vote and an ambiguous vertical vote, but its labeled pose remains down-left and the ordered loop does not reverse.",
+    "292.5 has a subtle blind vertical cue but remains visibly up-left.",
+    "Continuity flags are metric-only; visual review found no conspicuous snap, registration jump, scale pop, or identity change.",
+    "Reported alpha-hole candidates are ordinary transparent negative spaces around the ears, legs, body, and curved tail rather than cuts through filled anatomy."
+  ]
+}

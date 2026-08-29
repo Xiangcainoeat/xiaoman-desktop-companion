@@ -1,0 +1,13 @@
+{
+  "algorithm": "native-codex-v2-look-rows",
+  "cell": [192, 208],
+  "columns": 8,
+  "dimensions": [1536, 416],
+  "format": "RGBA/WebP",
+  "frameCount": 16,
+  "frameHeight": 208,
+  "frameWidth": 192,
+  "rows": 2,
+  "source": "accepted native Codex v2 spritesheet rows 9-10",
+  "stepDegrees": 22.5
+}

@@ -1,0 +1,1122 @@
+{
+  "algorithm": "xiaoman-care-atlas-30-v3-discrete-alpha-registration",
+  "format": "RGBA/WebP",
+  "dimensions": [
+    1920,
+    1248
+  ],
+  "columns": 10,
+  "rows": 6,
+  "frameCount": 30,
+  "frameWidth": 192,
+  "frameHeight": 208,
+  "cell": [
+    192,
+    208
+  ],
+  "actions": {
+    "bath": {
+      "atlasFramePosition": {
+        "row": 0,
+        "frames": 30,
+        "columns": 10
+      }
+    },
+    "feed": {
+      "atlasFramePosition": {
+        "row": 3,
+        "frames": 30,
+        "columns": 10
+      }
+    },
+    "gift": {
+      "atlasFramePosition": {
+        "row": 3,
+        "frames": 30,
+        "columns": 10
+      }
+    }
+  },
+  "frames": [
+    {
+      "action": "bath",
+      "frame": 0,
+      "visiblePixels": 9934,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 1,
+      "visiblePixels": 9756,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 2,
+      "visiblePixels": 9944,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 3,
+      "visiblePixels": 10430,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 4,
+      "visiblePixels": 10294,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 5,
+      "visiblePixels": 10398,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 6,
+      "visiblePixels": 10558,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 7,
+      "visiblePixels": 10087,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 8,
+      "visiblePixels": 10265,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 9,
+      "visiblePixels": 10398,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 10,
+      "visiblePixels": 10390,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 11,
+      "visiblePixels": 10570,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 12,
+      "visiblePixels": 10357,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 13,
+      "visiblePixels": 10790,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 14,
+      "visiblePixels": 10510,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 15,
+      "visiblePixels": 11118,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 16,
+      "visiblePixels": 10790,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 17,
+      "visiblePixels": 10909,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 18,
+      "visiblePixels": 10308,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 19,
+      "visiblePixels": 10334,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 20,
+      "visiblePixels": 10996,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 21,
+      "visiblePixels": 10747,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 22,
+      "visiblePixels": 9662,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 23,
+      "visiblePixels": 9675,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 24,
+      "visiblePixels": 9688,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 25,
+      "visiblePixels": 10081,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 26,
+      "visiblePixels": 10022,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 27,
+      "visiblePixels": 9757,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 28,
+      "visiblePixels": 9676,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "bath",
+      "frame": 29,
+      "visiblePixels": 9592,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 5.829697,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 0,
+      "visiblePixels": 5685,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 1,
+      "visiblePixels": 5427,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 2,
+      "visiblePixels": 5316,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 3,
+      "visiblePixels": 5510,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 4,
+      "visiblePixels": 5841,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 5,
+      "visiblePixels": 5514,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 6,
+      "visiblePixels": 5505,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 7,
+      "visiblePixels": 5621,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 8,
+      "visiblePixels": 5533,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 9,
+      "visiblePixels": 5446,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 10,
+      "visiblePixels": 5374,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 11,
+      "visiblePixels": 5350,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 12,
+      "visiblePixels": 5425,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 13,
+      "visiblePixels": 5470,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 14,
+      "visiblePixels": 5518,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 15,
+      "visiblePixels": 5245,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 16,
+      "visiblePixels": 5898,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 17,
+      "visiblePixels": 5988,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 18,
+      "visiblePixels": 6030,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 19,
+      "visiblePixels": 5822,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 20,
+      "visiblePixels": 5772,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 21,
+      "visiblePixels": 5562,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 22,
+      "visiblePixels": 5371,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 23,
+      "visiblePixels": 5861,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 24,
+      "visiblePixels": 5270,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 25,
+      "visiblePixels": 6044,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 26,
+      "visiblePixels": 6191,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 27,
+      "visiblePixels": 5911,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 28,
+      "visiblePixels": 5825,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    },
+    {
+      "action": "feed-gift",
+      "frame": 29,
+      "visiblePixels": 5139,
+      "hiddenRgbPixels": 0,
+      "edgeContaminationPixels": 0,
+      "sequence": {
+        "duplicateRatio": 0.0,
+        "edgePixels": 0,
+        "mattePixels": 0,
+        "bboxViolations": 0,
+        "colorDrift": 6.595661,
+        "colorSignature": "normalized-rgb-chroma",
+        "missingFurFrames": [],
+        "ok": true,
+        "errors": []
+      }
+    }
+  ]
+}

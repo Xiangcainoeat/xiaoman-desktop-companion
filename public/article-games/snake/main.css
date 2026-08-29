@@ -1,0 +1,125 @@
+:root {
+  --board-size: min(68vh, 76vw, 620px);
+  --board-bg: #0c1021;
+  --frame: #71808a;
+}
+
+* { box-sizing: border-box; }
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 18px;
+  overflow: auto;
+  background: #29403f;
+  color: #e7efeb;
+  font: 600 15px/1.4 system-ui, -apple-system, sans-serif;
+}
+
+#gameContainer {
+  display: grid;
+  width: var(--board-size);
+  aspect-ratio: 1;
+  grid-template-columns: repeat(40, minmax(0, 1fr));
+  grid-template-rows: repeat(40, minmax(0, 1fr));
+  margin: 0;
+  padding: 8px;
+  overflow: hidden;
+  border: 8px solid var(--frame);
+  border-radius: 12px;
+  background: var(--board-bg);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
+}
+
+.gameBoardPixel {
+  width: auto;
+  height: auto;
+  min-width: 0;
+  min-height: 0;
+  border-radius: 2px;
+}
+
+.snakeBodyPixel {
+  background: #fd6401;
+  box-shadow: 0 0 5px #fd6401;
+}
+
+.food {
+  background: #68e768;
+  box-shadow: 0 0 7px rgba(104, 231, 104, 0.85);
+}
+
+#scoreContainer {
+  display: flex;
+  width: min(var(--board-size), 620px);
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.scoreBoard {
+  flex: 1;
+  padding: 9px 12px;
+  border: 2px solid var(--frame);
+  border-radius: 8px;
+  background: var(--board-bg);
+  color: #dce8e2;
+  text-align: center;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.18);
+}
+
+#onScreenControllers { display: none; }
+
+.developerDetails {
+  display: flex;
+  gap: 16px;
+  color: #c5d2ca;
+  font-size: 12px;
+}
+
+.developerDetails a { color: #e6f2ea; }
+
+.gameOver {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid rgba(255, 190, 180, 0.5);
+  border-radius: 8px;
+  background: #6d3836;
+  color: #fff;
+}
+
+.gameOver[hidden] { display: none; }
+
+.gameOver button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 5px;
+  color: #54302f;
+  background: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+@media (max-height: 700px) {
+  :root { --board-size: min(60vh, 72vw, 560px); }
+  body { gap: 9px; padding: 10px; }
+  .developerDetails { display: none; }
+}
+
+@media (max-width: 620px) {
+  :root { --board-size: min(76vw, 520px); }
+  .developerDetails { flex-direction: column; gap: 3px; }
+}

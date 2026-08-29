@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "assetId": "replace-me",
+  "displayName": "Pet Pack",
+  "references": [],
+  "actions": [
+    "standard",
+    "look-atlas",
+    "idle-lick",
+    "idle-blink",
+    "idle-scratch",
+    "sleeping",
+    "care-feed",
+    "care-bath",
+    "running-left",
+    "running-right",
+    "jumping",
+    "avatar",
+    "tray"
+  ]
+}

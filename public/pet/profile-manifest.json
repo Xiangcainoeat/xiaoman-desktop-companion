@@ -1,0 +1,21 @@
+{
+  "defaultProfile": "enhanced",
+  "profiles": {
+    "enhanced": {
+      "pet": "pet.json",
+      "spritesheet": "spritesheet.webp",
+      "lookAtlas": "look-96.webp",
+      "lookMetadata": "look-96.json",
+      "directionCount": 96,
+      "stepDegrees": 3.75
+    },
+    "native": {
+      "pet": "native/pet.json",
+      "spritesheet": "native/spritesheet.webp",
+      "lookAtlas": "native/look-16.webp",
+      "lookMetadata": "native/look-16.json",
+      "directionCount": 16,
+      "stepDegrees": 22.5
+    }
+  }
+}
