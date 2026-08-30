@@ -1,9 +1,44 @@
 import { readFileSync, statSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const gamesRoot = path.join(process.cwd(), "public", "article-games");
 const readGame = (id: string, file: string) => readFileSync(path.join(gamesRoot, id, file), "utf8");
+
+function createTetrisBridgeHarness(record: Record<string, unknown>) {
+  let storageValue = Buffer.from(encodeURIComponent(JSON.stringify(record)), "binary").toString("base64");
+  let reloadCount = 0;
+  const timers: Array<() => void> = [];
+  const window = {
+    localStorage: {
+      getItem: () => storageValue,
+      setItem: (_key: string, value: string) => { storageValue = value; },
+    },
+    atob: (value: string) => Buffer.from(value, "base64").toString("binary"),
+    btoa: (value: string) => Buffer.from(value, "binary").toString("base64"),
+    encodeURIComponent,
+    decodeURIComponent,
+    setTimeout: (callback: () => void) => {
+      timers.push(callback);
+      return timers.length;
+    },
+    location: { reload: () => { reloadCount += 1; } },
+  } as Record<string, unknown>;
+  window.parent = window;
+
+  const context = { window, document: {} };
+  runInNewContext(readGame("react-tetris", "xiaoman-tetris-bridge.js"), context);
+
+  return {
+    setConfig: (value: number) => (window.__xiaomanSetGameConfig as (payload: Record<string, unknown>) => void)({
+      kind: "tetris-difficulty",
+      value,
+    }),
+    pendingTimers: () => timers.length,
+    reloadCount: () => reloadCount,
+  };
+}
 
 describe("article game adapters", () => {
   it("loads the shared keyboard bridge in every local game", () => {
@@ -112,6 +147,15 @@ describe("article game adapters", () => {
     expect(view).toContain("tetris-difficulty");
     expect(view).toContain("mario-difficulty");
     expect(view).toContain("mario-level");
+  });
+
+  it("does not reload when the native game has already advanced its runtime level", () => {
+    const harness = createTetrisBridgeHarness({ speedStart: 2, speedRun: 4, points: 220 });
+
+    harness.setConfig(2);
+
+    expect(harness.pendingTimers()).toBe(0);
+    expect(harness.reloadCount()).toBe(0);
   });
 
   it("keeps chess on its board and control surface without document scrolling", () => {

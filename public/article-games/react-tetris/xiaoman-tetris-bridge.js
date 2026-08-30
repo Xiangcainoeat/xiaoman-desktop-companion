@@ -58,7 +58,10 @@
     if (!isFinite(level)) level = MIN_LEVEL;
     level = Math.max(MIN_LEVEL, Math.min(MAX_LEVEL, Math.round(level)));
     var record = readRecord();
-    if (Number(record.speedStart) === level && Number(record.speedRun) === level) return;
+    // speedRun is owned by the game and advances as rows are cleared. Only
+    // speedStart represents the host-selected difficulty; comparing both
+    // fields makes every later config message reload an active game forever.
+    if (Number(record.speedStart) === level) return;
     record.speedStart = level;
     record.speedRun = level;
     writeRecord(record);
