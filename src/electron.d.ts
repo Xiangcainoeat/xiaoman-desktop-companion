@@ -18,6 +18,7 @@ import type {
   PetPackOperationResult,
   PetPackRuntime,
   PetPackSummary,
+  PetStudioStartResult,
   ReminderInput,
   SoundName,
 } from "./shared/types";
@@ -56,6 +57,7 @@ export interface XiaomanApi {
   listCodexThreads(force?: boolean): Promise<CodexThreadListResult>;
   openCodexThread(threadId: string): Promise<CodexOpenResult>;
   replyCodexThread(threadId: string, message: string): Promise<CodexReplyResult>;
+  startPetStudio(): Promise<PetStudioStartResult>;
   listPetPacks(): Promise<PetPackSummary[]>;
   importPetPack(filePath?: string): Promise<PetPackOperationResult>;
   activatePetPack(id: string | null): Promise<AppSnapshot>;

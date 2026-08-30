@@ -135,6 +135,17 @@ export interface CodexOpenResult {
   message: string;
 }
 
+export interface PetStudioStartResult {
+  ok: boolean;
+  message: string;
+  threadId?: string;
+  turnId?: string;
+  desktopUrl?: string;
+  desktopOpened: boolean;
+  installCommand: string;
+  missing?: string[];
+}
+
 export interface PetStats {
   fullness: number;
   affection: number;

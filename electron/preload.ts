@@ -19,6 +19,7 @@ import type {
   PetPackOperationResult,
   PetPackRuntime,
   PetPackSummary,
+  PetStudioStartResult,
   QuickViewMode,
   ReminderInput,
   SoundName,
@@ -280,6 +281,7 @@ contextBridge.exposeInMainWorld("xiaoman", {
   openCodexThread: (threadId: string): Promise<CodexOpenResult> => ipcRenderer.invoke("codex:thread:open", threadId),
   replyCodexThread: (threadId: string, message: string): Promise<CodexReplyResult> =>
     ipcRenderer.invoke("codex:thread:reply", threadId, message),
+  startPetStudio: (): Promise<PetStudioStartResult> => ipcRenderer.invoke("pet-studio:start"),
   listPetPacks: (): Promise<PetPackSummary[]> => ipcRenderer.invoke("pet-pack:list"),
   importPetPack: (filePath?: string): Promise<PetPackOperationResult> => ipcRenderer.invoke("pet-pack:import", filePath),
   activatePetPack: (id: string | null): Promise<AppSnapshot> => ipcRenderer.invoke("pet-pack:activate", id),

@@ -5,6 +5,7 @@ import { isRewardedGameId, settleGameResult } from "./shared/games";
 import { isSleepAllowedInteraction, SLEEPING_NOTICE } from "./shared/sleep";
 import type { XiaomanApi } from "./electron";
 import { BUNDLED_PET_PACK_ID, createBundledPetPackRuntime } from "./pet-pack/runtime";
+import { PET_STUDIO_INSTALL_COMMAND } from "./pet-studio/prompt";
 import type {
   AppRuleInput,
   AppSnapshot,
@@ -24,6 +25,7 @@ import type {
   PetPackOperationResult,
   PetPackRuntime,
   PetPackSummary,
+  PetStudioStartResult,
   ReminderInput,
   SoundName,
 } from "./shared/types";
@@ -442,6 +444,12 @@ function createMockApi(): XiaomanApi {
       mode: "queued",
       transport: "native",
       message: message.trim() ? "浏览器预览仅模拟回复，未调用 Codex；请使用 Electron 应用" : "请输入回复内容",
+    }),
+    startPetStudio: async (): Promise<PetStudioStartResult> => ({
+      ok: false,
+      message: "浏览器预览不会创建原生 Codex 任务，请使用 Electron 应用",
+      desktopOpened: false,
+      installCommand: PET_STUDIO_INSTALL_COMMAND,
     }),
     listPetPacks: async () => structuredClone(current.petPacks),
     importPetPack: async (_filePath?: string): Promise<PetPackOperationResult> => ({

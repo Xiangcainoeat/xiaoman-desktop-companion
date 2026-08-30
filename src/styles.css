@@ -5738,3 +5738,218 @@ select:focus-visible {
     justify-content: flex-start;
   }
 }
+
+/* Pet Studio stays compact while settings columns keep their intrinsic height. */
+.settings-view {
+  padding: 20px 28px 28px;
+}
+
+.settings-view .view-intro {
+  padding-bottom: 10px;
+}
+
+.settings-view .settings-columns {
+  align-items: start;
+  align-content: start;
+  grid-auto-rows: max-content;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: 16px;
+}
+
+.settings-view .settings-column {
+  align-self: start;
+  height: max-content;
+  min-height: 0;
+  gap: 16px;
+}
+
+.settings-view .settings-section {
+  align-self: start;
+  height: max-content;
+  margin-top: 0;
+}
+
+.settings-view .settings-section:first-child {
+  margin-top: 0;
+}
+
+.settings-view .settings-section + .settings-section {
+  margin-top: 16px;
+}
+
+.settings-view .settings-section .section-heading {
+  min-height: 0;
+  margin-bottom: 8px;
+}
+
+.settings-view .settings-row {
+  min-height: 56px;
+  padding: 7px 13px;
+}
+
+.pet-studio-launcher {
+  margin-top: 18px;
+  padding: 14px 16px 15px;
+  border: 1px solid #d9e4dc;
+  border-radius: 8px;
+  background: #fbfdfb;
+}
+
+.pet-studio-launcher-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.pet-studio-launcher-copy {
+  min-width: 0;
+}
+
+.pet-studio-launcher-copy h2 {
+  margin: 2px 0 0;
+  font-size: 18px;
+  line-height: 24px;
+}
+
+.pet-studio-launcher-copy .section-description {
+  max-width: 720px;
+  margin-top: 4px;
+}
+
+.pet-studio-start {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.pet-studio-launcher-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.pet-studio-launcher-meta span,
+.pet-studio-disclosure summary > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pet-studio-disclosure {
+  margin-top: 10px;
+  border-top: 1px solid #e7eee9;
+}
+
+.pet-studio-disclosure summary {
+  display: flex;
+  min-height: 34px;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 700;
+  list-style: none;
+}
+
+.pet-studio-disclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.pet-studio-disclosure-chevron {
+  color: var(--muted);
+  transition: transform 160ms ease;
+}
+
+.pet-studio-disclosure[open] .pet-studio-disclosure-chevron {
+  transform: rotate(180deg);
+}
+
+.pet-studio-reference-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px 18px;
+  margin: 2px 0 5px;
+  padding: 0 0 0 22px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.pet-studio-reference-list li {
+  min-width: 0;
+  padding-left: 2px;
+}
+
+.pet-studio-reference-list strong,
+.pet-studio-reference-list span {
+  display: block;
+}
+
+.pet-studio-reference-list strong {
+  color: var(--ink);
+}
+
+.pet-studio-command-disclosure code {
+  display: block;
+  margin: 0 0 5px;
+  padding: 8px 10px;
+  overflow-wrap: anywhere;
+  border: 1px solid #e1e9e3;
+  border-radius: 6px;
+  color: var(--ink);
+  background: #f3f7f4;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px;
+  line-height: 16px;
+}
+
+.pet-studio-open {
+  margin-top: 10px;
+}
+
+.pet-studio-feedback {
+  min-height: 18px;
+  margin: 8px 0 0;
+  color: var(--green);
+  font-size: 12px;
+  line-height: 18px;
+}
+
+.pet-studio-feedback.is-error {
+  color: var(--danger);
+}
+
+@media (max-width: 700px) {
+  .pet-studio-launcher-head {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .pet-studio-start {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pet-studio-reference-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 520px) {
+  .settings-view .settings-columns {
+    gap: 12px;
+  }
+
+  .settings-view .settings-column {
+    gap: 12px;
+  }
+
+  .settings-view .settings-section + .settings-section {
+    margin-top: 12px;
+  }
+}

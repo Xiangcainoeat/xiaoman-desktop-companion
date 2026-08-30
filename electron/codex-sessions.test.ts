@@ -25,6 +25,9 @@ const THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9404";
 const SECOND_THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9405";
 const SUBAGENT_THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9406";
 
+const PET_STUDIO_THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9407";
+const PET_STUDIO_TURN_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9408";
+
 function jsonl(...records: unknown[]): string {
   return records.map((record) => JSON.stringify(record)).join("\n");
 }
@@ -989,5 +992,48 @@ describe("safe reply dispatch", () => {
       "Reply message must not be empty",
     );
     expect(recorder.invocations).toHaveLength(0);
+  });
+});
+
+describe("native pet studio task creation", () => {
+  it("starts a durable thread and its first turn through one app-server conversation", async () => {
+    const calls: Array<{ start: Record<string, unknown>; turn: Record<string, unknown> }> = [];
+    const service = new CodexSessionsService({
+      codexPath: "/safe/codex",
+      appServerConversationRequest: async (input) => {
+        const turn = input.turn(PET_STUDIO_THREAD_ID);
+        calls.push({ start: input.start, turn });
+        return {
+          start: { thread: { id: PET_STUDIO_THREAD_ID } },
+          turn: { turn: { id: PET_STUDIO_TURN_ID } },
+        };
+      },
+      desktopAppPath: "/Applications/ChatGPT.app",
+      desktopOpener: async () => undefined,
+    });
+
+    const result = await service.startPetStudioThread("$xiaoman-pet-studio 生成小满", "/tmp");
+
+    expect(calls).toEqual([{
+      start: { cwd: "/tmp", sessionStartSource: "startup" },
+      turn: {
+        threadId: PET_STUDIO_THREAD_ID,
+        cwd: "/tmp",
+        input: [{ type: "text", text: "$xiaoman-pet-studio 生成小满" }],
+      },
+    }]);
+    expect(result).toEqual({
+      threadId: PET_STUDIO_THREAD_ID,
+      turnId: PET_STUDIO_TURN_ID,
+      desktopUrl: `codex://threads/${PET_STUDIO_THREAD_ID}`,
+    });
+  });
+
+  it("rejects a conversation response without both native ids", async () => {
+    const service = new CodexSessionsService({
+      appServerConversationRequest: async () => ({ start: { thread: {} }, turn: {} }),
+    });
+
+    await expect(service.startPetStudioThread("生成", "/tmp")).rejects.toThrow("thread/start");
   });
 });

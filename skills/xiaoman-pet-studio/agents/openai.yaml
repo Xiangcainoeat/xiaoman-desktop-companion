@@ -1,0 +1,6 @@
+interface:
+  display_name: "Xiaoman Pet Studio"
+  short_description: "Use ten pet photos to hatch a Codex-ready pet pack"
+  default_prompt: "Use $xiaoman-pet-studio to turn ten pet photos into a validated .xmpet pack."
+policy:
+  allow_implicit_invocation: true

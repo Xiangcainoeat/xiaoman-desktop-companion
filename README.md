@@ -81,6 +81,18 @@ npm run pet:validate -- --package ./my-pet.xmpet
 图集不会被半成品覆盖。应用导入前会验证路径、SHA-256、图集规格和 Codex 两文件
 契约，并在切换失败时回退到内置小满。
 
+## 一键生成自己的宠物
+
+在应用的“桌宠功能”页点击“一键生成自己的宠物”，会在原生 Codex 中创建一个
+新任务，并自动发送 `$xiaoman-pet-studio`、Skill 获取命令和十张素材建议。把照片
+拖进这个任务后，Codex 会检查当前生图能力，按统一契约生成并验证 `.xmpet`，再由
+应用的“偏好设置 → 宠物素材包”导入。整个流程不要求桌宠运行时配置图片 API，
+也不会把照片或密钥上传到本仓库。
+
+完整的十张图片建议、环境检查和输出契约见
+[`docs/PET-STUDIO.md`](docs/PET-STUDIO.md)；可复用 Skill 位于
+[`skills/xiaoman-pet-studio/`](skills/xiaoman-pet-studio/)。
+
 ## Codex 兼容包
 
 原生 Codex 运行时故意只有两个文件：

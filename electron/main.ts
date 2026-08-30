@@ -20,6 +20,7 @@ import {
   canReplyToCodexSession,
   CodexSessionCommandError,
   CodexSessionsService,
+  shutdownStandaloneAppServers,
   summarizeCodexProcessResult,
   type CodexReplyDispatch,
   type CodexSessionActivity,
@@ -92,6 +93,7 @@ import {
   type OverlayPanelMode,
   type PetPackOperationResult,
   type PetPackSummary,
+  type PetStudioStartResult,
   type PersistedData,
   type PetState,
   type Reminder,
@@ -115,6 +117,7 @@ import {
   createBundledPetPackRuntime,
 } from "../src/pet-pack/runtime";
 import type { PetPackRuntime } from "../src/shared/types";
+import { PET_STUDIO_INSTALL_COMMAND, buildPetStudioPrompt } from "../src/pet-studio/prompt";
 
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 app.setName("小满桌面伴侣");
@@ -1653,6 +1656,62 @@ async function openCodexThread(threadId: string): Promise<CodexOpenResult> {
   }
 }
 
+async function startPetStudio(): Promise<PetStudioStartResult> {
+  const base = {
+    desktopOpened: false,
+    installCommand: PET_STUDIO_INSTALL_COMMAND,
+  };
+  if (!data.settings.codexSessionControls) {
+    return {
+      ...base,
+      ok: false,
+      message: "Codex 任务功能已关闭，请先在偏好设置中开启",
+    };
+  }
+
+  try {
+    const started = await codexSessionsService.startPetStudioThread(
+      buildPetStudioPrompt(),
+      app.getPath("home"),
+    );
+    let desktopOpened = false;
+    let openMessage = "任务已创建";
+    try {
+      await codexSessionsService.openDesktopTarget(started.threadId);
+      desktopOpened = true;
+      openMessage = "已在原生 Codex 新建宠物生成任务";
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      openMessage = `任务已创建，但无法自动打开 Codex 窗口：${detail || "请使用任务链接"}`;
+    }
+    codexThreadCache = null;
+    data.activity = appendActivity(data.activity, {
+      source: "codex",
+      title: "已创建宠物生成任务",
+      detail: "Xiaoman Pet Studio",
+      state: "working",
+    });
+    triggerState("working", desktopOpened ? "我已经把宠物生成任务交给 Codex 了" : "宠物生成任务已创建", "codex", 6500, 86);
+    persistAndBroadcast();
+    return {
+      ...base,
+      ok: true,
+      message: openMessage,
+      threadId: started.threadId,
+      turnId: started.turnId,
+      desktopUrl: started.desktopUrl,
+      desktopOpened,
+    };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return {
+      ...base,
+      ok: false,
+      message: `无法创建原生 Codex 宠物生成任务：${detail || "未知错误"}`,
+    };
+  }
+}
+
 async function replyToCodexThread(threadId: string, message: string): Promise<CodexReplyResult> {
   if (!data.settings.codexSessionControls) throw new Error("Codex 任务功能已关闭");
   if (codexReplyStarts.has(threadId)) throw new Error("这项任务正在处理上一条回复");
@@ -2638,6 +2697,10 @@ function registerIpcHandlers(): void {
     assertTrustedInvoke(event);
     return replyToCodexThread(threadId, message);
   });
+  ipcMain.handle("pet-studio:start", (event) => {
+    assertTrustedInvoke(event);
+    return startPetStudio();
+  });
   ipcMain.handle("pet-pack:list", (event) => {
     assertTrustedInvoke(event);
     return structuredClone(petPackSummaries);
@@ -2815,6 +2878,7 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   quitting = true;
+  shutdownStandaloneAppServers();
   if (schedulerTimer) clearInterval(schedulerTimer);
   if (maintenanceTimer) clearInterval(maintenanceTimer);
   if (autoSleepTimer) clearInterval(autoSleepTimer);
