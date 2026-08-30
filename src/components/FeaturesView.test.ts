@@ -19,6 +19,13 @@ describe("FeaturesView ownership contract", () => {
     expect(source).toContain("gazeFrameRate");
   });
 
+  it("exposes the pet profile switch in the pet feature view", () => {
+    expect(source).toContain('aria-label="宠物配置"');
+    expect(source).toContain('value: "enhanced", label: "小满增强"');
+    expect(source).toContain('value: "native", label: "原生 Codex"');
+    expect(source).toContain('settings.petProfile');
+  });
+
   it("keeps feed, jobs, gifts, and quest actions out of the feature form", () => {
     expect(source).not.toContain("feedFood");
     expect(source).not.toContain("startPetJob");

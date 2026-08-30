@@ -3017,6 +3017,33 @@ select:focus-visible {
   font-weight: 700;
 }
 
+.feature-profile-control {
+  display: flex;
+  min-width: 220px;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.feature-profile-label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 16px;
+}
+
+.feature-profile-segmented {
+  width: 220px;
+}
+
+.feature-profile-state {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: right;
+}
+
 .features-view,
 .settings-view,
 .care-view,
@@ -3568,6 +3595,8 @@ select:focus-visible {
 @media (max-width: 760px) {
   .view-intro { flex-direction: column; }
   .feature-summary { align-self: flex-start; }
+  .feature-profile-control { align-items: flex-start; }
+  .feature-profile-state { text-align: left; }
   .features-view,
   .settings-view,
   .care-view,

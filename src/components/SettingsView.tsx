@@ -91,14 +91,6 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
       <div className="settings-columns">
         <div className="settings-column">
           <SettingsSection eyebrow="配置档案" title="工作方式">
-            <SettingsRow icon={<Sparkles size={18} />} label="宠物配置" value={settings.petProfile === "native" ? "原生 Codex" : "小满增强"}>
-              <Segmented
-                label="宠物配置"
-                value={settings.petProfile}
-                options={[{ value: "enhanced", label: "小满增强" }, { value: "native", label: "原生 Codex" }]}
-                onChange={(petProfile) => update({ petProfile: petProfile as CompanionSettings["petProfile"] })}
-              />
-            </SettingsRow>
             <SettingsRow icon={<Code2 size={18} />} label="Codex 回复通道" value={settings.codexReplyTransport === "native" ? "回到原生窗口" : "CLI 兼容回退"}>
               <Segmented
                 label="Codex 回复通道"

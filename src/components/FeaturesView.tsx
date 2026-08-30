@@ -148,6 +148,41 @@ function FeatureSegmented({
   );
 }
 
+function PetProfileSwitcher({
+  value,
+  onChange,
+}: {
+  value: CompanionSettings["petProfile"];
+  onChange: (value: CompanionSettings["petProfile"]) => void;
+}) {
+  const options: readonly { value: CompanionSettings["petProfile"]; label: string }[] = [
+    { value: "enhanced", label: "小满增强" },
+    { value: "native", label: "原生 Codex" },
+  ];
+
+  return (
+    <div className="feature-profile-control">
+      <span className="feature-profile-label">当前宠物配置</span>
+      <div className="segmented-control feature-profile-segmented" role="group" aria-label="宠物配置">
+        {options.map((option) => (
+          <button
+            key={option.value}
+            type="button"
+            className={value === option.value ? "is-selected" : ""}
+            aria-pressed={value === option.value}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      <small className="feature-profile-state">
+        {value === "native" ? "保留原生 Codex 的 16 方向动作" : "使用小满增强的完整动作资源"}
+      </small>
+    </div>
+  );
+}
+
 export function FeaturesView({ snapshot }: { snapshot: AppSnapshot }) {
   const [phrase, setPhrase] = useState("");
   const [showPreview, setShowPreview] = useState(false);
@@ -168,7 +203,10 @@ export function FeaturesView({ snapshot }: { snapshot: AppSnapshot }) {
           <h2>决定小满怎么陪你</h2>
           <p>这里控制注视、动作、休息和游戏；Codex 连接方式请到偏好设置调整。</p>
         </div>
-        <span className="feature-summary"><Sparkles size={16} />{settings.petProfile === "native" ? "原生配置" : "增强配置"}</span>
+        <PetProfileSwitcher
+          value={settings.petProfile}
+          onChange={(petProfile) => update({ petProfile })}
+        />
       </div>
 
       <div className="features-grid">

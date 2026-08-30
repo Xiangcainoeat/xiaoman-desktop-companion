@@ -6,7 +6,7 @@ const source = readFileSync(resolve(__dirname, "SettingsView.tsx"), "utf8");
 
 describe("SettingsView ownership contract", () => {
   it("keeps Codex and application preferences in the settings view", () => {
-    for (const label of ["偏好设置", "宠物配置", "Codex 回复通道", "任务面板", "会话监听", "声音与通知", "启动与权限"]) {
+    for (const label of ["偏好设置", "Codex 回复通道", "任务面板", "会话监听", "声音与通知", "启动与权限"]) {
       expect(source).toContain(label);
     }
   });
@@ -17,10 +17,14 @@ describe("SettingsView ownership contract", () => {
     }
   });
 
+  it("keeps pet profile ownership in 桌宠功能", () => {
+    expect(source).not.toContain('value: "enhanced", label: "小满增强"');
+    expect(source).not.toContain('value: "native", label: "原生 Codex"');
+  });
+
   it("preserves native and CLI Codex choices", () => {
     expect(source).toContain('value: "native", label: "原生窗口"');
     expect(source).toContain('value: "cli", label: "CLI 兼容"');
-    expect(source).toContain('value: "native", label: "原生 Codex"');
   });
 
   it("exposes a visible application exit command", () => {
