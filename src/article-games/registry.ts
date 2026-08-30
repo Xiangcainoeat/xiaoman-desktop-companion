@@ -66,8 +66,8 @@ export const ARTICLE_GAME_DEFINITIONS: readonly ArticleGameDefinition[] = [
     sourceUrl: "https://github.com/chvin/react-tetris",
     sourceCommit: "89435b72f127b67f95870c515a130cbff38fd7cf",
     license: "Apache-2.0",
-    controls: "方向键 / 空格",
-    difficulty: "速度递增",
+    controls: "方向键 / 空格 / P",
+    difficulty: "6级速度",
   },
   {
     id: "battle-city",
@@ -80,8 +80,8 @@ export const ARTICLE_GAME_DEFINITIONS: readonly ArticleGameDefinition[] = [
     sourceUrl: "https://github.com/feichao93/battle-city",
     sourceCommit: "745c369af6d4a02c71560265fd9448518e99c18d",
     license: "MIT",
-    controls: "方向键 / 空格开火",
-    difficulty: "关卡挑战",
+    controls: "P1 WASD + J · P2 方向键 + /",
+    difficulty: "单双人关卡",
   },
   {
     id: "international-chess",
@@ -151,8 +151,8 @@ export const ARTICLE_GAME_DEFINITIONS: readonly ArticleGameDefinition[] = [
     sourceUrl: "https://github.com/martindrapeau/backbone-game-engine",
     sourceCommit: "2a41299a3895a4fd1fdcaf854579cc13bbe17614",
     license: "MIT",
-    controls: "方向键 / 空格",
-    difficulty: "平台冒险",
+    controls: "方向键 / Z / X / P",
+    difficulty: "简单3次复活 / 困难无复活",
   },
   {
     id: "2048",
@@ -165,7 +165,7 @@ export const ARTICLE_GAME_DEFINITIONS: readonly ArticleGameDefinition[] = [
     sourceUrl: "https://github.com/gabrielecirulli/2048",
     sourceCommit: "478b6ec346e3787f589e4af751378d06ded4cbbc",
     license: "MIT",
-    controls: "方向键 / WASD / 滑动",
+    controls: "方向键 / WASD",
     difficulty: "数字策略",
   },
   {

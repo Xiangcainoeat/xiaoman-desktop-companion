@@ -5097,6 +5097,8 @@ select:focus-visible {
 .games-view.is-game-active {
   height: 100%;
   padding: 10px 30px 14px;
+  overflow: clip !important;
+  overscroll-behavior: none;
 }
 
 .games-view.is-game-active .article-game-tabs {
@@ -5393,6 +5395,7 @@ select:focus-visible {
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  overflow: clip !important;
 }
 
 .article-game-key-help {

@@ -45,9 +45,10 @@ const WASD_TO_ARROW = { 65: LEFT_DIR, 87: UP_DIR, 68: RIGHT_DIR, 83: DOWN_DIR };
 
 // Set snake direction initially to right
 let snakeCurrentDirection = RIGHT_DIR;
+let gamePaused = false;
 
 const changeDirection = (newDirectionCode) => {
-  if (gameOver) return;
+  if (gameOver || gamePaused) return;
   newDirectionCode = WASD_TO_ARROW[newDirectionCode] || newDirectionCode;
   // Change the direction of the snake
   if (newDirectionCode == snakeCurrentDirection) return;
@@ -86,7 +87,7 @@ let snakeLength = 1000;
 
 // Move snake continously by calling this function repeatedly :
 const moveSnake = () => {
-  if (gameOver) return;
+  if (gameOver || gamePaused) return;
   let nextSnakeHeadPosition = currentSnakeHeadPosition;
   let isSnakeHeadOutOfBounds = false;
 
@@ -163,16 +164,10 @@ moveSnakeInterval = setInterval(moveSnake, 80);
 // Call change direction function on keyboard key-down event:
 addEventListener("keydown", (e) => changeDirection(e.keyCode));
 
-// ON SCREEN CONTROLLERS:
-const leftButton = document.getElementById("leftButton");
-const rightButton = document.getElementById("rightButton");
-const upButton = document.getElementById("upButton");
-const downButton = document.getElementById("downButton");
-
-leftButton.onclick = () => changeDirection(LEFT_DIR);
-rightButton.onclick = () => changeDirection(RIGHT_DIR);
-upButton.onclick = () => changeDirection(UP_DIR);
-downButton.onclick = () => changeDirection(DOWN_DIR);
+// The host keeps this game keyboard-only and controls pause externally.
+window.__xiaomanSetGamePaused = (nextPaused) => {
+  gamePaused = Boolean(nextPaused);
+};
 
 const restartButton = document.getElementById("restartButton");
 if (restartButton) restartButton.onclick = () => window.location.reload();

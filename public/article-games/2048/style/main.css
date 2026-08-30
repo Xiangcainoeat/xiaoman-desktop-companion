@@ -1037,3 +1037,18 @@ h1.title {
   top: 6px;
   line-height: 16px;
 }
+
+/* Restart is owned by the host toolbar. Keep the legacy selector hidden as a
+   defensive rule for any markup restored by the upstream bundle. */
+.restart-button { display: none; }
+
+/* The compact desktop board starts immediately below the title row. */
+.above-game {
+  display: none;
+  height: 0;
+  margin: 0;
+}
+
+.game-layout {
+  margin-top: 8px;
+}

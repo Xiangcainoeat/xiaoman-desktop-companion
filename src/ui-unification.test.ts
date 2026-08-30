@@ -32,7 +32,7 @@ describe("shared UI visual contract", () => {
     expect(appStyles).toContain(".center-shell .topbar h1");
   });
 
-  it("uses one article catalog and one embedded frame for the distributable games", () => {
+  it("uses one article catalog and one embedded frame for the public game set", () => {
     expect(ARTICLE_GAME_IDS).toHaveLength(10);
     expect(ARTICLE_GAME_DEFINITIONS.filter((game) => game.availability === "offline")).toHaveLength(9);
     expect(gamesView).toContain("ARTICLE_GAME_DEFINITIONS");

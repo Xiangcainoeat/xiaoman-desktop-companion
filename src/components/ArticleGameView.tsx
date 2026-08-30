@@ -6,6 +6,8 @@ import {
   Gamepad2,
   Keyboard,
   LoaderCircle,
+  Pause,
+  Play,
   RefreshCw,
   Rocket,
   Shield,
@@ -29,13 +31,16 @@ export interface ArticleGameViewProps {
   sessionMessage?: string;
   muted?: boolean;
   onToggleMute?: () => void;
+  paused?: boolean;
+  onTogglePause?: () => void;
   onLayoutSettled?: () => void;
 }
 
 type GameLoadState = "starting" | "ready" | "error";
 export type ArticleGameSessionState = "idle" | "starting" | "ready" | "error";
 
-const FORWARDED_KEY_CODES = new Set([13, 27, 32, 37, 38, 39, 40, 65, 68, 83, 87, 88, 90]);
+const FORWARDED_KEY_CODES = new Set([13, 27, 32, 37, 38, 39, 40, 65, 68, 74, 77, 80, 82, 83, 87, 88, 90, 191]);
+const HOST_PAUSE_KEY_CODES = new Set([27, 80]);
 
 function isEditableTarget(target: EventTarget | null): boolean {
   return target instanceof HTMLElement
@@ -52,6 +57,16 @@ function keyCodeForEvent(event: KeyboardEvent): number {
     " ": 32,
     Enter: 13,
     Escape: 27,
+    j: 74,
+    J: 74,
+    m: 77,
+    M: 77,
+    p: 80,
+    P: 80,
+    r: 82,
+    R: 82,
+    "/": 191,
+    "?": 191,
     a: 65,
     A: 65,
     d: 68,
@@ -73,21 +88,23 @@ type KeyboardHelpRow = readonly [label: string, keys: string];
 function keyboardHelpRows(definition: ArticleGameDefinition): readonly KeyboardHelpRow[] {
   switch (definition.id) {
     case "pacman":
-      return [["移动", "方向键 / WASD"]];
+      return [["移动", "方向键 / WASD"], ["暂停", "P / Esc"]];
     case "react-tetris":
-      return [["移动", "← → ↓"], ["旋转", "↑"], ["硬降", "空格"], ["重开", "R"]];
+      return [["移动", "← → ↓"], ["旋转", "↑"], ["硬降", "空格"], ["暂停", "P / Esc"], ["重开", "R"]];
+    case "battle-city":
+      return [["单人", "WASD 移动 · J 开火"], ["双人", "玩家一 WASD + J；玩家二方向键 + /"], ["暂停", "P / Esc"]];
     case "star-battle":
-      return [["操作", "鼠标点击"]];
+      return [["操作", "鼠标点击"], ["暂停", "P / Esc"]];
     case "space-invaders":
-      return [["移动", "← →"], ["射击", "空格"]];
+      return [["移动", "← →"], ["射击", "空格"], ["暂停", "P / Esc"]];
     case "snake":
-      return [["移动", "方向键 / WASD"]];
+      return [["移动", "方向键 / WASD"], ["暂停", "P / Esc"]];
     case "super-mario-bros":
-      return [["移动", "← →"], ["跳跃", "Z"], ["奔跑", "X"]];
+      return [["移动", "← →"], ["跳跃", "Z"], ["奔跑", "X"], ["暂停", "P / Esc"]];
     case "xiangqi-h5":
-      return [["落子", "鼠标点击"]];
+      return [["落子", "鼠标点击"], ["暂停", "P / Esc"]];
     default:
-      return [["操作", definition.controls]];
+      return [["操作", definition.controls], ["暂停", "P / Esc"]];
   }
 }
 
@@ -121,6 +138,8 @@ export function ArticleGameView({
   sessionMessage = "当前无法开始这局游戏",
   muted = true,
   onToggleMute = () => undefined,
+  paused = false,
+  onTogglePause = () => undefined,
   onLayoutSettled,
 }: ArticleGameViewProps) {
   const [loadState, setLoadState] = useState<GameLoadState>(definition.availability === "offline" ? "starting" : "ready");
@@ -128,6 +147,9 @@ export function ArticleGameView({
   const [notice, setNotice] = useState("");
   const [reloadNonce, setReloadNonce] = useState(0);
   const [windowActive, setWindowActive] = useState(() => document.visibilityState !== "hidden");
+  const [tetrisDifficulty, setTetrisDifficulty] = useState(1);
+  const [marioDifficulty, setMarioDifficulty] = useState<"easy" | "hard">("easy");
+  const [marioLevel, setMarioLevel] = useState("1-1");
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const gameActive = active && windowActive;
   const hasSideHelp = definition.id === "battle-city" || definition.id === "2048";
@@ -196,6 +218,11 @@ export function ArticleGameView({
       if (isEditableTarget(event.target)) return;
       const keyCode = keyCodeForEvent(event);
       if (!FORWARDED_KEY_CODES.has(keyCode)) return;
+      if (HOST_PAUSE_KEY_CODES.has(keyCode)) {
+        event.preventDefault();
+        if (event.type === "keydown" && !event.repeat) onTogglePause();
+        return;
+      }
       event.preventDefault();
       iframeRef.current?.contentWindow?.postMessage({
         channel: "xiaoman-game-key",
@@ -212,7 +239,7 @@ export function ArticleGameView({
       window.removeEventListener("keydown", forwardKey, true);
       window.removeEventListener("keyup", forwardKey, true);
     };
-  }, [definition.availability, gameActive]);
+  }, [definition.availability, gameActive, onTogglePause]);
 
   useEffect(() => {
     if (!gameActive || !enabled || definition.availability !== "offline") return;
@@ -227,41 +254,50 @@ export function ArticleGameView({
     };
   }, [definition.availability, definition.id, enabled, gameActive, onLayoutSettled]);
 
+  const postToGame = (message: Record<string, unknown>) => {
+    if (!src || definition.availability !== "offline") return;
+    iframeRef.current?.contentWindow?.postMessage(message, "*");
+  };
+
+  const postGameConfig = () => {
+    if (definition.id === "react-tetris") {
+      postToGame({ channel: "xiaoman-game-config", kind: "tetris-difficulty", value: tetrisDifficulty });
+    }
+    if (definition.id === "super-mario-bros") {
+      postToGame({ channel: "xiaoman-game-config", kind: "mario-difficulty", value: marioDifficulty });
+      postToGame({ channel: "xiaoman-game-config", kind: "mario-level", value: marioLevel });
+    }
+  };
+
   useEffect(() => {
     if (!src || definition.availability !== "offline") return;
-    iframeRef.current?.contentWindow?.postMessage({
-      channel: "xiaoman-game-visibility",
-      active: gameActive,
-    }, "*");
+    postToGame({ channel: "xiaoman-game-visibility", active: gameActive });
   }, [definition.availability, gameActive, src]);
 
   useEffect(() => {
     if (!src || definition.availability !== "offline") return;
-    iframeRef.current?.contentWindow?.postMessage({
-      channel: "xiaoman-game-audio",
-      muted: muted || !gameActive,
-    }, "*");
-  }, [definition.availability, gameActive, muted, src]);
+    postToGame({ channel: "xiaoman-game-pause", paused });
+  }, [definition.availability, paused, src]);
+
+  useEffect(() => {
+    if (!src || definition.availability !== "offline") return;
+    postToGame({ channel: "xiaoman-game-audio", muted });
+  }, [definition.availability, muted, src]);
+
+  useEffect(() => {
+    if (!src || definition.availability !== "offline") return;
+    postGameConfig();
+  }, [definition.availability, definition.id, marioDifficulty, marioLevel, src, tetrisDifficulty]);
 
   const focusFrame = () => {
     if (!gameActive) return;
     iframeRef.current?.focus({ preventScroll: true });
-  };
-
-  const sendGameKey = (key: string, code: string, keyCode: number) => {
-    if (!gameActive) return;
-    const target = iframeRef.current?.contentWindow;
-    if (!target) return;
-    for (const eventType of ["keydown", "keyup"] as const) {
-      target.postMessage({
-        channel: "xiaoman-game-key",
-        eventType,
-        key,
-        code,
-        keyCode,
-        repeat: false,
-      }, "*");
-    }
+    // Some Electron/WebKit builds still scroll an iframe ancestor after focus.
+    // Keyboard events are forwarded by the host, so restore only that outer row.
+    window.requestAnimationFrame(() => {
+      const gamesView = iframeRef.current?.closest<HTMLElement>(".games-view");
+      if (gamesView) gamesView.scrollTop = 0;
+    });
   };
 
   const reload = () => {
@@ -298,21 +334,18 @@ export function ArticleGameView({
           <ChevronDown className="article-game-help-chevron" size={15} aria-hidden="true" />
         </summary>
         <div className="article-game-side-help-content">
-          <p>{definition.id === "battle-city" ? "方向键移动，空格开火，守住基地并清除敌方坦克。" : "合并相同数字，目标是得到 2048。方向键和 WASD 都可以操作。"}</p>
+          <p>{definition.id === "battle-city" ? "单人和双人都支持。选择模式后，按对应玩家的键盘控制坦克。" : "合并相同数字，目标是得到 2048。仅支持键盘操作。"}</p>
           <dl>
-            <div><dt>移动</dt><dd>{definition.id === "battle-city" ? "方向键" : "方向键 / WASD"}</dd></div>
-            <div><dt>{definition.id === "battle-city" ? "开火" : "重开"}</dt><dd>{definition.id === "battle-city" ? "空格" : "按钮"}</dd></div>
+            {definition.id === "battle-city" ? (
+              <>
+                <div><dt>单人</dt><dd>WASD 移动 · J 开火</dd></div>
+                <div><dt>双人</dt><dd>P1：WASD + J<br />P2：方向键 + /</dd></div>
+                <div><dt>暂停</dt><dd>P / Esc</dd></div>
+              </>
+            ) : (
+              <div><dt>操作</dt><dd>方向键 / WASD</dd></div>
+            )}
           </dl>
-          {definition.id === "2048" && (
-            <div className="article-game-side-keypad" aria-label="2048方向控制">
-              <button type="button" aria-label="向上移动" onClick={() => sendGameKey("ArrowUp", "ArrowUp", 38)}>↑</button>
-              <div>
-                <button type="button" aria-label="向左移动" onClick={() => sendGameKey("ArrowLeft", "ArrowLeft", 37)}>←</button>
-                <button type="button" aria-label="向下移动" onClick={() => sendGameKey("ArrowDown", "ArrowDown", 40)}>↓</button>
-                <button type="button" aria-label="向右移动" onClick={() => sendGameKey("ArrowRight", "ArrowRight", 39)}>→</button>
-              </div>
-            </div>
-          )}
         </div>
       </details>
     </aside>
@@ -338,6 +371,50 @@ export function ArticleGameView({
           </div>
         </div>
         <div className="article-game-toolbar">
+          {definition.availability === "offline" && (
+            <button
+              className="icon-button"
+              type="button"
+              title={paused ? "继续游戏" : "暂停游戏"}
+              aria-label={paused ? "继续游戏" : "暂停游戏"}
+              onClick={onTogglePause}
+            >
+              {paused ? <Play size={18} /> : <Pause size={18} />}
+            </button>
+          )}
+          {definition.id === "react-tetris" && (
+            <label className="article-game-option" title="选择起始速度级别">
+              <span>级别</span>
+              <select
+                aria-label="俄罗斯方块难度级别"
+                value={tetrisDifficulty}
+                onChange={(event) => setTetrisDifficulty(Number(event.target.value))}
+              >
+                {[1, 2, 3, 4, 5, 6].map((level) => <option key={level} value={level}>{level}</option>)}
+              </select>
+            </label>
+          )}
+          {definition.id === "super-mario-bros" && (
+            <>
+              <label className="article-game-option" title="选择马里奥难度">
+                <span>难度</span>
+                <select
+                  aria-label="超级马里奥难度"
+                  value={marioDifficulty}
+                  onChange={(event) => setMarioDifficulty(event.target.value as "easy" | "hard")}
+                >
+                  <option value="easy">简单 · 3次复活</option>
+                  <option value="hard">困难 · 无复活</option>
+                </select>
+              </label>
+              <label className="article-game-option" title="选择已解锁关卡">
+                <span>关卡</span>
+                <select aria-label="超级马里奥关卡" value={marioLevel} onChange={(event) => setMarioLevel(event.target.value)}>
+                  <option value="1-1">1-1</option>
+                </select>
+              </label>
+            </>
+          )}
           {definition.availability === "offline" && !hasSideHelp && (
             <details className="article-game-key-help">
               <summary aria-label="按键说明" title="按键说明">
@@ -424,14 +501,10 @@ export function ArticleGameView({
                 sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-pointer-lock"
                 allow="autoplay; fullscreen"
                 onLoad={() => {
-                  iframeRef.current?.contentWindow?.postMessage({
-                    channel: "xiaoman-game-visibility",
-                    active: gameActive,
-                  }, "*");
-                  iframeRef.current?.contentWindow?.postMessage({
-                    channel: "xiaoman-game-audio",
-                    muted: muted || !gameActive,
-                  }, "*");
+                  postToGame({ channel: "xiaoman-game-visibility", active: gameActive });
+                  postToGame({ channel: "xiaoman-game-pause", paused });
+                  postToGame({ channel: "xiaoman-game-audio", muted });
+                  postGameConfig();
                   if (gameActive) onLayoutSettled?.();
                 }}
                 onPointerDown={focusFrame}

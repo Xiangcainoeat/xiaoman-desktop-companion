@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { ARTICLE_GAME_DEFINITIONS, ARTICLE_GAME_IDS } from "../article-games/registry";
 
 describe("game launcher", () => {
-  it("exposes the distributable article projects plus the retained H5 xiangqi repository", () => {
+  it("exposes the ten article projects plus the retained H5 xiangqi repository", () => {
     expect(ARTICLE_GAME_DEFINITIONS.map((definition) => definition.id)).toEqual(ARTICLE_GAME_IDS);
     expect(ARTICLE_GAME_IDS).toHaveLength(10);
     expect(ARTICLE_GAME_DEFINITIONS.filter((definition) => definition.availability === "offline")).toHaveLength(9);
@@ -26,7 +26,7 @@ describe("GamesView source contract", () => {
   it("renders the article-game catalog and persistent workspace tabs", () => {
     expect(source).toContain("ARTICLE_GAME_DEFINITIONS");
     expect(source).toContain("ArticleGameView");
-    expect(source).toContain("10 个可用游戏");
+    expect(source).toContain("10 个开源游戏");
     expect(source).toContain("article-game-tabs");
     expect(source).toContain("article-game-tab-panels");
     expect(source).toContain("openArticleGameTab");
@@ -40,7 +40,7 @@ describe("GamesView source contract", () => {
     expect(source.indexOf('className="article-game-tabs"')).toBeGreaterThanOrEqual(0);
     expect(source.indexOf('className="article-game-tabs"')).toBeLessThan(source.indexOf('className="article-games-catalog"'));
     expect(source).not.toContain("和小满玩一会儿");
-    expect(source).not.toContain("11 个入口统一收纳在这里");
+    expect(source).not.toContain("10 个入口统一收纳在这里");
   });
 
   it("keeps the tab strip outside the scrolling home catalog", () => {

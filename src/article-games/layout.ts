@@ -44,7 +44,7 @@ const ARTICLE_GAME_CHROME_HEIGHT = 176;
 
 const FRAME_SPECS: Record<ArticleGameDefinition["id"], ArticleGameFrameSpec> = {
   pacman: { layout: "wide", width: 960, height: 640, chromeWidth: ARTICLE_GAME_CHROME_WIDTH, chromeHeight: ARTICLE_GAME_CHROME_HEIGHT, normalCenterSize: NORMAL_CENTER_WINDOW_SIZE },
-  "react-tetris": { layout: "tall", width: 640, height: 960, chromeWidth: ARTICLE_GAME_CHROME_WIDTH, chromeHeight: ARTICLE_GAME_CHROME_HEIGHT, normalCenterSize: NORMAL_CENTER_WINDOW_SIZE },
+  "react-tetris": { layout: "tall", width: 640, height: 610, chromeWidth: ARTICLE_GAME_CHROME_WIDTH, chromeHeight: ARTICLE_GAME_CHROME_HEIGHT, normalCenterSize: NORMAL_CENTER_WINDOW_SIZE },
   "battle-city": { layout: "wide", width: 768, height: 720, chromeWidth: 500, chromeHeight: ARTICLE_GAME_CHROME_HEIGHT, normalCenterSize: NORMAL_CENTER_WINDOW_SIZE },
   "international-chess": { layout: "default" },
   "star-battle": { layout: "wide", width: 960, height: 480, chromeWidth: ARTICLE_GAME_CHROME_WIDTH, chromeHeight: ARTICLE_GAME_CHROME_HEIGHT, normalCenterSize: NORMAL_CENTER_WINDOW_SIZE },

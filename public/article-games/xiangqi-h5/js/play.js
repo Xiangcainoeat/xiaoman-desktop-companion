@@ -145,7 +145,7 @@ play.regret = function (){
 
 //点击棋盘事件
 play.clickCanvas = function (e){
-	if (!play.isPlay) return false;
+	if (!play.isPlay || play.__xiaomanPaused) return false;
 	var key = play.getClickMan(e);
 	var point = play.getClickPoint(e);
 	
@@ -232,6 +232,7 @@ play.clickPoint = function (x,y){
 
 //Ai自动走棋
 play.AIPlay = function (){
+	if (play.__xiaomanPaused) return false;
 	//return
 	play.my = -1 ;
 	var pace=AI.init(play.pace.join(""))
@@ -334,4 +335,3 @@ play.showWin = function (my){
 		alert("很遗憾，你输了！");
 	}
 }
-

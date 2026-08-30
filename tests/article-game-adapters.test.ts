@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -20,6 +20,32 @@ describe("article game adapters", () => {
     ]) {
       expect(readGame(id, "index.html"), id).toContain("../xiaoman-frame-adapter.js");
     }
+  });
+
+  it("loads the early audio hook before games create their audio objects", () => {
+    for (const id of [
+      "react-tetris",
+      "battle-city",
+      "star-battle",
+      "space-invaders",
+      "xiangqi-h5",
+      "super-mario-bros",
+    ]) {
+      const html = readGame(id, "index.html");
+      expect(html, id).toContain("../xiaoman-audio-hook.js");
+      expect(html.indexOf("../xiaoman-audio-hook.js"), id).toBeLessThan(html.indexOf("../xiaoman-frame-adapter.js"));
+    }
+  });
+
+  it("keeps Tetris music available on the packaged file origin", () => {
+    const html = readGame("react-tetris", "index.html");
+    const audioBridge = readGame("react-tetris", "xiaoman-tetris-audio.js");
+    expect(statSync(path.join(gamesRoot, "react-tetris", "music.mp3")).size).toBeGreaterThan(1024);
+    expect(html).toContain('src="xiaoman-tetris-audio.js"');
+    expect(html.indexOf('src="xiaoman-tetris-audio.js"')).toBeLessThan(html.indexOf('src="../xiaoman-frame-adapter.js"'));
+    expect(audioBridge).toContain('audio.src = "./music.mp3"');
+    expect(audioBridge).toContain('protocol === "http:" || protocol === "https:"');
+    expect(audioBridge).toContain("__xiaomanSetGameMuted");
   });
 
   it("lets the host silence an inactive embedded game", () => {
@@ -46,6 +72,46 @@ describe("article game adapters", () => {
     expect(view).toContain("按键说明");
     expect(view).toContain("preventScroll: true");
     expect(view).not.toContain("contentWindow?.focus()");
+  });
+
+  it("keeps host pause separate from mute and forwards the controls games actually use", () => {
+    const adapter = readFileSync(path.join(gamesRoot, "xiaoman-frame-adapter.js"), "utf8");
+    const view = readFileSync(path.join(process.cwd(), "src", "components", "ArticleGameView.tsx"), "utf8");
+    const gamesView = readFileSync(path.join(process.cwd(), "src", "components", "GamesView.tsx"), "utf8");
+    expect(adapter).toContain("xiaoman-game-pause");
+    expect(adapter).toContain("gamePaused");
+    expect(adapter).toContain("data-xiaoman-game-paused");
+    expect(adapter).toContain("xiaoman-game-config");
+    expect(adapter).toContain("MutationObserver");
+    expect(adapter).toContain("__xiaomanAudioContexts");
+    expect(view).toContain("onTogglePause");
+    expect(view).toContain('channel: "xiaoman-game-pause"');
+    expect(view).toContain('title={paused ? "继续游戏" : "暂停游戏"}');
+    expect(view).toContain("74, 77, 80, 82");
+    expect(view).toContain('j: 74');
+    expect(view).toContain('"/": 191');
+    expect(view).toContain('p: 80');
+    expect(gamesView).toContain("pausedGames");
+    expect(gamesView).toContain("paused={Boolean(pausedGames[id])}");
+  });
+
+  it("exposes the native difficulty and recovery controls", () => {
+    const tetris = readGame("react-tetris", "xiaoman-tetris-bridge.js");
+    const marioHtml = readGame("super-mario-bros", "index.html");
+    const mario = readGame("super-mario-bros", "xiaoman-mario-bridge.js");
+    const view = readFileSync(path.join(process.cwd(), "src", "components", "ArticleGameView.tsx"), "utf8");
+    expect(tetris).toContain("tetris-difficulty");
+    expect(tetris).toContain("speedStart");
+    expect(tetris).toContain("MIN_LEVEL = 1");
+    expect(tetris).toContain("MAX_LEVEL = 6");
+    expect(marioHtml).toContain("xiaoman-mario-bridge.js");
+    expect(mario).toContain("复活");
+    expect(mario).toContain("重新开始");
+    expect(mario).toContain("mario-difficulty");
+    expect(mario).toContain("mario-level");
+    expect(view).toContain("tetris-difficulty");
+    expect(view).toContain("mario-difficulty");
+    expect(view).toContain("mario-level");
   });
 
   it("keeps chess on its board and control surface without document scrolling", () => {
@@ -103,6 +169,41 @@ describe("article game adapters", () => {
     expect(adapter).toContain("xiaoman-game-visibility");
   });
 
+  it("keeps game-specific audio hooks safe before assets are ready", () => {
+    const resource = readGame("star-battle", "js/utils/res.js");
+    const bridge = readGame("star-battle", "xiaoman-star-battle-bridge.js");
+    expect(resource).toContain("audioFor");
+    expect(resource).toContain("o.isReady");
+    expect(resource).toContain("__xiaomanStarAudioReady");
+    expect(bridge).toContain("__xiaomanStarAudioReady");
+    expect(bridge).toContain("scene.muteFlag !== true");
+    expect(bridge).toContain("scene.muteFlag === true");
+  });
+
+  it("routes newly registered WebAudio contexts through the host master gain", () => {
+    const adapter = readFileSync(path.join(gamesRoot, "xiaoman-frame-adapter.js"), "utf8");
+    const registerIndex = adapter.indexOf("__xiaomanRegisterAudioContext(context)");
+    const gainScanIndex = adapter.indexOf("for (var m = 0; m < gains.length", registerIndex);
+    expect(registerIndex).toBeGreaterThanOrEqual(0);
+    expect(gainScanIndex).toBeGreaterThan(registerIndex);
+    expect(adapter).toContain('callGameHook("__xiaomanSetGameMuted", gameMuted)');
+  });
+
+  it("restores Mario from an isolated checkpoint instead of always restarting the level", () => {
+    const mario = readGame("super-mario-bros", "xiaoman-mario-bridge.js");
+    expect(mario).toContain("toShallowJSON");
+    expect(mario).toContain("toSave");
+    expect(mario).toContain("checkpoint");
+    expect(mario).toContain("spawnSprites");
+    expect(mario).toContain("restoreCheckpoint");
+    expect(mario).toContain("saveCheckpoint");
+    const reviveStart = mario.indexOf("function revive()");
+    const restartStart = mario.indexOf("function restart()", reviveStart);
+    expect(reviveStart).toBeGreaterThanOrEqual(0);
+    expect(restartStart).toBeGreaterThan(reviveStart);
+    expect(mario.slice(reviveStart, restartStart)).not.toContain("resetWorld();");
+  });
+
   it("removes upstream Tetris guides instead of leaving QR and side rails in the play area", () => {
     const html = readGame("react-tetris", "index.html");
     expect(html).toContain("xiaoman-tetris-cleanup");
@@ -118,6 +219,24 @@ describe("article game adapters", () => {
     expect(html).toContain("#root .J9SA");
     expect(html).toMatch(/data-xiaoman-tetris-role="controls"[\s\S]*display:\s*none/);
     expect(app).toContain("keydown");
+  });
+
+  it("keeps Tetris score sprites available in the offline pack", () => {
+    const html = readGame("react-tetris", "index.html");
+    const css = readGame("react-tetris", "css-1.0.1.css");
+    expect(statSync(path.join(gamesRoot, "react-tetris", "icon.png")).size).toBeGreaterThan(100);
+    expect(html).toContain('url("./icon.png")');
+    expect(html).toContain('[class*="_1deS"]');
+    expect(css).toContain(".iHKP span");
+  });
+
+  it("documents the real Battle City one-player and two-player bindings", () => {
+    const view = readFileSync(path.join(process.cwd(), "src", "components", "ArticleGameView.tsx"), "utf8");
+    const registry = readFileSync(path.join(process.cwd(), "src", "article-games", "registry.ts"), "utf8");
+    expect(view).toContain("玩家一 WASD + J");
+    expect(view).toContain("玩家二方向键 + /");
+    expect(view).toContain("P / Esc");
+    expect(registry).toContain("P1 WASD + J · P2 方向键 + /");
   });
 
   it("crops Battle City to its native SVG play surface", () => {
@@ -157,7 +276,7 @@ describe("article game adapters", () => {
     const html = readGame("2048", "index.html");
     const css = readGame("2048", "style/main.css");
     expect(html).toContain("游戏说明");
-    expect(html).toContain("move-up-button");
+    expect(html).not.toContain("move-up-button");
     expect(html).not.toContain("This site is the official version");
     expect(css).toContain('content: "得分"');
     expect(css).toContain('content: "最高"');
@@ -166,6 +285,7 @@ describe("article game adapters", () => {
     expect(css).toContain("height: 640px;");
     expect(css).toContain("overflow: hidden;");
     expect(html).toContain('aria-label="按键说明"');
+    expect(css).toContain(".restart-button { display: none;");
   });
 
   it("keeps the 2048 title, score labels, and values in separate layout areas", () => {

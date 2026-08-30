@@ -331,6 +331,10 @@ function Game(id,params){
                 return false;
             }
             timestamp = now;
+            if (window.__xiaomanPacmanPaused) {
+                _hander = requestAnimationFrame(fn);
+                return false;
+            }
             var stage = _stages[_index];
             _context.clearRect(0,0,_.width,_.height);		//清除画布
             _context.fillStyle = '#000000';

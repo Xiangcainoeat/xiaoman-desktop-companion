@@ -53,6 +53,7 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
   const [sessionState, setSessionState] = useState<ArticleGameSessionState>("idle");
   const [sessionMessage, setSessionMessage] = useState("当前无法开始这局游戏");
   const [muted, setMuted] = useState(true);
+  const [pausedGames, setPausedGames] = useState<Partial<Record<ArticleGameId, boolean>>>({});
   const gamesViewRef = useRef<HTMLDivElement>(null);
   const homeScrollRef = useRef<HTMLDivElement>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
@@ -128,9 +129,20 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
 
   useLayoutEffect(() => {
     if (!visible) return;
+    const reset = () => {
+      if (gamesViewRef.current) gamesViewRef.current.scrollTop = 0;
+      if (homeScrollRef.current) homeScrollRef.current.scrollTop = 0;
+      onWorkspaceChange?.();
+    };
     gamesViewRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
     homeScrollRef.current?.scrollTo({ top: 0, left: 0, behavior: "auto" });
-    onWorkspaceChange?.();
+    reset();
+    const firstFrame = window.requestAnimationFrame(reset);
+    const secondFrame = window.requestAnimationFrame(() => window.requestAnimationFrame(reset));
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
   }, [onWorkspaceChange, visible, workspace.activeTab, workspace.openTabs.length]);
 
   useEffect(() => {
@@ -159,6 +171,12 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
     }));
   };
   const closeGame = (id: ArticleGameId) => {
+    setPausedGames((current) => {
+      if (!(id in current)) return current;
+      const next = { ...current };
+      delete next[id];
+      return next;
+    });
     setWorkspace((current) => {
       const openTabs = closeArticleGameTab(current.openTabs, id);
       return {
@@ -244,7 +262,7 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
             <div className="games-catalog-heading ui-section-heading">
               <div>
                 <span className="eyebrow">Article projects + H5 象棋</span>
-                <h3 id="article-games-heading">10 个可用游戏</h3>
+                <h3 id="article-games-heading">10 个开源游戏</h3>
               </div>
               <span className="games-catalog-note">统一中文外壳 · 本机资源 · iframe 沙箱</span>
             </div>
@@ -288,9 +306,6 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
 
       {gameEnabled && workspace.openTabs.length > 0 && (
         <div className="article-game-tab-panels">
-          {workspace.activeTab === "super-mario-bros" && (
-            <p className="article-game-control-note" role="note">方向键移动 · Z 跳跃 · X 奔跑</p>
-          )}
           {workspace.openTabs.map((id) => {
             const definition = definitionFor(id);
             const active = workspace.activeTab === id;
@@ -309,6 +324,8 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
                   sessionMessage={sessionMessage}
                   muted={muted}
                   onToggleMute={() => setMuted((value) => !value)}
+                  paused={Boolean(pausedGames[id])}
+                  onTogglePause={() => setPausedGames((current) => ({ ...current, [id]: !current[id] }))}
                   onLayoutSettled={onWorkspaceChange}
                   onClose={() => closeGame(id)}
                 />

@@ -12,7 +12,7 @@ describe("article game frame specs", () => {
     expect(articleGameFrameSpec(ARTICLE_GAME_DEFINITIONS.find((game) => game.id === "react-tetris")!)).toEqual({
       layout: "tall",
       width: 640,
-      height: 960,
+      height: 610,
       chromeWidth: 300,
       chromeHeight: 176,
       normalCenterSize: { width: 1080, height: 730 },
@@ -52,11 +52,11 @@ describe("article game frame specs", () => {
   it("provides the window fit size for an offline game and restores the normal size", () => {
     expect(articleGameWindowLayout(ARTICLE_GAME_DEFINITIONS.find((game) => game.id === "react-tetris")!)).toEqual({
       width: 640,
-      height: 960,
+      height: 610,
       chromeWidth: 300,
       chromeHeight: 176,
       contentWidth: 940,
-      contentHeight: 1136,
+      contentHeight: 786,
       normalCenterSize: { width: 1080, height: 730 },
     });
     expect(articleGameWindowLayout(ARTICLE_GAME_DEFINITIONS.find((game) => game.id === "international-chess")!)).toBeNull();

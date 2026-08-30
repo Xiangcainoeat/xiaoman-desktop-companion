@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.6.1 post-release fixes - 2026-08-31
+
+- Restored the bundled React Tetris sprite sheet so score, high score, cleared rows, level, and next-piece digits render instead of leaving label-only panels.
+- Added the original Tetris difficulty bridge and compact 640 x 610 play surface; obsolete QR, side rails, and touch controls remain removed.
+- Unified embedded-game pause, visibility, and mute handling across the host toolbar, with verified Battle City, Star Battle, and Xiangqi hooks and a file-origin-only Tetris audio fallback.
+- Corrected Battle City one-player and two-player controls, restored keyboard-only Snake behavior, and kept Mario recovery controls wired through the host.
+
 ## 1.6.1 - 2026-08-30
 
 - Moved the one-click Pet Studio launcher to the bottom of 偏好设置.
