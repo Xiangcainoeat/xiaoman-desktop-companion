@@ -22,6 +22,13 @@ describe("SettingsView ownership contract", () => {
     expect(source).not.toContain('value: "native", label: "原生 Codex"');
   });
 
+  it("places the pet generation launcher at the bottom of preferences", () => {
+    expect(source).toContain('import { PetStudioLauncher } from "./PetStudioLauncher";');
+    expect(source).toContain("<PetPackView snapshot={snapshot} />");
+    expect(source).toContain("<PetStudioLauncher />");
+    expect(source.indexOf("<PetPackView snapshot={snapshot} />")).toBeLessThan(source.indexOf("<PetStudioLauncher />"));
+  });
+
   it("preserves native and CLI Codex choices", () => {
     expect(source).toContain('value: "native", label: "原生窗口"');
     expect(source).toContain('value: "cli", label: "CLI 兼容"');

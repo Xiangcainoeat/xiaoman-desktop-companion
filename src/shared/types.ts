@@ -142,6 +142,7 @@ export interface PetStudioStartResult {
   turnId?: string;
   desktopUrl?: string;
   desktopOpened: boolean;
+  promptPrefilled?: boolean;
   installCommand: string;
   missing?: string[];
 }

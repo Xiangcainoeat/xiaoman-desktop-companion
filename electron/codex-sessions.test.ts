@@ -9,6 +9,7 @@ import {
   CodexSessionsService,
   canReplyToCodexSession,
   getCodexDesktopAppCandidates,
+  getCodexNewThreadDeepLink,
   getCodexThreadDeepLink,
   parseCodexSessionLog,
   scanLocalCodexSessions,
@@ -24,9 +25,6 @@ import type { CodexStateThreadRecord } from "./codex-state";
 const THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9404";
 const SECOND_THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9405";
 const SUBAGENT_THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9406";
-
-const PET_STUDIO_THREAD_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9407";
-const PET_STUDIO_TURN_ID = "01a03ab3-3112-7cf3-949f-07e0ae5a9408";
 
 function jsonl(...records: unknown[]): string {
   return records.map((record) => JSON.stringify(record)).join("\n");
@@ -995,45 +993,52 @@ describe("safe reply dispatch", () => {
   });
 });
 
-describe("native pet studio task creation", () => {
-  it("starts a durable thread and its first turn through one app-server conversation", async () => {
-    const calls: Array<{ start: Record<string, unknown>; turn: Record<string, unknown> }> = [];
+describe("native pet studio launch", () => {
+  it("opens a native new-thread deep link instead of creating an external app-server owner", async () => {
+    const opened: Array<{ available: boolean; appPath: string; url: string }> = [];
     const service = new CodexSessionsService({
       codexPath: "/safe/codex",
-      appServerConversationRequest: async (input) => {
-        const turn = input.turn(PET_STUDIO_THREAD_ID);
-        calls.push({ start: input.start, turn });
-        return {
-          start: { thread: { id: PET_STUDIO_THREAD_ID } },
-          turn: { turn: { id: PET_STUDIO_TURN_ID } },
-        };
-      },
       desktopAppPath: "/Applications/ChatGPT.app",
-      desktopOpener: async () => undefined,
+      platform: "darwin",
+      desktopOpener: async (target) => {
+        opened.push({ available: target.available, appPath: target.appPath, url: target.url });
+      },
+      appServerRequest: async () => {
+        throw new Error("Pet Studio must not create a separate app-server task");
+      },
     });
 
     const result = await service.startPetStudioThread("$xiaoman-pet-studio 生成小满", "/tmp");
 
-    expect(calls).toEqual([{
-      start: { cwd: "/tmp", sessionStartSource: "startup" },
-      turn: {
-        threadId: PET_STUDIO_THREAD_ID,
-        cwd: "/tmp",
-        input: [{ type: "text", text: "$xiaoman-pet-studio 生成小满" }],
-      },
-    }]);
     expect(result).toEqual({
-      threadId: PET_STUDIO_THREAD_ID,
-      turnId: PET_STUDIO_TURN_ID,
-      desktopUrl: `codex://threads/${PET_STUDIO_THREAD_ID}`,
+      desktopUrl: getCodexNewThreadDeepLink("$xiaoman-pet-studio 生成小满", "/tmp"),
+      promptPrefilled: true,
     });
+    expect(opened).toHaveLength(1);
+    expect(opened[0]).toMatchObject({
+      appPath: "/Applications/ChatGPT.app",
+      url: result.desktopUrl,
+    });
+    const url = new URL(opened[0].url);
+    expect(url.protocol).toBe("codex:");
+    expect(url.hostname).toBe("new");
+    expect(url.searchParams.get("prompt")).toBe("$xiaoman-pet-studio 生成小满");
+    expect(url.searchParams.get("path")).toBe("/tmp");
   });
 
-  it("rejects a conversation response without both native ids", async () => {
-    const service = new CodexSessionsService({
-      appServerConversationRequest: async () => ({ start: { thread: {} }, turn: {} }),
-    });
+  it("encodes a native new-thread URL with a bounded prompt and optional working directory", () => {
+    const url = new URL(getCodexNewThreadDeepLink("  生成\n小满  ", null));
+    expect(url.protocol).toBe("codex:");
+    expect(url.hostname).toBe("new");
+    expect(url.searchParams.get("prompt")).toBe("生成\n小满");
+    expect(url.searchParams.has("path")).toBe(false);
+  });
 
-    await expect(service.startPetStudioThread("生成", "/tmp")).rejects.toThrow("thread/start");
+  it("rejects an empty native pet studio prompt before opening Codex", async () => {
+    const opener = vi.fn(async () => undefined);
+    const service = new CodexSessionsService({ desktopOpener: opener });
+
+    await expect(service.startPetStudioThread("  ", "/tmp")).rejects.toThrow("must not be empty");
+    expect(opener).not.toHaveBeenCalled();
   });
 });

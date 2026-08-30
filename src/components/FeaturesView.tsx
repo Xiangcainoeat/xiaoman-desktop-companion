@@ -16,7 +16,6 @@ import type { AppSnapshot, CompanionSettings } from "../shared/types";
 import { bridge } from "../useCompanion";
 import { ActionPreview } from "./ActionPreview";
 import { Toggle } from "./Controls";
-import { PetStudioLauncher } from "./PetStudioLauncher";
 
 function update(patch: Partial<CompanionSettings>): void {
   void bridge.updateSettings(patch);
@@ -209,8 +208,6 @@ export function FeaturesView({ snapshot }: { snapshot: AppSnapshot }) {
           onChange={(petProfile) => update({ petProfile })}
         />
       </div>
-
-      <PetStudioLauncher />
 
       <div className="features-grid">
         <FeatureSection eyebrow="注意力" title="注视跟随" description="小满会根据鼠标最后一次移动的位置调整视线。">

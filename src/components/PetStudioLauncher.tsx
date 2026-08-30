@@ -29,16 +29,6 @@ export function PetStudioLauncher() {
     }
   };
 
-  const openCreatedThread = async (): Promise<void> => {
-    if (!result?.threadId) return;
-    try {
-      const opened = await bridge.openCodexThread(result.threadId);
-      setFeedback(opened.message);
-    } catch (error) {
-      setFeedback(`打开失败：${errorMessage(error)}`);
-    }
-  };
-
   return (
     <section className="pet-studio-launcher section-block" aria-labelledby="pet-studio-title">
       <div className="pet-studio-launcher-head">
@@ -46,12 +36,12 @@ export function PetStudioLauncher() {
           <span className="eyebrow">宠物替换</span>
           <h2 id="pet-studio-title">一键生成自己的宠物</h2>
           <p className="section-description">
-            在原生 Codex 创建新任务，自动准备 Skill 获取命令和十张素材清单，完成后导入生成的 .xmpet 包。
+            打开原生 Codex 新对话并预填 Skill 获取命令和十张素材清单；请在 Codex 中点击发送，完成后导入生成的 .xmpet 包。
           </p>
         </div>
         <button className="primary-button pet-studio-start" type="button" disabled={busy} onClick={() => void startPetStudio()}>
           <MessageCircle size={16} />
-          {busy ? "正在创建任务" : "在 Codex 中开始"}
+          {busy ? "正在打开 Codex" : "在 Codex 中开始"}
         </button>
       </div>
 
@@ -83,11 +73,6 @@ export function PetStudioLauncher() {
         <code>{result?.installCommand ?? PET_STUDIO_INSTALL_COMMAND}</code>
       </details>
 
-      {result?.threadId && !result.desktopOpened && (
-        <button className="secondary-button pet-studio-open" type="button" onClick={() => void openCreatedThread()}>
-          <MessageCircle size={16} />打开已创建的 Codex 任务
-        </button>
-      )}
       {feedback && <p className={`pet-studio-feedback ${result?.ok ? "" : "is-error"}`} role="status" aria-live="polite">{feedback}</p>}
     </section>
   );

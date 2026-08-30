@@ -1,4 +1,4 @@
-import { spawn, type ChildProcess } from "node:child_process";
+import { spawn } from "node:child_process";
 import { constants as fsConstants, existsSync } from "node:fs";
 import { access, open, readdir, stat } from "node:fs/promises";
 import os from "node:os";
@@ -33,17 +33,6 @@ const NATIVE_REPLY_ASSUMED_ACTIVE_MS = 45_000;
 const THREAD_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
 
 export type JsonObject = Record<string, unknown>;
-
-const standaloneAppServerProcesses = new Set<ChildProcess>();
-
-/** Stop direct stdio app-server sessions when the desktop companion exits. */
-export function shutdownStandaloneAppServers(): void {
-  for (const child of standaloneAppServerProcesses) {
-    child.stdin?.end();
-    child.kill("SIGTERM");
-  }
-  standaloneAppServerProcesses.clear();
-}
 
 export function getCodexDesktopAppCandidates(preferredPath?: string): string[] {
   return [...new Set([
@@ -153,24 +142,9 @@ export type CodexAppServerRequester = (
   params: JsonObject,
 ) => Promise<unknown>;
 
-export interface CodexAppServerConversationInput {
-  start: JsonObject;
-  turn: (threadId: string) => JsonObject;
-}
-
-export interface CodexAppServerConversationResult {
-  start: unknown;
-  turn: unknown;
-}
-
-export type CodexAppServerConversationRequester = (
-  input: CodexAppServerConversationInput,
-) => Promise<CodexAppServerConversationResult>;
-
 export interface CodexPetStudioThreadResult {
-  threadId: string;
-  turnId: string;
   desktopUrl: string;
+  promptPrefilled: boolean;
 }
 
 export interface CodexProcessInvocation {
@@ -242,7 +216,6 @@ export interface CodexSessionsServiceOptions {
   activeStaleMs?: number;
   now?: () => number;
   appServerRequest?: CodexAppServerRequester;
-  appServerConversationRequest?: CodexAppServerConversationRequester;
   localSessionScanner?: CodexLocalSessionScanner;
   processSpawner?: CodexProcessSpawner;
   nativeIpcClient?: CodexNativeReplyClient;
@@ -340,6 +313,24 @@ function requireMessage(message: string): string {
 
 export function getCodexThreadDeepLink(threadId: string): string {
   return `codex://threads/${encodeURIComponent(requireThreadId(threadId))}`;
+}
+
+/**
+ * Build the native Codex route for a new conversation.
+ *
+ * The desktop app owns the thread created by this route. The prompt is
+ * intentionally prefilled rather than submitted by an external process;
+ * native Codex keeps submission and authentication inside its own window.
+ */
+export function getCodexNewThreadDeepLink(prompt: string, cwd?: string | null): string {
+  const url = new URL(`${CODEX_DESKTOP_SCHEME}://new`);
+  url.searchParams.set("prompt", requireMessage(prompt));
+  if (cwd !== undefined && cwd !== null) {
+    if (!path.isAbsolute(cwd)) throw new TypeError("Codex working directory must be absolute");
+    if (cwd.includes("\u0000")) throw new TypeError("Codex working directory contains a NUL character");
+    url.searchParams.set("path", path.resolve(cwd));
+  }
+  return url.toString();
 }
 
 export function buildCodexQueueArgs(threadId: string, message: string): string[] {
@@ -841,7 +832,7 @@ async function requestAppServerProcess(
             clientInfo: {
               name: "xiaoman_desktop_companion",
               title: "Xiaoman Desktop Companion",
-              version: "1.6.0",
+              version: "1.6.1",
             },
             capabilities: {
               optOutNotificationMethods: [
@@ -856,191 +847,6 @@ async function requestAppServerProcess(
         { method, id: 2, params },
       ];
       child.stdin?.write(`${messages.map((message) => JSON.stringify(message)).join("\n")}\n`);
-    });
-  });
-}
-
-/**
- * Start a thread and its first turn on one JSONL app-server connection.
- *
- * The proxy variant can be closed once turn/start is acknowledged because the
- * daemon owns the work. A direct stdio server must stay alive until
- * turn/completed, otherwise the first turn would be aborted as soon as the
- * IPC handler returns.
- */
-async function requestAppServerConversation(
-  executable: string,
-  args: string[],
-  input: CodexAppServerConversationInput,
-  env: NodeJS.ProcessEnv,
-  timeoutMs: number,
-  keepAlive: boolean,
-): Promise<CodexAppServerConversationResult> {
-  return await new Promise((resolve, reject) => {
-    const child = spawn(executable, args, {
-      env,
-      shell: false,
-      windowsHide: true,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    let responseDelivered = false;
-    let stdoutBuffer = "";
-    let stderr = "";
-    let responseTimer: NodeJS.Timeout | null = null;
-    let forceKillTimer: NodeJS.Timeout | null = null;
-    let startResult: unknown;
-    let threadId: string | null = null;
-    let turnId: string | null = null;
-
-    if (keepAlive) standaloneAppServerProcesses.add(child);
-
-    const terminate = (): void => {
-      if (responseTimer) {
-        clearTimeout(responseTimer);
-        responseTimer = null;
-      }
-      if (forceKillTimer || child.killed) return;
-      child.stdin?.end();
-      child.kill("SIGTERM");
-      forceKillTimer = setTimeout(() => child.kill("SIGKILL"), PROCESS_KILL_GRACE_MS);
-      forceKillTimer.unref?.();
-    };
-
-    const fail = (error: Error): void => {
-      if (responseDelivered) return;
-      responseDelivered = true;
-      terminate();
-      reject(error);
-    };
-
-    const writeMessage = (message: JsonObject): void => {
-      try {
-        child.stdin?.write(`${JSON.stringify(message)}\n`);
-      } catch (error) {
-        fail(error instanceof Error ? error : new Error(String(error)));
-      }
-    };
-
-    const parseLines = (): void => {
-      const lines = stdoutBuffer.split("\n");
-      stdoutBuffer = lines.pop() ?? "";
-      if (stdoutBuffer.length > MAX_JSON_RPC_LINE) {
-        fail(new Error("Codex app-server response exceeded the safe line limit"));
-        return;
-      }
-      for (const line of lines) {
-        if (!line.trim()) continue;
-        let message: JsonObject | null = null;
-        try {
-          message = asObject(JSON.parse(line) as unknown);
-        } catch {
-          continue;
-        }
-        if (!message) continue;
-
-        if (message.id === 2) {
-          if (message.error) {
-            fail(new Error(`thread/start: ${jsonRpcErrorMessage(message.error)}`));
-            return;
-          }
-          startResult = message.result;
-          const start = asObject(startResult);
-          const thread = asObject(start?.thread);
-          const returnedThreadId = stringValue(thread?.id);
-          if (!returnedThreadId || !isValidCodexThreadId(returnedThreadId)) {
-            fail(new Error("Invalid thread/start response: missing thread id"));
-            return;
-          }
-          threadId = returnedThreadId;
-          try {
-            writeMessage({ method: "turn/start", id: 3, params: input.turn(returnedThreadId) });
-          } catch (error) {
-            fail(error instanceof Error ? error : new Error(String(error)));
-          }
-          continue;
-        }
-
-        if (message.id === 3) {
-          if (message.error) {
-            fail(new Error(`turn/start: ${jsonRpcErrorMessage(message.error)}`));
-            return;
-          }
-          const turnResult = message.result;
-          const turn = asObject(turnResult);
-          const turnObject = asObject(turn?.turn);
-          const returnedTurnId = stringValue(turnObject?.id);
-          if (!returnedTurnId) {
-            fail(new Error("Invalid turn/start response: missing turn id"));
-            return;
-          }
-          turnId = returnedTurnId;
-          responseDelivered = true;
-          if (responseTimer) {
-            clearTimeout(responseTimer);
-            responseTimer = null;
-          }
-          resolve({ start: startResult, turn: turnResult });
-          if (!keepAlive) terminate();
-          continue;
-        }
-
-        if (message.method === "turn/completed") {
-          const params = asObject(message.params);
-          const completedThreadId = stringValue(params?.threadId);
-          const completedTurn = asObject(params?.turn);
-          if (threadId && turnId
-            && completedThreadId === threadId
-            && stringValue(completedTurn?.id) === turnId) {
-            terminate();
-          }
-        }
-      }
-    };
-
-    child.stdout?.on("data", (chunk: Buffer) => {
-      stdoutBuffer += chunk.toString("utf8");
-      parseLines();
-    });
-    child.stderr?.on("data", (chunk: Buffer) => {
-      stderr = boundedAppend(stderr, chunk);
-    });
-    child.stdin?.on("error", (error) => fail(error));
-    child.once("error", (error) => fail(error));
-    child.once("close", (code) => {
-      if (forceKillTimer) clearTimeout(forceKillTimer);
-      standaloneAppServerProcesses.delete(child);
-      if (!responseDelivered) {
-        const details = compactText(stderr, 500);
-        fail(new Error(details || `Codex app-server exited before responding (code ${code ?? "unknown"})`));
-      }
-    });
-
-    responseTimer = setTimeout(() => {
-      fail(new Error(`Codex app-server conversation timed out after ${timeoutMs} ms`));
-    }, timeoutMs);
-    responseTimer.unref?.();
-
-    child.once("spawn", () => {
-      writeMessage({
-        method: "initialize",
-        id: 1,
-        params: {
-          clientInfo: {
-            name: "xiaoman_desktop_companion",
-            title: "Xiaoman Desktop Companion",
-            version: "1.6.0",
-          },
-          capabilities: {
-            optOutNotificationMethods: [
-              "thread/started",
-              "thread/status/changed",
-              "item/agentMessage/delta",
-            ],
-          },
-        },
-      });
-      writeMessage({ method: "initialized", params: {} });
-      writeMessage({ method: "thread/start", id: 2, params: input.start });
     });
   });
 }
@@ -1063,28 +869,6 @@ function createDefaultAppServerRequester(
       params,
       env,
       timeoutMs,
-    );
-  };
-}
-
-function createDefaultAppServerConversationRequester(
-  executable: string,
-  codexHome: string,
-  env: NodeJS.ProcessEnv,
-  timeoutMs: number,
-): CodexAppServerConversationRequester {
-  return async (input) => {
-    const controlSocket = path.join(codexHome, "app-server-control", "app-server-control.sock");
-    const useProxy = existsSync(controlSocket);
-    return await requestAppServerConversation(
-      executable,
-      useProxy
-        ? ["app-server", "proxy", "--sock", controlSocket]
-        : ["app-server", "--listen", "stdio://"],
-      input,
-      env,
-      timeoutMs,
-      !useProxy,
     );
   };
 }
@@ -1368,7 +1152,6 @@ export class CodexSessionsService {
   private readonly now: () => number;
   private readonly env: NodeJS.ProcessEnv;
   private readonly appServerRequest: CodexAppServerRequester;
-  private readonly appServerConversationRequest: CodexAppServerConversationRequester;
   private readonly stateDbPath: string | undefined;
   private readonly stateDbReader: CodexStateDbReader;
   private readonly localSessionScanner: CodexLocalSessionScanner;
@@ -1411,13 +1194,6 @@ export class CodexSessionsService {
       this.env,
       options.appServerTimeoutMs ?? DEFAULT_APP_SERVER_TIMEOUT_MS,
     );
-    this.appServerConversationRequest = options.appServerConversationRequest
-      ?? createDefaultAppServerConversationRequester(
-        this.codexPath,
-        this.codexHome,
-        this.env,
-        options.appServerTimeoutMs ?? DEFAULT_APP_SERVER_TIMEOUT_MS,
-      );
   }
 
   async getRuntimeInfo(): Promise<CodexRuntimeInfo> {
@@ -1449,37 +1225,29 @@ export class CodexSessionsService {
     await this.desktopOpener(this.getDesktopTarget(threadId));
   }
 
+  getNewThreadTarget(prompt: string, cwd?: string | null): CodexDesktopTarget {
+    const appPath = this.getAvailableDesktopAppPath();
+    return {
+      available: this.platform === "darwin" && existsSync(appPath),
+      appPath,
+      bundleId: CODEX_DESKTOP_BUNDLE_ID,
+      scheme: CODEX_DESKTOP_SCHEME,
+      url: getCodexNewThreadDeepLink(prompt, cwd),
+      source: "official-deep-link",
+    };
+  }
+
   async startPetStudioThread(
     prompt: string,
     cwd?: string | null,
   ): Promise<CodexPetStudioThreadResult> {
     const message = requireMessage(prompt);
     const safeCwd = await usableWorkingDirectory(cwd) ?? os.homedir();
-    const conversation = await this.appServerConversationRequest({
-      start: {
-        cwd: safeCwd,
-        sessionStartSource: "startup",
-      },
-      turn: (threadId) => ({
-        threadId: requireThreadId(threadId),
-        cwd: safeCwd,
-        input: [{ type: "text", text: message }],
-      }),
-    });
-    const start = asObject(conversation.start);
-    const thread = asObject(start?.thread);
-    const threadId = stringValue(thread?.id);
-    if (!threadId || !isValidCodexThreadId(threadId)) {
-      throw new Error("Invalid thread/start response: missing thread id");
-    }
-    const turn = asObject(conversation.turn);
-    const turnObject = asObject(turn?.turn);
-    const turnId = stringValue(turnObject?.id);
-    if (!turnId) throw new Error("Invalid turn/start response: missing turn id");
+    const target = this.getNewThreadTarget(message, safeCwd);
+    await this.desktopOpener(target);
     return {
-      threadId: requireThreadId(threadId),
-      turnId,
-      desktopUrl: getCodexThreadDeepLink(threadId),
+      desktopUrl: target.url,
+      promptPrefilled: true,
     };
   }
 

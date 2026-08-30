@@ -3,8 +3,8 @@
 Xiaoman Pet Studio is the reusable Codex Skill and desktop entry point for
 turning a user's pet photos into an importable `.xmpet` pack. Image generation
 happens in the Codex task, not silently inside the desktop companion. The app
-creates a native Codex conversation, sends the Skill invocation and setup
-command, then opens that same task in the official Codex window.
+opens a native Codex conversation and prefills the Skill invocation and setup
+command; the user sends it from the official Codex window.
 
 ## Install the Skill
 
@@ -29,9 +29,9 @@ python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-installer/scripts/inst
 
 ## In-app one-click flow
 
-1. Open **桌宠功能** and click **一键生成自己的宠物**.
-2. The app creates a new native Codex task and sends `$xiaoman-pet-studio`
-   together with the Skill install command and output contract.
+1. Open **偏好设置** and click **一键生成自己的宠物** at the bottom.
+2. The app opens a new native Codex conversation and prefills `$xiaoman-pet-studio`
+   together with the Skill install command and output contract. Click **Send** in Codex.
 3. Drag the ten reference images into that Codex task. Codex checks image
    generation and deterministic processing capabilities before it generates
    anything.
@@ -40,8 +40,8 @@ python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/skill-installer/scripts/inst
 5. Import the validated archive from **偏好设置 → 宠物素材包**. The app keeps
    the bundled Xiaoman pack as a fallback and does not overwrite it.
 
-If the desktop app cannot open the deep link, the task is still created and
-the returned task ID can be opened from the Codex task list. A missing image
+If the desktop app cannot open the deep link, the app reports the activation
+error and does not create an external app-server task. A missing image
 capability is reported explicitly; no placeholder image is accepted.
 
 ## Ten recommended images

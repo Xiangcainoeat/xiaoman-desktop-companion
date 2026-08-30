@@ -5739,7 +5739,7 @@ select:focus-visible {
   }
 }
 
-/* Pet Studio stays compact while settings columns keep their intrinsic height. */
+/* Settings sections use a direct grid so each row pairs related sections without a tall nested column. */
 .settings-view {
   padding: 20px 28px 28px;
 }
@@ -5749,23 +5749,23 @@ select:focus-visible {
 }
 
 .settings-view .settings-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: start;
   align-content: start;
   grid-auto-rows: max-content;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
   gap: 16px;
 }
 
-.settings-view .settings-column {
+.settings-view .settings-columns > .settings-section {
   align-self: start;
-  height: max-content;
-  min-height: 0;
-  gap: 16px;
+  min-width: 0;
+  margin-top: 0;
 }
 
 .settings-view .settings-section {
-  align-self: start;
   height: max-content;
+  min-height: 0;
   margin-top: 0;
 }
 
@@ -5774,7 +5774,7 @@ select:focus-visible {
 }
 
 .settings-view .settings-section + .settings-section {
-  margin-top: 16px;
+  margin-top: 0;
 }
 
 .settings-view .settings-section .section-heading {
@@ -5944,12 +5944,10 @@ select:focus-visible {
   .settings-view .settings-columns {
     gap: 12px;
   }
+}
 
-  .settings-view .settings-column {
-    gap: 12px;
-  }
-
-  .settings-view .settings-section + .settings-section {
-    margin-top: 12px;
+@media (max-width: 760px) {
+  .settings-view .settings-columns {
+    grid-template-columns: 1fr;
   }
 }

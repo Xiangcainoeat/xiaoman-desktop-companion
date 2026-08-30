@@ -32,4 +32,8 @@ describe("FeaturesView ownership contract", () => {
     expect(source).not.toContain("openGiftBox");
     expect(source).not.toContain("claimDailyQuest");
   });
+
+  it("keeps pet generation out of the pet behavior page", () => {
+    expect(source).not.toContain("PetStudioLauncher");
+  });
 });

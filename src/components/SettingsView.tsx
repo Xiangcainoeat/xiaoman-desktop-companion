@@ -13,6 +13,7 @@ import type { AppSnapshot, CompanionSettings } from "../shared/types";
 import { bridge } from "../useCompanion";
 import { Toggle } from "./Controls";
 import { PetPackView } from "./PetPackView";
+import { PetStudioLauncher } from "./PetStudioLauncher";
 
 function update(patch: Partial<CompanionSettings>): void {
   void bridge.updateSettings(patch);
@@ -89,7 +90,6 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
       </div>
 
       <div className="settings-columns">
-        <div className="settings-column">
           <SettingsSection eyebrow="配置档案" title="工作方式">
             <SettingsRow icon={<Code2 size={18} />} label="Codex 回复通道" value={settings.codexReplyTransport === "native" ? "回到原生窗口" : "CLI 兼容回退"}>
               <Segmented
@@ -115,9 +115,7 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
               <span className="fixed-status">未修改</span>
             </SettingsRow>
           </SettingsSection>
-        </div>
 
-        <div className="settings-column">
           <SettingsSection eyebrow="Codex" title="会话监听">
             <SettingsRow icon={<Code2 size={18} />} label="Codex 会话状态" value="只读监听任务状态">
               <Toggle checked={settings.monitorCodex} label="Codex 会话状态" onChange={(monitorCodex) => update({ monitorCodex })} />
@@ -169,9 +167,9 @@ export function SettingsView({ snapshot }: { snapshot: AppSnapshot }) {
               </button>
             </SettingsRow>
           </SettingsSection>
-        </div>
       </div>
       <PetPackView snapshot={snapshot} />
+      <PetStudioLauncher />
     </div>
   );
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.6.1 - 2026-08-30
+
+- Moved the one-click Pet Studio launcher to the bottom of 偏好设置.
+- Replaced the external app-server Pet Studio flow with the native Codex new-conversation deep link; the prompt is prefilled and the user sends it in Codex.
+- Flattened preference sections into an intrinsic two-column grid so short and long sections no longer create an imbalanced nested layout.
+
 ## 1.4.1 - 2026-08-29
 
 - Fixed the final embedded-game fit pass: Star Battle now has a strict 960 x 480 document boundary with no inner scroll or footer, and Battle City/Pacman stay on their native play surfaces.
@@ -16,7 +22,7 @@
 - Added a separate care center and a read-only overview handoff so care operations do not duplicate ordinary interaction actions.
 - Added configurable inactivity sleep with a complete curled-body atlas, a dirty state when cleanliness falls below 18, and a bathing animation.
 - Retired the former self-authored H5 and independent-game launchers from the visible catalog.
-- Replaced them with a catalog of distributable static H5 projects plus the retained `itlwei/Chess` Chinese-chess repository; the Lila international-chess entry remains an explicit online handoff because it is a full server application. A source snapshot without a redistributable license is withheld from the public catalog.
+- Replaced them with an exact 11-entry open-source catalog: ten bundled static H5 projects plus the retained `itlwei/Chess` Chinese-chess repository; the Lila international-chess entry remains an explicit online handoff because it is a full server application.
 - Added a loopback static host and one sandboxed iframe surface for local article games, with source/commit/license records and tests that reject the retired catalog IDs and directories.
 - Added persistent game tabs, per-game frame sizing, shared keyboard forwarding and inactive-game audio pausing; cleaned the Tetris side rails/QR, repaired Snake wall loss and Sliding Puzzle startup, and added compact Chinese 2048 controls.
 - Added original fish and bubble target bitmap assets, deterministic extraction, care/sleep atlas verification and the `verify:care-atlas` command.

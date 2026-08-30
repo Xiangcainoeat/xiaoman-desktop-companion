@@ -20,7 +20,6 @@ import {
   canReplyToCodexSession,
   CodexSessionCommandError,
   CodexSessionsService,
-  shutdownStandaloneAppServers,
   summarizeCodexProcessResult,
   type CodexReplyDispatch,
   type CodexSessionActivity,
@@ -1674,40 +1673,29 @@ async function startPetStudio(): Promise<PetStudioStartResult> {
       buildPetStudioPrompt(),
       app.getPath("home"),
     );
-    let desktopOpened = false;
-    let openMessage = "任务已创建";
-    try {
-      await codexSessionsService.openDesktopTarget(started.threadId);
-      desktopOpened = true;
-      openMessage = "已在原生 Codex 新建宠物生成任务";
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      openMessage = `任务已创建，但无法自动打开 Codex 窗口：${detail || "请使用任务链接"}`;
-    }
     codexThreadCache = null;
     data.activity = appendActivity(data.activity, {
       source: "codex",
-      title: "已创建宠物生成任务",
-      detail: "Xiaoman Pet Studio",
-      state: "working",
+      title: "已打开宠物生成草稿",
+      detail: "原生 Codex 新对话已预填，等待点击发送",
+      state: "focused",
     });
-    triggerState("working", desktopOpened ? "我已经把宠物生成任务交给 Codex 了" : "宠物生成任务已创建", "codex", 6500, 86);
+    triggerState("focused", "原生 Codex 已打开，请点击发送", "codex", 6500, 86);
     persistAndBroadcast();
     return {
       ...base,
       ok: true,
-      message: openMessage,
-      threadId: started.threadId,
-      turnId: started.turnId,
+      message: "已在原生 Codex 新建对话，提示词已填入，请在 Codex 中点击发送",
       desktopUrl: started.desktopUrl,
-      desktopOpened,
+      desktopOpened: true,
+      promptPrefilled: started.promptPrefilled,
     };
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error);
     return {
       ...base,
       ok: false,
-      message: `无法创建原生 Codex 宠物生成任务：${detail || "未知错误"}`,
+      message: `无法打开原生 Codex 宠物生成对话：${detail || "未知错误"}`,
     };
   }
 }
@@ -2878,7 +2866,6 @@ app.on("window-all-closed", () => {
 
 app.on("before-quit", () => {
   quitting = true;
-  shutdownStandaloneAppServers();
   if (schedulerTimer) clearInterval(schedulerTimer);
   if (maintenanceTimer) clearInterval(maintenanceTimer);
   if (autoSleepTimer) clearInterval(autoSleepTimer);
