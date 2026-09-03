@@ -26,7 +26,6 @@ import {
   type CodexSessionSummary,
 } from "./codex-sessions";
 import { FrontmostApplicationMonitor } from "./application-monitor";
-import { startArticleGameHost, type ArticleGameHost } from "./article-game-host";
 import {
   applyBath,
   applyFeed,
@@ -62,6 +61,11 @@ import {
   persistedOverlayPosition,
 } from "../src/shared/overlay-layout";
 import { mapCodexThreadStatus } from "../src/shared/codex-ui";
+import {
+  articleGameServerUrl,
+  DEFAULT_XIAOMAN_SERVER_ORIGIN,
+  normalizeServerOrigin,
+} from "../src/shared/server-origin";
 import {
   canHitDesktopBubble,
   DESKTOP_BUBBLE_MAX_HITS,
@@ -640,8 +644,6 @@ let petPackRuntime: PetPackRuntime = createBundledPetPackRuntime();
 let petPackSummaries: PetPackSummary[] = [];
 let overlayWindow: BrowserWindow | null = null;
 let centerWindow: BrowserWindow | null = null;
-let articleGameHost: ArticleGameHost | null = null;
-let articleGameHostStart: Promise<ArticleGameHost> | null = null;
 let pendingCenterTab: CenterTab | null = null;
 let centerWindowLoaded = false;
 let tray: Tray | null = null;
@@ -1823,24 +1825,6 @@ function openExternalHttpUrl(value: string): void {
   });
 }
 
-function articleGameRoot(): string {
-  return isDevelopment
-    ? path.join(process.cwd(), "public", "article-games")
-    : path.join(app.getAppPath(), "dist", "article-games");
-}
-
-async function getArticleGameHost(): Promise<ArticleGameHost> {
-  if (articleGameHost) return articleGameHost;
-  articleGameHostStart ??= startArticleGameHost(articleGameRoot()).then((host) => {
-    articleGameHost = host;
-    return host;
-  }).catch((error) => {
-    articleGameHostStart = null;
-    throw error;
-  });
-  return articleGameHostStart;
-}
-
 async function articleGameUrl(id: ArticleGameId): Promise<string> {
   if (data.sleeping) {
     notifySleeping();
@@ -1851,15 +1835,12 @@ async function articleGameUrl(id: ArticleGameId): Promise<string> {
   if (definition.availability !== "offline") {
     throw new Error(`${definition.title}需要网络，请使用在线入口`);
   }
-  const host = await getArticleGameHost();
-  return `${host.url}/${encodeURIComponent(id)}/${definition.entryPath.replace(/^\/+/, "")}`;
-}
-
-async function closeArticleGameHost(): Promise<void> {
-  const host = articleGameHost;
-  articleGameHost = null;
-  articleGameHostStart = null;
-  await host?.close();
+  const configuredOrigin = process.env.XIAOMAN_GAME_SERVER_ORIGIN
+    ?? process.env.XIAOMAN_SOCIAL_SERVER_ORIGIN
+    ?? DEFAULT_XIAOMAN_SERVER_ORIGIN;
+  const origin = normalizeServerOrigin(configuredOrigin);
+  if (!origin) throw new Error("游戏服务器地址无效");
+  return articleGameServerUrl(origin, id, definition.entryPath);
 }
 
 function hardenRendererWindow(window: BrowserWindow): void {
@@ -2050,6 +2031,8 @@ const CENTER_TABS: readonly CenterTab[] = [
   "features",
   "care",
   "games",
+  "online",
+  "social",
   "codex",
   "overview",
   "reminders",
@@ -2881,6 +2864,5 @@ app.on("before-quit", () => {
   void codexMonitor?.stop();
   for (const handle of activeCodexReplyHandles) handle.cancel();
   activeCodexReplyHandles.clear();
-  void closeArticleGameHost();
   if (data && store) persist();
 });

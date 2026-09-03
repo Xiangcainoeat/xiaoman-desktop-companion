@@ -62,7 +62,7 @@ export type PetMotion =
 
 export type QuickViewMode = "care" | "interaction";
 export type OverlayPanelMode = "codex" | QuickViewMode;
-export type CenterTab = "features" | "care" | "games" | "codex" | "overview" | "reminders" | "events" | "settings";
+export type CenterTab = "features" | "care" | "games" | "online" | "social" | "codex" | "overview" | "reminders" | "events" | "settings";
 
 export interface DesktopInteractionStatus {
   active: boolean;

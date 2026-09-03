@@ -914,9 +914,9 @@
   "source": {
     "baseAtlas": "public/pet/idle-actions-30.webp",
     "pawPhases": {
-      "lift": "private-authoring-input-not-published",
-      "hold": "private-authoring-input-not-published",
-      "lower": "private-authoring-input-not-published"
+      "lift": "work/xiaoman-pet-96/relay-output/paw-lift.png",
+      "hold": "work/xiaoman-pet-96/relay-output/paw-hold.png",
+      "lower": "work/xiaoman-pet-96/relay-output/paw-lower.png"
     },
     "pawFrameCount": 30
   },

@@ -62,12 +62,22 @@
     // speedStart represents the host-selected difficulty; comparing both
     // fields makes every later config message reload an active game forever.
     if (Number(record.speedStart) === level) return;
-    record.speedStart = level;
-    record.speedRun = level;
-    writeRecord(record);
+    // The upstream reducer persists the whole live round. Changing the host
+    // level must be a new game, otherwise the old matrix/timer is replayed and
+    // the React bundle can keep rendering a stale round while it reloads.
+    var freshRecord = { speedStart: level, speedRun: level };
+    if (Number.isFinite(Number(record.max))) freshRecord.max = Number(record.max);
+    if (record.music !== undefined) freshRecord.music = Boolean(record.music);
+    writeRecord(freshRecord);
     if (reloadQueued) return;
     reloadQueued = true;
-    window.setTimeout(function () { window.location.reload(); }, 0);
+    window.setTimeout(function () {
+      // A queued native dispatch may have persisted the old state again
+      // before this callback runs. Reassert the clean checkpoint immediately
+      // before navigation.
+      writeRecord(freshRecord);
+      window.location.reload();
+    }, 0);
   }
 
   window.__xiaomanSetGameConfig = function (payload) {

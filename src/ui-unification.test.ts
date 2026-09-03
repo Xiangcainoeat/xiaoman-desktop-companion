@@ -32,9 +32,9 @@ describe("shared UI visual contract", () => {
     expect(appStyles).toContain(".center-shell .topbar h1");
   });
 
-  it("uses one article catalog and one embedded frame for the public game set", () => {
-    expect(ARTICLE_GAME_IDS).toHaveLength(10);
-    expect(ARTICLE_GAME_DEFINITIONS.filter((game) => game.availability === "offline")).toHaveLength(9);
+  it("uses one article catalog and one embedded frame for the retained 11 games", () => {
+    expect(ARTICLE_GAME_IDS).toHaveLength(11);
+    expect(ARTICLE_GAME_DEFINITIONS.filter((game) => game.availability === "offline")).toHaveLength(10);
     expect(gamesView).toContain("ARTICLE_GAME_DEFINITIONS");
     expect(gamesView).toContain('className="article-game-grid"');
     expect(articleGameView).toContain("<iframe");

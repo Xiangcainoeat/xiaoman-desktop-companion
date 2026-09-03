@@ -2,6 +2,23 @@
 
 var play = play||{};
 
+// The upstream game uses red (1) as the human side and black (-1) as the AI
+// side. These helpers preserve local play while allowing the host to assign
+// either side in an online room.
+play.__xiaomanOnline = Boolean(play.__xiaomanOnline);
+play.__xiaomanSeat = play.__xiaomanSeat || "red";
+play.__xiaomanTurn = play.__xiaomanTurn || "red";
+play.__xiaomanClickBound = Boolean(play.__xiaomanClickBound);
+
+play.__xiaomanHumanSide = function (){
+	return play.__xiaomanOnline && play.__xiaomanSeat === "black" ? -1 : 1;
+}
+
+play.__xiaomanCanMove = function (){
+	if (!play.__xiaomanOnline) return true;
+	return Boolean(play.__xiaomanSeat && play.__xiaomanTurn === play.__xiaomanSeat);
+}
+
 play.init = function (depth, map){
 	var map = map || com.initMap;
 	var depth = depth || 3
@@ -49,8 +66,11 @@ play.init = function (depth, map){
 	}
 	play.show();
 	
-	//绑定点击事件
-	com.canvas.addEventListener("click",play.clickCanvas)
+	//绑定点击事件。原项目在每次重开时重复绑定，保持一个监听器即可。
+	if (!play.__xiaomanClickBound) {
+		com.canvas.addEventListener("click",play.clickCanvas)
+		play.__xiaomanClickBound = true;
+	}
 	//clearInterval(play.timer);
 	//com.get("autoPlay").addEventListener("click", function(e) {
 		//clearInterval(play.timer);
@@ -145,7 +165,7 @@ play.regret = function (){
 
 //点击棋盘事件
 play.clickCanvas = function (e){
-	if (!play.isPlay || play.__xiaomanPaused) return false;
+	if (!play.isPlay || play.__xiaomanPaused || !play.__xiaomanCanMove()) return false;
 	var key = play.getClickMan(e);
 	var point = play.getClickPoint(e);
 	
@@ -168,7 +188,9 @@ play.clickMan = function (key,x,y){
 		//man为被吃掉的棋子
 		if (play.indexOfPs(com.mans[play.nowManKey].ps,[x,y])){
 			man.isShow = false;
-			var pace=com.mans[play.nowManKey].x+""+com.mans[play.nowManKey].y
+			var fromX = com.mans[play.nowManKey].x;
+			var fromY = com.mans[play.nowManKey].y;
+			var pace=fromX+""+fromY
 			//z(bill.createMove(play.map,man.x,man.y,x,y))
 			delete play.map[com.mans[play.nowManKey].y][com.mans[play.nowManKey].x];
 			play.map[y][x] = play.nowManKey;
@@ -183,13 +205,21 @@ play.clickMan = function (key,x,y){
 			com.dot.dots = [];
 			com.show()
 			com.get("clickAudio").play();
-			setTimeout(play.AIPlay,500);
+			if (play.__xiaomanOnline) {
+				if (typeof play.__xiaomanOnLocalMove === "function") play.__xiaomanOnLocalMove({
+					from: { x: fromX, y: fromY },
+					to: { x: x, y: y },
+					captured: { x: x, y: y }
+				});
+			}else {
+				setTimeout(play.AIPlay,500);
+			}
 			if (key == "j0") play.showWin (-1);
 			if (key == "J0") play.showWin (1);
 		}
 	// 选中棋子
 	}else{
-		if (man.my===1){
+		if (man.my===play.__xiaomanHumanSide()){
 			if (com.mans[play.nowManKey]) com.mans[play.nowManKey].alpha = 1 ;
 			man.alpha = 0.8;
 			com.pane.isShow = false;
@@ -209,7 +239,9 @@ play.clickPoint = function (x,y){
 	var man=com.mans[key];
 	if (play.nowManKey){
 		if (play.indexOfPs(com.mans[key].ps,[x,y])){
-			var pace=man.x+""+man.y
+			var fromX = man.x;
+			var fromY = man.y;
+			var pace=fromX+""+fromY
 			//z(bill.createMove(play.map,man.x,man.y,x,y))
 			delete play.map[man.y][man.x];
 			play.map[y][x] = key;
@@ -222,7 +254,15 @@ play.clickPoint = function (x,y){
 			com.dot.dots = [];
 			com.show();
 			com.get("clickAudio").play();
-			setTimeout(play.AIPlay,500);
+			if (play.__xiaomanOnline) {
+				if (typeof play.__xiaomanOnLocalMove === "function") play.__xiaomanOnLocalMove({
+					from: { x: fromX, y: fromY },
+					to: { x: x, y: y },
+					captured: null
+				});
+			}else {
+				setTimeout(play.AIPlay,500);
+			}
 		}else{
 			//alert("不能这么走哦！")
 		}
@@ -232,7 +272,7 @@ play.clickPoint = function (x,y){
 
 //Ai自动走棋
 play.AIPlay = function (){
-	if (play.__xiaomanPaused) return false;
+	if (play.__xiaomanPaused || play.__xiaomanOnline) return false;
 	//return
 	play.my = -1 ;
 	var pace=AI.init(play.pace.join(""))

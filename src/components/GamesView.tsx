@@ -7,13 +7,10 @@ import {
   type ArticleGameId,
 } from "../article-games/registry";
 import {
-  activeTabAfterClose,
-  closeArticleGameTab,
-  normalizeArticleGameTab,
   openArticleGameTab,
-  type ArticleGameWorkspaceTab,
 } from "../article-games/workspace";
-import { ArticleGameView, GameIcon, type ArticleGameSessionState } from "./ArticleGameView";
+import { ArticleGameView, GameArtMark, GameIcon, type ArticleGameSessionState } from "./ArticleGameView";
+import { GomokuGame } from "./GomokuGame";
 import { bridge } from "../useCompanion";
 
 function restoreGameWindowIfAvailable(): void {
@@ -35,7 +32,16 @@ function stopEvent(event: React.SyntheticEvent) {
 }
 
 function articleGameBadge(definition: ArticleGameDefinition): string {
-  return definition.requiresNetwork ? "在线" : "本机内置";
+  return definition.requiresNetwork ? "外部在线" : "服务器托管";
+}
+
+type GameCategory = "全部" | "棋类" | "益智" | "街机";
+const GAME_CATEGORIES: readonly GameCategory[] = ["全部", "棋类", "益智", "街机"];
+
+function articleGameCategory(definition: ArticleGameDefinition): Exclude<GameCategory, "全部"> {
+  if (["xiangqi-h5", "international-chess"].includes(definition.id)) return "棋类";
+  if (["2048", "sliding-puzzle"].includes(definition.id)) return "益智";
+  return "街机";
 }
 
 function definitionFor(id: ArticleGameId): ArticleGameDefinition {
@@ -44,16 +50,74 @@ function definitionFor(id: ArticleGameId): ArticleGameDefinition {
   return definition;
 }
 
+/** Native games use a separate tab id so they cannot collide with rewarded
+ * game ids or with the article-game iframe registry. */
+export const NATIVE_GOMOKU_ID = "gomoku-native" as const;
+type NativeGameId = typeof NATIVE_GOMOKU_ID;
+type GameTabId = ArticleGameId | NativeGameId;
+type WorkspaceTab = "home" | GameTabId;
+
+function isNativeGomoku(id: GameTabId): id is NativeGameId {
+  return id === NATIVE_GOMOKU_ID;
+}
+
+function isArticleGameTab(id: GameTabId): id is ArticleGameId {
+  return !isNativeGomoku(id);
+}
+
+function gameTitle(id: GameTabId): string {
+  return isNativeGomoku(id) ? "五子棋" : definitionFor(id).title;
+}
+
+function gameIcon(id: GameTabId): string {
+  return isNativeGomoku(id) ? "gomoku" : definitionFor(id).icon;
+}
+
+function isOfflineGameTab(id: GameTabId): boolean {
+  return isNativeGomoku(id) || definitionFor(id).availability === "offline";
+}
+
+function openWorkspaceGameTab(openTabs: readonly GameTabId[], id: GameTabId): GameTabId[] {
+  if (openTabs.includes(id)) return [...openTabs];
+  if (isNativeGomoku(id)) return [...openTabs, id];
+
+  // Keep the article registry's de-duplication behavior for the existing
+  // iframe games, then append only the newly requested tab to the mixed list.
+  const articleTabs = openTabs.filter(isArticleGameTab);
+  const nextArticleTabs = openArticleGameTab(articleTabs, id);
+  const added = nextArticleTabs.find((tabId) => !articleTabs.includes(tabId));
+  return added ? [...openTabs, added] : [...openTabs];
+}
+
+function closeWorkspaceGameTab(openTabs: readonly GameTabId[], id: GameTabId): GameTabId[] {
+  return openTabs.filter((tabId) => tabId !== id);
+}
+
+function activeTabAfterWorkspaceClose(
+  activeTab: WorkspaceTab,
+  openTabs: readonly GameTabId[],
+  closedTab: GameTabId,
+): WorkspaceTab {
+  if (activeTab !== closedTab) return activeTab;
+  const index = openTabs.indexOf(closedTab);
+  return openTabs[index - 1] ?? openTabs[index + 1] ?? "home";
+}
+
+function normalizeWorkspaceTab(activeTab: WorkspaceTab, openTabs: readonly GameTabId[]): WorkspaceTab {
+  return activeTab === "home" || openTabs.includes(activeTab) ? activeTab : "home";
+}
+
 export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteractionActive = false, visible = true, onClose, onWorkspaceChange }: GamesViewProps) {
   const gameEnabled = enabled ?? gameModeEnabled ?? snapshot?.settings.gameModeEnabled ?? true;
   const [workspace, setWorkspace] = useState<{
-    openTabs: ArticleGameId[];
-    activeTab: ArticleGameWorkspaceTab;
+    openTabs: GameTabId[];
+    activeTab: WorkspaceTab;
   }>({ openTabs: [], activeTab: "home" });
   const [sessionState, setSessionState] = useState<ArticleGameSessionState>("idle");
   const [sessionMessage, setSessionMessage] = useState("当前无法开始这局游戏");
   const [muted, setMuted] = useState(true);
-  const [pausedGames, setPausedGames] = useState<Partial<Record<ArticleGameId, boolean>>>({});
+  const [pausedGames, setPausedGames] = useState<Partial<Record<GameTabId, boolean>>>({});
+  const [gameCategory, setGameCategory] = useState<GameCategory>("全部");
   const gamesViewRef = useRef<HTMLDivElement>(null);
   const homeScrollRef = useRef<HTMLDivElement>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
@@ -61,15 +125,17 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
   const sessionRequestRef = useRef<symbol | null>(null);
   const needSessionRef = useRef({ enabled: gameEnabled, offlineCount: 0 });
 
-  const offlineOpenCount = workspace.openTabs.filter((id) => definitionFor(id).availability === "offline").length;
+  const offlineOpenCount = workspace.openTabs.filter(isOfflineGameTab).length;
   needSessionRef.current = { enabled: gameEnabled, offlineCount: offlineOpenCount };
   const showHome = workspace.activeTab === "home";
-  const activeDefinition = showHome ? null : definitionFor(workspace.activeTab as ArticleGameId);
-  const activeGameIsOffline = activeDefinition?.availability === "offline";
+  const activeTabId = showHome ? null : workspace.activeTab as GameTabId;
+  const activeDefinition = activeTabId && isArticleGameTab(activeTabId) ? definitionFor(activeTabId) : null;
+  const activeGameIsOffline = activeTabId ? isOfflineGameTab(activeTabId) : false;
 
   useEffect(() => {
     if (!gameEnabled) {
       setWorkspace({ openTabs: [], activeTab: "home" });
+      setPausedGames({});
     }
   }, [gameEnabled]);
 
@@ -87,7 +153,7 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
     const requestToken = Symbol("article-game-session");
     sessionRequestRef.current = requestToken;
     setSessionState("starting");
-    setSessionMessage("正在准备本机游戏");
+    setSessionMessage("正在连接游戏服务");
     void bridge.startGameSession().then((result) => {
       if (sessionRequestRef.current !== requestToken) {
         if (result.accepted) bridge.setGameActive(false);
@@ -166,11 +232,18 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
   const selectGame = (definition: ArticleGameDefinition) => {
     if (!gameEnabled || desktopInteractionActive) return;
     setWorkspace((current) => ({
-      openTabs: openArticleGameTab(current.openTabs, definition.id),
+      openTabs: openWorkspaceGameTab(current.openTabs, definition.id),
       activeTab: definition.id,
     }));
   };
-  const closeGame = (id: ArticleGameId) => {
+  const selectNativeGomoku = () => {
+    if (!gameEnabled || desktopInteractionActive) return;
+    setWorkspace((current) => ({
+      openTabs: openWorkspaceGameTab(current.openTabs, NATIVE_GOMOKU_ID),
+      activeTab: NATIVE_GOMOKU_ID,
+    }));
+  };
+  const closeGame = (id: GameTabId) => {
     setPausedGames((current) => {
       if (!(id in current)) return current;
       const next = { ...current };
@@ -178,10 +251,10 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
       return next;
     });
     setWorkspace((current) => {
-      const openTabs = closeArticleGameTab(current.openTabs, id);
+      const openTabs = closeWorkspaceGameTab(current.openTabs, id);
       return {
         openTabs,
-        activeTab: normalizeArticleGameTab(activeTabAfterClose(current.activeTab, current.openTabs, id), openTabs),
+        activeTab: normalizeWorkspaceTab(activeTabAfterWorkspaceClose(current.activeTab, current.openTabs, id), openTabs),
       };
     });
   };
@@ -202,8 +275,8 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
           </button>
           <div className="article-game-tab-list" ref={tabListRef}>
             {workspace.openTabs.map((id) => {
-              const definition = definitionFor(id);
               const active = workspace.activeTab === id;
+              const title = gameTitle(id);
               return (
                 <div className={`article-game-tab-item ${active ? "is-active" : ""}`} key={id}>
                   <button
@@ -213,14 +286,14 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
                     aria-selected={active}
                     onClick={() => setWorkspace((current) => ({ ...current, activeTab: id }))}
                   >
-                    <GameIcon name={definition.icon} size={15} />
-                    <span>{definition.title}</span>
+                    <GameIcon name={gameIcon(id)} size={15} />
+                    <span>{title}</span>
                   </button>
                   <button
                     className="icon-button compact article-game-tab-close"
                     type="button"
-                    title={`关闭${definition.title}`}
-                    aria-label={`关闭${definition.title}`}
+                    title={`关闭${title}`}
+                    aria-label={`关闭${title}`}
                     onClick={(event) => {
                       event.stopPropagation();
                       closeGame(id);
@@ -261,17 +334,44 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
           <section className="article-games-catalog" aria-labelledby="article-games-heading">
             <div className="games-catalog-heading ui-section-heading">
               <div>
-                <span className="eyebrow">Article projects + H5 象棋</span>
-                <h3 id="article-games-heading">10 个开源游戏</h3>
+                <span className="eyebrow">游戏库</span>
+                <h3 id="article-games-heading">12 个游戏</h3>
               </div>
-              <span className="games-catalog-note">统一中文外壳 · 本机资源 · iframe 沙箱</span>
+              <div className="games-catalog-filter-row" role="tablist" aria-label="单机游戏分类">
+                {GAME_CATEGORIES.map((category) => (
+                  <button key={category} type="button" role="tab" aria-selected={gameCategory === category} className={gameCategory === category ? "is-active" : ""} onClick={() => setGameCategory(category)}>
+                    {category}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="article-game-grid" role="list" aria-label="开源游戏列表">
-              {ARTICLE_GAME_DEFINITIONS.map((definition) => (
-                <article className="article-game-card" key={definition.id} role="listitem">
-                  <div className={`article-game-card-icon article-game-card-icon-${definition.icon}`}>
-                    <GameIcon name={definition.icon} size={22} />
+              {(gameCategory === "全部" || gameCategory === "棋类") && <article className="article-game-card native-game-card" role="listitem">
+                <GameArtMark name="gomoku" size={46} />
+                <div className="article-game-card-copy native-game-card-copy">
+                  <div className="article-game-title-row">
+                    <h3>五子棋</h3>
+                    <span>原生棋盘</span>
                   </div>
+                  <p>参考在线游戏平台的棋盘工作区，支持人机对战、本机双人、难度选择、提示和悔棋。</p>
+                  <div className="article-game-card-meta"><span>15×15 棋盘</span><span>四档难度</span><span>本机可玩</span></div>
+                </div>
+                <button
+                  className="primary-button article-game-launch"
+                  type="button"
+                  aria-label="打开五子棋"
+                  aria-disabled={desktopInteractionActive}
+                  disabled={desktopInteractionActive}
+                  title={desktopInteractionActive ? "桌面泡泡互动进行中" : "打开五子棋"}
+                  onClick={selectNativeGomoku}
+                >
+                  <Gamepad2 size={15} aria-hidden="true" />
+                  打开
+                </button>
+              </article>}
+              {ARTICLE_GAME_DEFINITIONS.filter((definition) => gameCategory === "全部" || articleGameCategory(definition) === gameCategory).map((definition) => (
+                <article className="article-game-card" key={definition.id} role="listitem">
+                  <GameArtMark name={definition.icon} size={44} />
                   <div className="article-game-card-copy">
                     <div className="article-game-title-row">
                       <h3>{definition.title}</h3>
@@ -288,6 +388,9 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
                     className="primary-button article-game-launch"
                     type="button"
                     aria-label={`打开${definition.title}`}
+                    aria-disabled={desktopInteractionActive}
+                    disabled={desktopInteractionActive}
+                    title={desktopInteractionActive ? "桌面泡泡互动进行中" : `打开${definition.title}`}
                     onClick={() => selectGame(definition)}
                   >
                     <Gamepad2 size={15} aria-hidden="true" />
@@ -307,8 +410,9 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
       {gameEnabled && workspace.openTabs.length > 0 && (
         <div className="article-game-tab-panels">
           {workspace.openTabs.map((id) => {
-            const definition = definitionFor(id);
             const active = workspace.activeTab === id;
+            const native = isNativeGomoku(id);
+            const definition = native ? null : definitionFor(id);
             return (
               <div
                 className={`article-game-tab-panel ${active ? "is-active" : "is-inactive"}`}
@@ -316,19 +420,34 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
                 role="tabpanel"
                 aria-hidden={!active}
               >
-                <ArticleGameView
-                  definition={definition}
-                  enabled={gameEnabled}
-                  active={active && visible}
-                  sessionState={sessionState}
-                  sessionMessage={sessionMessage}
-                  muted={muted}
-                  onToggleMute={() => setMuted((value) => !value)}
-                  paused={Boolean(pausedGames[id])}
-                  onTogglePause={() => setPausedGames((current) => ({ ...current, [id]: !current[id] }))}
-                  onLayoutSettled={onWorkspaceChange}
-                  onClose={() => closeGame(id)}
-                />
+                {native ? (
+                  <GomokuGame
+                    enabled={gameEnabled}
+                    active={active && visible}
+                    sessionReady={sessionState !== "starting" && sessionState !== "error"}
+                    muted={muted}
+                    onToggleMute={() => setMuted((value) => !value)}
+                    paused={Boolean(pausedGames[id])}
+                    onTogglePause={() => setPausedGames((current) => ({ ...current, [id]: !current[id] }))}
+                    onLayoutSettled={onWorkspaceChange}
+                    onClose={() => closeGame(id)}
+                    onOpenOnline={() => bridge.showCenter("online")}
+                  />
+                ) : (
+                  <ArticleGameView
+                    definition={definition!}
+                    enabled={gameEnabled}
+                    active={active && visible}
+                    sessionState={sessionState}
+                    sessionMessage={sessionMessage}
+                    muted={muted}
+                    onToggleMute={() => setMuted((value) => !value)}
+                    paused={Boolean(pausedGames[id])}
+                    onTogglePause={() => setPausedGames((current) => ({ ...current, [id]: !current[id] }))}
+                    onLayoutSettled={onWorkspaceChange}
+                    onClose={() => closeGame(id)}
+                  />
+                )}
               </div>
             );
           })}

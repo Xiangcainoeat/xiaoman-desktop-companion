@@ -20,14 +20,19 @@ describe("article game registry", () => {
       "snake",
       "super-mario-bros",
       "2048",
+      "sliding-puzzle",
       "xiangqi-h5",
     ]);
-    expect(ARTICLE_GAME_DEFINITIONS).toHaveLength(10);
-    expect(new Set(ARTICLE_GAME_DEFINITIONS.map((game) => game.id)).size).toBe(10);
+    expect(ARTICLE_GAME_DEFINITIONS).toHaveLength(11);
+    expect(new Set(ARTICLE_GAME_DEFINITIONS.map((game) => game.id)).size).toBe(11);
   });
 
-  it("has a checked-in local entry for every offline game", () => {
-    for (const game of ARTICLE_GAME_DEFINITIONS.filter((item) => item.availability === "offline")) {
+  it("has a checked-in local entry for every redistributable offline game", () => {
+    const redistributableGames = ARTICLE_GAME_DEFINITIONS.filter(
+      (item) => item.availability === "offline" && item.license !== "未声明",
+    );
+
+    for (const game of redistributableGames) {
       const entry = path.join(process.cwd(), "public", "article-games", game.id, game.entryPath);
       expect(existsSync(entry), `${game.id} entry`).toBe(true);
       expect(readFileSync(entry, "utf8")).toContain("<html");

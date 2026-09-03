@@ -9,8 +9,19 @@ const preloadSource = readFileSync(new URL("../../electron/preload.ts", import.m
 const mainSource = readFileSync(new URL("../../electron/main.ts", import.meta.url), "utf8");
 const overlaySource = readFileSync(new URL("./Overlay.tsx", import.meta.url), "utf8");
 const stylesSource = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
+const appSource = readFileSync(new URL("../App.tsx", import.meta.url), "utf8");
+const runtimeSource = readFileSync(new URL("../shared/runtime.ts", import.meta.url), "utf8");
 
 describe("direct games navigation", () => {
+  it("isolates browser navigation from desktop-only workspaces", () => {
+    expect(runtimeSource).toContain('WEB_CENTER_TABS = ["games", "online", "social"]');
+    expect(runtimeSource).toContain('DESKTOP_CENTER_TABS');
+    expect(centerSource).toContain("runtimeSurface");
+    expect(centerSource).toContain("canUseCenterTab");
+    expect(appSource).toContain("isDesktopRuntime");
+    expect(appSource).toContain('view === "overlay"');
+  });
+
   it("keeps compact navigation labels and Codex actions on one stable line", () => {
     expect(stylesSource).toMatch(/\.sidebar-nav button span\s*\{[\s\S]*white-space:\s*nowrap;/);
     expect(stylesSource).toMatch(/\.task-reply-panel \.section-heading \.secondary-button\s*\{[\s\S]*white-space:\s*nowrap;/);
@@ -22,7 +33,7 @@ describe("direct games navigation", () => {
 
   it("accepts a center-tab event in the renderer and selects it", () => {
     expect(centerSource).toContain("onCenterTab");
-    expect(centerSource).toContain("setTab(nextTab)");
+    expect(centerSource).toContain("setTab(canonicalTab)");
     expect(centerSource).toContain("center-page-games");
     expect(centerSource).toContain('tab === "games" ? "is-active" : "is-inactive"');
     expect(centerSource).toContain("contentScrollRef.current?.scrollTo");
@@ -48,6 +59,24 @@ describe("direct games navigation", () => {
     expect(typeSource).toContain("onCenterTab");
     expect(preloadSource).toContain('onCenterTab:');
     expect(bridgeSource).toContain("onCenterTab:");
+  });
+
+  it("keeps legacy social tab messages mapped to the room workspace", () => {
+    expect(centerSource).toContain('nextTab === "social" ? "online" : nextTab');
+    expect(centerSource).not.toContain('label: "好友与联机"');
+    expect(preloadSource).toMatch(/const CENTER_TABS:[\s\S]*?"social"/);
+    expect(mainSource).toMatch(/const CENTER_TABS:[\s\S]*?"social"/);
+  });
+
+  it("separates single-player and online-room navigation entries", () => {
+    expect(centerSource).toContain('label: "单机游戏"');
+    expect(centerSource).toContain('label: "联机房间"');
+    expect(centerSource).not.toContain('label: "好友与联机"');
+    expect(centerSource).toContain('type Tab = CenterTab');
+    expect(centerSource).toContain('{ id: "online", label: "联机房间"');
+    expect(centerSource).toContain('tab === "online"');
+    expect(centerSource).toContain('initialSection="online-games"');
+    expect(centerSource).toContain("selectNavigationItem");
   });
 
   it("delivers a requested tab to an existing or newly created center window", () => {

@@ -517,7 +517,7 @@
     "backgroundPixelsRemoved": 0
   },
   "ok": true,
-  "provenance": "public-release-qa-summary",
+  "provenance": "work/xiaoman-pet-96/assembly-provenance.json",
   "registration": {
     "algorithm": "shared-scale-centered-baseline",
     "baseline": 202,
@@ -537,9 +537,11 @@
   "source": {
     "anchorCount": 32,
     "generatedCount": 64,
+    "generationManifest": "work/xiaoman-pet-96/generation-manifest.json",
     "imageCount": 96,
     "mode": "frames",
-    "seamRepairCount": 4
+    "seamRepairCount": 4,
+    "seamRepairs": "work/xiaoman-pet-96/relay-output/seam-pairs-15-23.png"
   },
   "stepDegrees": 3.75
 }

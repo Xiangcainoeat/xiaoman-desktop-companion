@@ -9,9 +9,18 @@
     return game && game.scenes ? game.scenes.play : null;
   }
 
+  function isPlayReady(scene) {
+    return Boolean(
+      scene &&
+      scene.timeCooldown &&
+      scene.player &&
+      scene.ctx
+    );
+  }
+
   function sync() {
     var scene = playScene();
-    if (!scene || typeof scene.pause !== "function" || typeof scene.start !== "function") return;
+    if (!isPlayReady(scene) || typeof scene.pause !== "function" || typeof scene.start !== "function") return;
 
     if (requestedPaused && scene.pauseFlag !== true) scene.pause();
     if (!requestedPaused && scene.pauseFlag === true) scene.start();

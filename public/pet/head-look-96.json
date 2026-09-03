@@ -79,6 +79,7 @@
   "rows": 8,
   "source": {
     "bodyReference": "public/pet/spritesheet.webp",
+    "directory": "work/xiaoman-pet-96/ordered-frames",
     "imageCount": 96,
     "mode": "approved-look-frames"
   },

@@ -5,6 +5,7 @@ class Play extends Scene {
     }
     created(){
         this.raf_id = 'play_update';
+        this.running = false;
         this.initCanvas();
     }
     setup() {
@@ -21,13 +22,18 @@ class Play extends Scene {
     }
 
     start() {
+        if (this.running) return;
+        if (!this.timeCooldown || !this.player || !this.ctx) return;
         this.pauseFlag = false;
+        this.running = true;
+        raf.remove(this.raf_id);
         raf.reg(this.raf_id, this.update.bind(this));
         res.play('bg');
         $('#game-pause-btn').classList.add('active');
     }
     pause() {
         this.pauseFlag = true;
+        this.running = false;
         raf.remove(this.raf_id);
         res.pause('bg');
         $('#game-pause-btn').classList.remove('active');
@@ -46,6 +52,7 @@ class Play extends Scene {
     }
 
     uninstall() {
+        this.running = false;
         raf.remove(this.raf_id);
         res.end('bg');
         $("#logo").classList.remove('play-status');

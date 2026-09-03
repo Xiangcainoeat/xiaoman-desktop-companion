@@ -1,10 +1,12 @@
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 const gamesRoot = path.join(process.cwd(), "public", "article-games");
 const readGame = (id: string, file: string) => readFileSync(path.join(gamesRoot, id, file), "utf8");
+const slidingPuzzleAvailable = existsSync(path.join(gamesRoot, "sliding-puzzle", "index.html"));
+const optionalSlidingPuzzleTest = slidingPuzzleAvailable ? it : it.skip;
 
 function createTetrisBridgeHarness(record: Record<string, unknown>) {
   let storageValue = Buffer.from(encodeURIComponent(JSON.stringify(record)), "binary").toString("base64");
@@ -37,6 +39,15 @@ function createTetrisBridgeHarness(record: Record<string, unknown>) {
     }),
     pendingTimers: () => timers.length,
     reloadCount: () => reloadCount,
+    flushTimers: () => {
+      const pending = timers.splice(0);
+      for (const callback of pending) callback();
+    },
+    readRecord: () => {
+      const encoded = storageValue;
+      const decoded = decodeURIComponent(Buffer.from(encoded, "base64").toString("binary"));
+      return JSON.parse(decoded) as Record<string, unknown>;
+    },
   };
 }
 
@@ -94,7 +105,7 @@ describe("article game adapters", () => {
     expect(view).toContain('channel: "xiaoman-game-audio"');
     expect(view).toContain("visibilitychange");
     expect(view).toContain("window.addEventListener(\"blur\"");
-    expect(view).toContain("const handleBlur = () => setWindowActive(false)");
+    expect(view).toContain('if (document.visibilityState === "hidden") setWindowActive(false);');
     expect(view).toContain("windowActive");
     expect(view).toContain("if (!gameActive || definition.availability !== \"offline\") return;");
     expect(view).toContain("onToggleMute");
@@ -130,6 +141,24 @@ describe("article game adapters", () => {
     expect(gamesView).toContain("paused={Boolean(pausedGames[id])}");
   });
 
+  it("does not let a transient background flag swallow clicks in the selected frame", () => {
+    const adapter = readFileSync(path.join(gamesRoot, "xiaoman-frame-adapter.js"), "utf8");
+    expect(adapter).toContain("Only an explicit manual");
+    expect(adapter).toContain("pause blocks game pointer input");
+    expect(adapter).toContain("function isInteractiveGameControl(target)");
+    expect(adapter).toContain("button, a, select, input, textarea, summary");
+    expect(adapter).toContain("if (!gamePaused || isInteractiveGameControl(event.target)) return;");
+    expect(adapter).toContain('typeof MutationObserver !== "undefined" && document.documentElement');
+    expect(adapter).toContain("observer.observe(document.documentElement");
+  });
+
+  it("reactivates a selected frame when its first pointer event restores focus", () => {
+    const view = readFileSync(path.join(process.cwd(), "src", "components", "ArticleGameView.tsx"), "utf8");
+    expect(view).toContain("const focusFrame = () => {");
+    expect(view).toContain("setWindowActive(true);");
+    expect(view).not.toContain("const handleBlur = () => setWindowActive(false);");
+  });
+
   it("exposes the native difficulty and recovery controls", () => {
     const tetris = readGame("react-tetris", "xiaoman-tetris-bridge.js");
     const marioHtml = readGame("super-mario-bros", "index.html");
@@ -149,6 +178,30 @@ describe("article game adapters", () => {
     expect(view).toContain("mario-level");
   });
 
+  it("keeps the Mario recovery loop bound to the current controller", () => {
+    const mario = readGame("super-mario-bros", "xiaoman-mario-bridge.js");
+    const syncStart = mario.indexOf("function sync()");
+    const configStart = mario.indexOf("window.__xiaomanSetGameConfig", syncStart);
+    expect(syncStart).toBeGreaterThanOrEqual(0);
+    expect(configStart).toBeGreaterThan(syncStart);
+    const syncBody = mario.slice(syncStart, configStart);
+    expect(syncBody).toContain("var current = controller();");
+    expect(syncBody).toContain("if (!current) return;");
+    expect(syncBody).toContain("current.world");
+  });
+
+  it("does not start Star Battle before its play scene is initialized", () => {
+    const bridge = readGame("star-battle", "xiaoman-star-battle-bridge.js");
+    const play = readGame("star-battle", "js/scenes/play.js");
+    expect(bridge).toContain("scene.timeCooldown");
+    expect(bridge).toContain("scene.player");
+    expect(bridge).toContain("scene.ctx");
+    expect(play).toContain("this.running = false");
+    expect(play).toContain("if (this.running) return;");
+    expect(play).toContain("this.running = true");
+    expect(play).toContain("this.running = false");
+  });
+
   it("does not reload when the native game has already advanced its runtime level", () => {
     const harness = createTetrisBridgeHarness({ speedStart: 2, speedRun: 4, points: 220 });
 
@@ -156,6 +209,30 @@ describe("article game adapters", () => {
 
     expect(harness.pendingTimers()).toBe(0);
     expect(harness.reloadCount()).toBe(0);
+  });
+
+  it("clears the native Tetris round before restarting after a difficulty change", () => {
+    const harness = createTetrisBridgeHarness({
+      speedStart: 6,
+      speedRun: 6,
+      cur: { shape: "old-round" },
+      matrix: [[1, 1]],
+      points: 220,
+      lines: 12,
+      max: 500,
+      music: true,
+    });
+
+    harness.setConfig(1);
+    expect(harness.pendingTimers()).toBe(1);
+    expect(harness.readRecord()).toMatchObject({ speedStart: 1, speedRun: 1, max: 500, music: true });
+    expect(harness.readRecord()).not.toHaveProperty("cur");
+    expect(harness.readRecord()).not.toHaveProperty("matrix");
+    expect(harness.readRecord()).not.toHaveProperty("points");
+    expect(harness.readRecord()).not.toHaveProperty("lines");
+
+    harness.flushTimers();
+    expect(harness.reloadCount()).toBe(1);
   });
 
   it("keeps chess on its board and control surface without document scrolling", () => {
@@ -348,6 +425,19 @@ describe("article game adapters", () => {
     expect(view).toContain("article-game-key-help");
     expect(view).toContain('aria-label="按键说明"');
     expect(styles).toContain(".article-game-key-help-popover");
+  });
+
+  optionalSlidingPuzzleTest("does not block the sliding puzzle on optional audio decoding", () => {
+    const source = readGame("sliding-puzzle", "Preloader.js");
+    expect(source).toContain("startGame");
+    expect(source).toContain("this.load.progress >= 100");
+    expect(source).toContain("this.time.events.add");
+  });
+
+  optionalSlidingPuzzleTest("keeps the sliding puzzle button overlay compatible with its bundled Phaser", () => {
+    const source = readGame("sliding-puzzle", "Game.js");
+    expect(source).toContain("cover.drawRect");
+    expect(source).toContain("typeof cover.drawRoundedRect");
   });
 
   it("uses the online wording for international chess", () => {

@@ -6,10 +6,10 @@
 ## 仓库内容
 
 ```text
-electron/                 Electron 主进程、IPC 和本地游戏宿主
+electron/                 Electron 主进程、IPC 和桌面窗口生命周期
 src/                      React 控制中心、共享状态和素材运行时
 public/pet/               内置小满 profile 与素材清单
-public/article-games/     已审核可公开的静态游戏运行文件
+public/article-games/     部署到服务器的静态游戏运行文件
 vendor/article-games/     上游来源、固定提交和许可证记录
 codex-pet/                可复用的 Codex 宠物制作工作流
 templates/pet-pack/       新宠物作者模板
@@ -31,8 +31,9 @@ npm run dist:mac
 ```
 
 `package-lock.json` 是依赖输入；构建目标是 Apple Silicon 的未签名应用。
-应用不要求 Python、Pillow、Express 或 Socket.IO 作为运行时依赖。静态游戏由
-Electron 的 loopback 宿主提供，国际象棋是明确的系统浏览器在线入口。
+应用不要求 Python、Pillow、Express 或 Socket.IO 作为桌面运行时依赖。静态游戏由
+小满服务器提供，桌面安装包通过 `electron-builder.yml` 排除 `dist/article-games`；
+国际象棋是明确的系统浏览器在线入口。
 
 ## 安装与更新
 

@@ -16,6 +16,7 @@ export default defineConfig({
       "**/dist/**",
       "**/dist-electron/**",
       "**/release/**",
+      "server/**",
     ],
   },
 });

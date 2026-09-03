@@ -87,7 +87,7 @@ python scripts/validate_atlas.py \
   --chroma-key '#FF00FF' \
   --require-v2
 python -m unittest discover -s tests -p 'test_*.py'
-rg -n '/Users/|Containers|temporary|relay-output|decoded/' . \
+rg -n '/Users/|wechat-temp-files|Library/Containers|relay-output|decoded/' . \
   --glob '!workflow/PROCESS.md'
 rg -n '(sk-[A-Za-z0-9_-]{16,}|api[_-]?key|access[_-]?token|BEGIN [A-Z ]+PRIVATE KEY)' .
 git diff --check

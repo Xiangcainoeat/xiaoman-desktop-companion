@@ -1,66 +1,68 @@
-# Public Release Boundary
+# Public Release
 
-This directory is the public source release of **Xiaoman Desktop Companion**, a
-macOS desktop pet that can stay beside the user's work, react to Codex tasks,
-run local H5 games, and load replaceable pet asset packs.
+This repository contains the source and reproducible build inputs for Xiaoman Desktop
+Companion. The public tree is intentionally separated from private authoring material,
+credentials, reference photos and runtime databases.
 
-## Included
+## Desktop room mode
 
-- Electron/React desktop-pet source, local persistence, Codex task transport,
-  care and interaction features, reminders, sound controls, and game hosting.
-- Nine local H5 game entries plus an explicit online Lichess handoff. The
-  catalog and each upstream commit are recorded in `docs/GAMES.md` and
-  `vendor/article-games/`.
-- The complete Xiaoman runtime profile and Codex v2 two-file profile.
-- The machine-readable asset replacement contract at
-  `public/pet/asset-manifest.json` and its human-readable companion.
-- A reusable prompt catalog and authoring CLI for one or many reference images:
-  `pet:init`, `pet:prompts`, `pet:generate`, `pet:pack`, `pet:validate`, and
-  `pet:install`.
-- Deterministic atlas assembly, alpha/chroma cleanup, validation scripts,
-  previews, tests, and sanitized QA summaries.
+The production desktop application uses the server-backed room transport only. It does
+not offer a local guest/demo mode. Users must log in or register before server-backed room
+data is loaded. The room workspace provides single-player games, online rooms, room
+invitations and a personal room list; it does not expose a friend list, groups or chat. The
+local transport implementation is retained solely as an injected test fixture for client state
+and protocol tests; it is not part of the default factory or a user-facing option.
 
-## Deliberately excluded
+The current integration service is deployed at:
 
-- Original reference photographs, discarded generations, private relay data,
-  API keys, Codex session content, local user paths, and generated `.xmpet`
-  archives.
-- `node_modules`, build output, release installers, and authoring workspaces.
-- The supplied sliding-puzzle snapshot, because its source did not include a
-  redistributable license. It is not silently relicensed or presented as
-  application code.
+```text
+http://47.97.219.242:18080
+```
 
-The published Xiaoman images are user-directed project assets, not a blanket
-license for third parties to reuse the character. See `ASSETS_LICENSE.md` and
-`THIRD_PARTY_NOTICES.md` before making a fork or distributing a build.
+This endpoint is HTTP-only integration infrastructure. Do not use a real password there.
+Before production credentials are accepted, put the service behind HTTPS/WSS, enable
+`SOCIAL_COOKIE_SECURE=true`, and replace the default CORS allow-list with the actual origins.
 
-## Reproduce the release checks
+The hosted web surface contains interactive games and server-backed room play only.
+Codex sessions, local context, pet-pack management, care, reminders, application events and
+desktop preferences are available only in the downloaded Electron application.
+
+## Reproduce
 
 ```bash
 npm ci
 npm run typecheck
 npm test
-npm run scan:public
+npm run server:test
 npm run build
 ```
 
-The GitHub Actions workflow runs the same checks on macOS. `npm run dev` starts
-the desktop host; `npm run dev:web` starts the browser-only renderer preview.
+The server can be run independently:
 
-## Replace the pet
+```bash
+cd server
+npm ci
+npm start
+```
 
-1. Keep source photos outside the repository and run `npm run pet:init` with
-   one or more `--refs` paths.
-2. Run `npm run pet:prompts` to create the action-specific prompt files.
-3. Review the dry-run with `npm run pet:generate`. Add `--execute` only after
-   configuring `PET_IMAGE_API_KEY` and the optional endpoint/model variables.
-4. Assemble and clean the generated frames with the deterministic scripts,
-   place the resulting files under the paths in `public/pet/asset-manifest.json`,
-   then run `npm run pet:pack` and `npm run pet:validate`.
-5. Import the resulting `.xmpet` through the desktop app or run
-   `npm run pet:install -- --package <file.xmpet> --activate`.
+For a container deployment, build only the `xiaoman-social` service from
+`server/docker-compose.yml`. Do not run a host-wide Compose shutdown: the target host may
+contain unrelated applications and databases.
 
-The image generator defaults to dry-run and caps all workers at six concurrent
-requests. Packaging strips reference images, environment files, raw job files,
-and other authoring-only data; import validates paths and SHA-256 checksums
-before atomically activating the replacement profile.
+## Publish boundary
+
+- `server/src/` and `server/tests/` are source and regression tests.
+- `public/` is the desktop renderer's source asset tree; the server's `public/` directory is
+  generated from `dist/` during deployment and is ignored by Git.
+- `server/data/` is runtime state and is never committed.
+- Pet reference images, image API keys, private relay configuration, local Codex state,
+  generated packages and temporary QA material stay outside the public release.
+- Third-party game sources and license boundaries are documented in
+  [`THIRD_PARTY_NOTICES.md`](../THIRD_PARTY_NOTICES.md) and [`GAMES.md`](GAMES.md).
+
+## Verification
+
+The release gate is the combination of client type checks, serialized Vitest runs, server
+Node tests, a production Vite/Electron build, and a remote health/auth/room smoke test.
+The installed macOS bundle is verified separately because packaging and LaunchServices are
+host-specific.

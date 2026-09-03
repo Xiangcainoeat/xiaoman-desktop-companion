@@ -52,6 +52,7 @@ const FRAME_SPECS: Record<ArticleGameDefinition["id"], ArticleGameFrameSpec> = {
   snake: { layout: "square", width: 720, height: 720, chromeWidth: ARTICLE_GAME_CHROME_WIDTH, chromeHeight: ARTICLE_GAME_CHROME_HEIGHT, normalCenterSize: NORMAL_CENTER_WINDOW_SIZE },
   "super-mario-bros": { layout: "wide", width: 960, height: 700, chromeWidth: ARTICLE_GAME_CHROME_WIDTH, chromeHeight: ARTICLE_GAME_CHROME_HEIGHT, normalCenterSize: NORMAL_CENTER_WINDOW_SIZE },
   "2048": { layout: "board", width: 760, height: 640, chromeWidth: 500, chromeHeight: ARTICLE_GAME_CHROME_HEIGHT, normalCenterSize: NORMAL_CENTER_WINDOW_SIZE },
+  "sliding-puzzle": { layout: "portrait", width: 420, height: 700, chromeWidth: ARTICLE_GAME_CHROME_WIDTH, chromeHeight: ARTICLE_GAME_CHROME_HEIGHT, normalCenterSize: NORMAL_CENTER_WINDOW_SIZE },
   "xiangqi-h5": { layout: "xiangqi", width: 523, height: 640, chromeWidth: ARTICLE_GAME_CHROME_WIDTH, chromeHeight: ARTICLE_GAME_CHROME_HEIGHT, normalCenterSize: NORMAL_CENTER_WINDOW_SIZE },
 };
 
@@ -77,6 +78,7 @@ validateArticleGameLayouts([
   { id: "snake", availability: "offline" },
   { id: "super-mario-bros", availability: "offline" },
   { id: "2048", availability: "offline" },
+  { id: "sliding-puzzle", availability: "offline" },
   { id: "xiangqi-h5", availability: "offline" },
 ]);
 

@@ -9,9 +9,9 @@ Xiaoman is a Codex-compatible animated pet based on the owner's real Siamese cat
 No API key, background service, model download, or extra configuration is required. Install the prepared archive into the local Codex pet directory:
 
 ```bash
-mkdir -p "${CODEX_HOME:-$HOME/.codex}/pets/xiaoman"
-cp pet/xiaoman/pet.json pet/xiaoman/spritesheet.webp \
-  "${CODEX_HOME:-$HOME/.codex}/pets/xiaoman/"
+mkdir -p "${CODEX_HOME:-$HOME/.codex}/pets"
+unzip -o release/xiaoman-codex-install.zip \
+  -d "${CODEX_HOME:-$HOME/.codex}/pets"
 ```
 
 The result must be:
@@ -24,7 +24,7 @@ ${CODEX_HOME:-$HOME/.codex}/pets/xiaoman/
 
 Open the Codex pet selector and choose `小满`. If the running desktop app does not refresh the pet list, restart it once.
 
-The public source tree intentionally does not include generated ZIP archives. The two runtime files above are the complete install payload.
+The flat archive, `release/xiaoman-codex-pet-flat.zip`, contains the same two files at the archive root for importers that expect a flat package.
 
 ## Why the installed pet has only two files
 
@@ -41,6 +41,7 @@ See [Package Format](docs/PACKAGE-FORMAT.md) for the complete layout.
 
 ```text
 pet/xiaoman/              Installable two-file runtime package
+release/                  Ready-to-install ZIP archives and checksums
 previews/                 Contact sheet, direction sheet, and action GIFs
 qa/                       Sanitized machine and human review evidence
 workflow/                 Xiaoman-specific prompts, request, and process notes

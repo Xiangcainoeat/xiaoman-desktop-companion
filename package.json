@@ -1,6 +1,6 @@
 {
   "name": "xiaoman-desktop-companion",
-  "version": "1.6.1",
+  "version": "1.10.0",
   "private": false,
   "description": "Independent macOS desktop companion for the Xiaoman Codex pet.",
   "author": "zk",
@@ -12,6 +12,7 @@
     "build:electron": "node -e \"require('node:fs').rmSync('dist-electron',{recursive:true,force:true})\" && tsc -p tsconfig.node.json",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
+    "server:test": "npm --prefix server test",
     "pet:init": "tsx scripts/pet-pack-cli.ts init",
     "pet:prompts": "tsx scripts/pet-pack-cli.ts prompts",
     "pet:generate": "tsx scripts/pet-pack-cli.ts generate",

@@ -152,13 +152,16 @@
 
   function sync() {
     createOverlay();
+    var current = controller();
+    if (!current) return;
     var currentHero = hero();
     if (!currentHero) return;
     var dead = Boolean(typeof currentHero.get === "function" ? currentHero.get("dead") : currentHero.dead);
     if (dead && !lastDead) showRecovery();
     if (!dead && lastDead) hideRecovery();
     lastDead = dead;
-    if (!dead && (!current.world || current.world.get("state") === "play")) saveCheckpoint();
+    var worldState = current.world && typeof current.world.get === "function" ? current.world.get("state") : null;
+    if (!dead && (!current.world || worldState === "play")) saveCheckpoint();
     if (dead) updateRecoveryUi();
     if (hostPaused) setPaused(true);
   }

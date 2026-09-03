@@ -30,6 +30,11 @@ import type {
   SoundName,
 } from "./shared/types";
 import type { ArticleGameId, ArticleGameOpenResult } from "./article-games/registry";
+import { articleGameServerUrl, serverOriginForPage } from "./shared/server-origin";
+
+function browserGameServerOrigin(): string {
+  return serverOriginForPage(typeof window === "undefined" ? null : window.location);
+}
 
 function createMockApi(): XiaomanApi {
   const listeners = new Set<(snapshot: AppSnapshot) => void>();
@@ -58,10 +63,10 @@ function createMockApi(): XiaomanApi {
     stateMessage: "我在这里",
     stateSource: "ambient",
     monitoring: {
-      codex: "watching",
-      applications: "watching",
-      notifications: "available",
-      activeApplication: "Visual Studio Code",
+      codex: "off",
+      applications: "off",
+      notifications: "off",
+      activeApplication: null,
       codexBusy: false,
       codexStartedAt: null,
     },
@@ -303,7 +308,10 @@ function createMockApi(): XiaomanApi {
         gameActive = false;
       }
     },
-    getArticleGameUrl: async (gameId: ArticleGameId) => `./article-games/${gameId}/index.html`,
+    getArticleGameUrl: async (gameId: ArticleGameId) => articleGameServerUrl(
+      browserGameServerOrigin(),
+      gameId,
+    ),
     fitArticleGameWindow: async (_gameId: ArticleGameId | null): Promise<void> => undefined,
     restoreGameWindow: async (): Promise<void> => undefined,
     openArticleGameOnline: async (_gameId: ArticleGameId): Promise<ArticleGameOpenResult> => ({
@@ -411,32 +419,9 @@ function createMockApi(): XiaomanApi {
       return publish();
     },
     listCodexThreads: async (): Promise<CodexThreadListResult> => ({
-      source: "mock",
-      warnings: ["浏览器预览仅模拟任务状态；真实回复请使用 Electron 应用"],
-      threads: [
-        {
-          id: "01a03ab3-1111-7111-8111-111111111111",
-          title: "完善小满桌面伴侣",
-          projectName: "xiaoman",
-          status: "active",
-          updatedAt: Date.now(),
-          activeTurnId: "turn-preview",
-          sourceKind: "appServer",
-          canReply: true,
-          waitReason: null,
-        },
-        {
-          id: "01a03ab3-2222-7222-8222-222222222222",
-          title: "整理宠物发布目录",
-          projectName: "release",
-          status: "idle",
-          updatedAt: Date.now() - 720_000,
-          activeTurnId: null,
-          sourceKind: "appServer",
-          canReply: true,
-          waitReason: null,
-        },
-      ],
+      source: "off",
+      warnings: ["Codex 当前任务仅在下载的桌面应用中可用"],
+      threads: [],
     }),
     openCodexThread: async () => ({ ok: false, message: "浏览器预览不会打开 Codex 任务，请使用 Electron 应用" }),
     replyCodexThread: async (_threadId: string, message: string) => ({
@@ -533,8 +518,13 @@ function createMockApi(): XiaomanApi {
 
 let mockApi: XiaomanApi | null = null;
 
+export function isDesktopRuntime(): boolean {
+  return typeof window !== "undefined" && Boolean(window.xiaoman);
+}
+
 export function getBridge(): XiaomanApi {
-  if (typeof window !== "undefined" && window.xiaoman) return window.xiaoman;
+  const desktopBridge = typeof window !== "undefined" ? window.xiaoman : undefined;
+  if (desktopBridge) return desktopBridge;
   mockApi ??= createMockApi();
   return mockApi;
 }

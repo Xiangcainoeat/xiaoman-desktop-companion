@@ -8,6 +8,7 @@ export const ARTICLE_GAME_IDS = [
   "snake",
   "super-mario-bros",
   "2048",
+  "sliding-puzzle",
   "xiangqi-h5",
 ] as const;
 
@@ -167,6 +168,20 @@ export const ARTICLE_GAME_DEFINITIONS: readonly ArticleGameDefinition[] = [
     license: "MIT",
     controls: "方向键 / WASD",
     difficulty: "数字策略",
+  },
+  {
+    id: "sliding-puzzle",
+    title: "滑块拼图",
+    description: "移动数字方块，把打乱的棋盘还原成完整顺序。",
+    icon: "puzzle",
+    availability: "offline",
+    requiresNetwork: false,
+    entryPath: "index.html",
+    sourceUrl: "https://github.com/gamedolphin/sliding_puzzle",
+    sourceCommit: "440ac2f59b28f279f6143d91ab1b585b450aef9c",
+    license: "未声明",
+    controls: "鼠标点击",
+    difficulty: "益智挑战",
   },
   {
     id: "xiangqi-h5",

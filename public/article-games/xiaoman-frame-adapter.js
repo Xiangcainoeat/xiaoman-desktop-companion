@@ -294,15 +294,17 @@
     }));
   }
 
-  function isHostControlTarget(target) {
-    return Boolean(target && target.closest && target.closest("[data-xiaoman-control]"));
+  function isInteractiveGameControl(target) {
+    return Boolean(target && target.closest && target.closest(
+      "[data-xiaoman-control], button, a, select, input, textarea, summary, [role=\"button\"], [contenteditable=\"true\"]"
+    ));
   }
 
-  // A paused or background frame must not keep receiving pointer gestures. The
-  // host toolbar is outside the frame; game-specific overlays can opt back in
-  // with data-xiaoman-control so recovery buttons remain usable.
+  // The host CSS owns hit testing for inactive panels. Only an explicit manual
+  // pause blocks game pointer input; a transient visibility flag must not make
+  // the selected game's own menu buttons inert.
   function blockPausedPointer(event) {
-    if (!effectivePaused() || isHostControlTarget(event.target)) return;
+    if (!gamePaused || isInteractiveGameControl(event.target)) return;
     event.preventDefault();
     event.stopImmediatePropagation();
   }
@@ -340,8 +342,9 @@
   document.addEventListener("click", blockPausedPointer, true);
   document.addEventListener("keydown", blockPausedKeyboard, true);
   document.addEventListener("keyup", blockPausedKeyboard, true);
-  if (typeof MutationObserver !== "undefined") {
-    new MutationObserver(function () { syncAll(); }).observe(document.documentElement, { childList: true, subtree: true });
+  if (typeof MutationObserver !== "undefined" && document.documentElement) {
+    var observer = new MutationObserver(function () { syncAll(); });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
   }
   syncAll();
   window.setInterval(syncAll, 250);

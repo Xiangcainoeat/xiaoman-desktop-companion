@@ -1,11 +1,61 @@
 # Changelog
 
-## 1.6.1 post-release fixes - 2026-08-31
+## 1.10.0 - 2026-09-04
 
-- Restored the bundled React Tetris sprite sheet so score, high score, cleared rows, level, and next-piece digits render instead of leaving label-only panels.
-- Added the original Tetris difficulty bridge and compact 640 x 610 play surface; obsolete QR, side rails, and touch controls remain removed.
-- Unified embedded-game pause, visibility, and mute handling across the host toolbar, with verified Battle City, Star Battle, and Xiangqi hooks and a file-origin-only Tetris audio fallback.
-- Corrected Battle City one-player and two-player controls, restored keyboard-only Snake behavior, and kept Mario recovery controls wired through the host.
+- Added responsive mobile game workspaces with automatic detection, an explicit automatic/desktop/mobile switch, and outside-the-frame touch controls for every keyboard-driven single-player game.
+- Moved third-party single-player game assets to the shared server origin; packaged desktop builds no longer contain `dist/article-games`, while the hosted web build remains the source of truth.
+- Added opponent-confirmed undo requests to every online board room, including authoritative server rollback, move locking while a request is pending, reconnect persistence and realtime room updates.
+- Routed online Xiangqi board art and its compatibility iframe through the same server asset origin so the downloaded app has no hidden local-game dependency.
+- Restricted the renderer frame policy to the configured Xiaoman server plus explicit loopback development origins.
+
+## 1.9.0 - 2026-09-02
+
+- Replaced the visible friend workspace with a room-only flow: 单机游戏, 联机房间 and 我的房间.
+- Added invite links, invite codes and room-number joining, plus a one-hour idle room expiry/countdown.
+- Kept legacy friend/chat transport routes only as a compatibility layer; the current client no longer
+  loads those collections during login or reconnect.
+- Added a dedicated 联机游戏 workspace split into 单机游戏 and 联机房间 navigation groups.
+- Added the complete 16-game online catalog from the reference room directory, with room creation,
+  join/share codes, ready-to-start flow, reconnect snapshots and WebSocket move updates.
+- Added reusable board engines and renderers for Gomoku, Connect6, chess, Xiangqi, Go, Shogi,
+  Reversi, Checkers, Chinese Checkers, Ludo, Animal Chess, Army Chess, Backgammon, Dots and Boxes,
+  Mancala and Tic-Tac-Toe.
+- Expanded the standalone social server protocol and regression coverage without exposing desktop-only
+  Codex tasks, context, pet packs or preferences in the public web boundary.
+
+## 1.8.1 - 2026-09-01
+
+- Enforced the runtime boundary: the public server UI only exposes interactive games and
+  server-backed social/online features, while Codex tasks, context, pet packs, care, reminders,
+  app events and settings remain available only in the installed Electron app.
+- Restored and verified native Codex task discovery from the local Codex state database in the
+  packaged application, and removed the stale 1.2.0 LaunchAgent preview that could mask updates.
+- Replaced the expired-domain default with `http://47.97.219.242:18080`, added bounded connection
+  timeouts and a settled error state, and widened the social authentication layout.
+
+## 1.8.0 - 2026-08-31
+
+- Switched the production desktop and web social workspace to the server transport only.
+  The UI no longer exposes a local guest/demo mode; local transport fixtures remain test-only.
+- Added the standalone Node/SQLite social service with registration, login, friend requests,
+  direct and group chat, game invitations, realtime events and online Xiangqi rooms.
+- Added an authentication gate so private social data is not loaded before login, and added
+  a dedicated deployment at `http://47.97.219.242:18080` without touching existing services.
+- Split runtime capabilities explicitly: the public web build exposes games and server social
+  only, while Codex sessions, pet packs, care, reminders and settings remain desktop-only.
+- Added server persistence, hashed passwords and session tokens, CORS allow-listing, malformed
+  input handling and REST/WebSocket protocol regression tests.
+
+## 1.7.0 - 2026-08-31
+
+- Added a standalone 好友与联机 workspace with guest-first use, login/register, friends,
+  group chat, game invites and room tabs.
+- Added a local two-seat Chinese-chess room demo that works without a server, plus a
+  server transport boundary ready for REST and WebSocket integration later.
+- Added authenticated-only realtime connection setup, cookie-session support, in-memory
+  bearer tokens, reconnect handling and runtime validation for untrusted realtime events.
+- Fixed initialization/login races, stale private data after logout, server response
+  envelopes, room snapshot updates and online Gomoku/Xiangqi resource initialization.
 
 ## 1.6.1 - 2026-08-30
 

@@ -43,6 +43,8 @@ const CENTER_TABS: readonly CenterTab[] = [
   "features",
   "care",
   "games",
+  "online",
+  "social",
   "codex",
   "overview",
   "reminders",

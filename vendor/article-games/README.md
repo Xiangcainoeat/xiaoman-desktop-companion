@@ -1,7 +1,7 @@
 # Bundled Article Games
 
-This directory records the upstream provenance for the 10 entries shown by
-the public Xiaoman game catalog. The runtime copies live under
+This directory records the upstream provenance for the 11 entries shown by
+the Xiaoman game catalog. The runtime copies live under
 `public/article-games/<id>/`; they are static assets and are not imported into
 the React bundle.
 
@@ -16,17 +16,13 @@ the React bundle.
 | `snake` | [RabiRoshan/snake_game](https://github.com/RabiRoshan/snake_game) | `a381235802ff2a606ee76ba440c5ed1b7e95b367` | MIT | local | `docs` page copied and visible labels localized |
 | `super-mario-bros` | [martindrapeau/backbone-game-engine](https://github.com/martindrapeau/backbone-game-engine) | `2a41299a3895a4fd1fdcaf854579cc13bbe17614` | MIT | local | `super-mario-bros` page flattened so relative assets work in the host |
 | `2048` | [gabrielecirulli/2048](https://github.com/gabrielecirulli/2048) | `478b6ec346e3787f589e4af751378d06ded4cbbc` | MIT | local | Static page localized; local fonts and assets retained |
+| `sliding-puzzle` | [gamedolphin/sliding_puzzle](https://github.com/gamedolphin/sliding_puzzle) | `440ac2f59b28f279f6143d91ab1b585b450aef9c` | not declared upstream | local | Release review required before public redistribution |
 | `xiangqi-h5` | [itlwei/Chess](https://github.com/itlwei/Chess) | `e8b4c0fea5220e08528286b157caa8f884f62505` | MIT | local | Retained at the user's request; local assets and three AI levels preserved |
 
 Each subdirectory contains the relevant upstream source snapshot or license
 files used to assemble the runtime. No project is presented as Xiaoman's
 original work. The exact source and local-change notes are in the adjacent
 `SOURCE.md` files.
-
-The previously reviewed sliding-puzzle candidate is deliberately absent from
-this public tree because the supplied snapshot did not include a declared
-redistribution license. Its omission is a distribution decision, not a claim
-that the upstream project is invalid.
 
 ## Runtime boundary
 

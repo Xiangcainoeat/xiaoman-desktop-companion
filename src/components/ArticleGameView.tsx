@@ -1,25 +1,48 @@
 import {
   AlertCircle,
+  ArrowDown,
+  ArrowLeft,
+  ArrowRight,
+  ArrowUp,
   Blocks,
+  ChevronsDown,
+  CircleDot,
   ChevronDown,
+  Crosshair,
   ExternalLink,
   Gamepad2,
   Keyboard,
+  Laptop,
   LoaderCircle,
+  MousePointer2,
   Pause,
   Play,
+  Puzzle,
   RefreshCw,
+  RotateCw,
   Rocket,
   Shield,
+  Smartphone,
   Star,
+  WandSparkles,
   Volume2,
   VolumeX,
   X,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import type { CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import type { ArticleGameDefinition } from "../article-games/registry";
 import { articleGameFrameLayout, articleGameFrameSpec } from "../article-games/layout";
+import {
+  GAME_INPUT_MODE_STORAGE_KEY,
+  mobileControlProfile,
+  resolveGameInputMode,
+  type GameInputMode,
+  type MobileControlAction,
+  type MobileControlIcon,
+  type MobileControlProfile,
+} from "../article-games/mobile-controls";
+import { isDesktopRuntime } from "../bridge";
 import { bridge } from "../useCompanion";
 
 export interface ArticleGameViewProps {
@@ -101,6 +124,8 @@ function keyboardHelpRows(definition: ArticleGameDefinition): readonly KeyboardH
       return [["移动", "方向键 / WASD"], ["暂停", "P / Esc"]];
     case "super-mario-bros":
       return [["移动", "← →"], ["跳跃", "Z"], ["奔跑", "X"], ["暂停", "P / Esc"]];
+    case "sliding-puzzle":
+      return [["移动", "鼠标点击"], ["暂停", "P / Esc"]];
     case "xiangqi-h5":
       return [["落子", "鼠标点击"], ["暂停", "P / Esc"]];
     default:
@@ -116,6 +141,8 @@ function GameIcon({ name, size = 24 }: { name: string; size?: number }) {
     case "tank": return <Shield {...props} />;
     case "rocket": return <Rocket {...props} />;
     case "star": return <Star {...props} />;
+    case "puzzle": return <Puzzle {...props} />;
+    case "gomoku": return <CircleDot {...props} />;
     case "xiangqi": return <span className="article-game-glyph" aria-hidden="true">象</span>;
     case "chess": return <span className="article-game-glyph" aria-hidden="true">♞</span>;
     case "snake": return <span className="article-game-glyph" aria-hidden="true">蛇</span>;
@@ -125,8 +152,125 @@ function GameIcon({ name, size = 24 }: { name: string; size?: number }) {
   }
 }
 
+/**
+ * A small, local game mark for catalog cards. The reference directory uses
+ * artwork thumbnails, but those site assets are not licensed for bundling;
+ * this keeps the same visual role with the existing icon system and CSS.
+ */
+export function GameArtMark({ name, size = 46 }: { name: string; size?: number }) {
+  const style = { "--game-art-size": `${size}px` } as CSSProperties;
+  return (
+    <span className={`game-art-mark game-art-mark-${name}`} style={style} aria-hidden="true">
+      <span className="game-art-mark-decoration" />
+      <span className="game-art-mark-icon"><GameIcon name={name} size={Math.max(18, Math.round(size * 0.48))} /></span>
+    </span>
+  );
+}
+
 function stopEvent(event: React.SyntheticEvent) {
   event.stopPropagation();
+}
+
+function initialInputMode(): GameInputMode {
+  try {
+    const value = localStorage.getItem(GAME_INPUT_MODE_STORAGE_KEY);
+    if (value === "auto" || value === "desktop" || value === "mobile") return value;
+  } catch {
+    // Storage is optional in hardened webviews.
+  }
+  return "auto";
+}
+
+function controlIcon(icon: MobileControlIcon) {
+  const props = { size: 21, strokeWidth: 2, "aria-hidden": true as const };
+  switch (icon) {
+    case "left": return <ArrowLeft {...props} />;
+    case "right": return <ArrowRight {...props} />;
+    case "up": return <ArrowUp {...props} />;
+    case "down": return <ArrowDown {...props} />;
+    case "rotate": return <RotateCw {...props} />;
+    case "drop": return <ChevronsDown {...props} />;
+    case "fire": return <Crosshair {...props} />;
+    case "jump": return <ArrowUp {...props} />;
+    case "run": return <ChevronsDown {...props} />;
+  }
+}
+
+function MobileGameControls({
+  profile,
+  disabled,
+  onPress,
+  onRelease,
+}: {
+  profile: MobileControlProfile;
+  disabled: boolean;
+  onPress: (action: MobileControlAction) => void;
+  onRelease: (action: MobileControlAction) => void;
+}) {
+  if (profile.kind === "external") return null;
+  if (profile.kind === "direct") {
+    return (
+      <div className="mobile-game-direct-hint" role="note">
+        <MousePointer2 size={18} aria-hidden="true" />
+        <span>{profile.hint}</span>
+      </div>
+    );
+  }
+
+  const controlButton = (action: MobileControlAction) => {
+    const press = (event: ReactPointerEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+      onPress(action);
+    };
+    const release = (event: ReactPointerEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      event.stopPropagation();
+      onRelease(action);
+    };
+    return (
+      <button
+        className={`mobile-game-control-button is-${action.icon}`}
+        data-position={action.position}
+        type="button"
+        key={action.id}
+        disabled={disabled}
+        aria-label={action.label}
+        title={action.label}
+        onPointerDown={press}
+        onPointerUp={release}
+        onPointerCancel={release}
+        onLostPointerCapture={release}
+        onClick={(event) => {
+          if (event.detail !== 0) return;
+          onPress(action);
+          onRelease(action);
+        }}
+      >
+        {controlIcon(action.icon)}
+        <span>{action.label}</span>
+      </button>
+    );
+  };
+
+  return (
+    <div className="mobile-game-controls" aria-label="手机游戏控制">
+      <div className="mobile-game-control-copy"><Smartphone size={17} aria-hidden="true" /><span>{profile.hint}</span></div>
+      <div className="mobile-game-control-groups">
+        {(profile.directions?.length ?? 0) > 0 && (
+          <div className="mobile-game-direction-pad" aria-label="方向控制">
+            {profile.directions?.map(controlButton)}
+          </div>
+        )}
+        {(profile.actions?.length ?? 0) > 0 && (
+          <div className="mobile-game-action-pad" aria-label="动作控制">
+            {profile.actions?.map(controlButton)}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export function ArticleGameView({
@@ -142,6 +286,7 @@ export function ArticleGameView({
   onTogglePause = () => undefined,
   onLayoutSettled,
 }: ArticleGameViewProps) {
+  const frameSpec = articleGameFrameSpec(definition);
   const [loadState, setLoadState] = useState<GameLoadState>(definition.availability === "offline" ? "starting" : "ready");
   const [src, setSrc] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -150,21 +295,85 @@ export function ArticleGameView({
   const [tetrisDifficulty, setTetrisDifficulty] = useState(1);
   const [marioDifficulty, setMarioDifficulty] = useState<"easy" | "hard">("easy");
   const [marioLevel, setMarioLevel] = useState("1-1");
+  const [inputMode, setInputMode] = useState<GameInputMode>(initialInputMode);
+  const [viewportWidth, setViewportWidth] = useState(() => typeof window === "undefined" ? 1280 : window.innerWidth);
+  const [coarsePointer, setCoarsePointer] = useState(() => typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches === true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const pressedControlsRef = useRef(new Map<string, MobileControlAction>());
+  const [frameScale, setFrameScale] = useState(1);
   const gameActive = active && windowActive;
   const hasSideHelp = definition.id === "battle-city" || definition.id === "2048";
+  const resolvedInputMode = resolveGameInputMode(inputMode, viewportWidth, coarsePointer);
+  const mobileProfile = mobileControlProfile(definition.id);
 
   useEffect(() => {
-    const handleFocus = () => setWindowActive(document.visibilityState !== "hidden");
-    const handleBlur = () => setWindowActive(false);
-    const handleVisibilityChange = () => setWindowActive(document.visibilityState !== "hidden");
+    const pointerQuery = window.matchMedia?.("(pointer: coarse)");
+    const updateDevice = () => {
+      setViewportWidth(window.innerWidth);
+      setCoarsePointer(pointerQuery?.matches === true);
+    };
+    updateDevice();
+    window.addEventListener("resize", updateDevice);
+    pointerQuery?.addEventListener?.("change", updateDevice);
+    return () => {
+      window.removeEventListener("resize", updateDevice);
+      pointerQuery?.removeEventListener?.("change", updateDevice);
+    };
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem(GAME_INPUT_MODE_STORAGE_KEY, inputMode); } catch { /* storage is optional */ }
+  }, [inputMode]);
+
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    const intrinsicWidth = frameSpec.width;
+    if (!stage || definition.availability !== "offline" || !intrinsicWidth) {
+      setFrameScale(1);
+      return;
+    }
+
+    const updateScale = () => {
+      if (isDesktopRuntime() && resolvedInputMode === "desktop") {
+        setFrameScale(1);
+        return;
+      }
+      const availableWidth = stage.clientWidth;
+      const nextScale = availableWidth > 0
+        ? Math.min(1, availableWidth / intrinsicWidth)
+        : 1;
+      const normalized = Math.max(0.1, Number(nextScale.toFixed(4)));
+      setFrameScale((current) => Math.abs(current - normalized) < 0.0001 ? current : normalized);
+    };
+
+    updateScale();
+    const frame = window.requestAnimationFrame(updateScale);
+    const resizeObserver = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(updateScale);
+    resizeObserver?.observe(stage);
+    window.addEventListener("resize", updateScale);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updateScale);
+    };
+  }, [definition.availability, definition.id, frameSpec.width, resolvedInputMode]);
+
+  useEffect(() => {
+    const syncWindowActivity = () => setWindowActive(document.visibilityState !== "hidden");
+    const handleFocus = () => syncWindowActivity();
+    // Chromium can emit window.blur when focus moves into an iframe. That is
+    // not the same as leaving the app and must not disable the selected game.
+    const handleBlur = () => {
+      if (document.visibilityState === "hidden") setWindowActive(false);
+    };
     window.addEventListener("focus", handleFocus);
     window.addEventListener("blur", handleBlur);
-    document.addEventListener("visibilitychange", handleVisibilityChange);
+    document.addEventListener("visibilitychange", syncWindowActivity);
     return () => {
       window.removeEventListener("focus", handleFocus);
       window.removeEventListener("blur", handleBlur);
-      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      document.removeEventListener("visibilitychange", syncWindowActivity);
     };
   }, []);
 
@@ -187,14 +396,14 @@ export function ArticleGameView({
       if (sessionState !== "ready") {
         setSrc(null);
         setLoadState(sessionState === "error" ? "error" : "starting");
-        setNotice(sessionState === "error" ? sessionMessage : "正在准备本机游戏");
+        setNotice(sessionState === "error" ? sessionMessage : "正在连接游戏服务");
         return;
       }
       try {
         setLoadState("starting");
         const url = await bridge.getArticleGameUrl(definition.id);
         if (disposed) return;
-        setSrc(`${url}?reload=${reloadNonce}`);
+        setSrc(`${url}${url.includes("?") ? "&" : "?"}reload=${reloadNonce}`);
         setLoadState("ready");
         setNotice("");
       } catch (error) {
@@ -259,6 +468,39 @@ export function ArticleGameView({
     iframeRef.current?.contentWindow?.postMessage(message, "*");
   };
 
+  const sendControlKey = (action: MobileControlAction, eventType: "keydown" | "keyup") => {
+    postToGame({
+      channel: "xiaoman-game-key",
+      eventType,
+      key: action.key,
+      code: action.code,
+      keyCode: action.keyCode,
+      repeat: false,
+    });
+  };
+
+  const pressMobileControl = (action: MobileControlAction) => {
+    if (!gameActive || paused || pressedControlsRef.current.has(action.id)) return;
+    pressedControlsRef.current.set(action.id, action);
+    sendControlKey(action, "keydown");
+  };
+
+  const releaseMobileControl = (action: MobileControlAction) => {
+    if (!pressedControlsRef.current.delete(action.id)) return;
+    sendControlKey(action, "keyup");
+  };
+
+  useEffect(() => {
+    if (gameActive && !paused && resolvedInputMode === "mobile") return;
+    for (const action of pressedControlsRef.current.values()) sendControlKey(action, "keyup");
+    pressedControlsRef.current.clear();
+  }, [gameActive, paused, resolvedInputMode, src]);
+
+  useEffect(() => () => {
+    for (const action of pressedControlsRef.current.values()) sendControlKey(action, "keyup");
+    pressedControlsRef.current.clear();
+  }, [src]);
+
   const postGameConfig = () => {
     if (definition.id === "react-tetris") {
       postToGame({ channel: "xiaoman-game-config", kind: "tetris-difficulty", value: tetrisDifficulty });
@@ -290,7 +532,10 @@ export function ArticleGameView({
   }, [definition.availability, definition.id, marioDifficulty, marioLevel, src, tetrisDifficulty]);
 
   const focusFrame = () => {
-    if (!gameActive) return;
+    if (!active) return;
+    // The first pointer event is also the recovery path after an iframe caused
+    // a transient window blur. Reactivate before the next visibility message.
+    setWindowActive(true);
     iframeRef.current?.focus({ preventScroll: true });
     // Some Electron/WebKit builds still scroll an iframe ancestor after focus.
     // Keyboard events are forwarded by the host, so restore only that outer row.
@@ -307,6 +552,14 @@ export function ArticleGameView({
     setReloadNonce((value) => value + 1);
   };
 
+  const changeTetrisDifficulty = (level: number) => {
+    if (level === tetrisDifficulty) return;
+    setTetrisDifficulty(level);
+    setSrc(null);
+    setLoadState("starting");
+    setReloadNonce((value) => value + 1);
+  };
+
   const openOnline = async () => {
     if (!definition.onlineUrl) return;
     try {
@@ -318,10 +571,12 @@ export function ArticleGameView({
   };
 
   const layout = articleGameFrameLayout(definition);
-  const frameSpec = articleGameFrameSpec(definition);
   const frameStyle = {
     "--article-game-frame-width": frameSpec.width ? `${frameSpec.width}px` : "100%",
     "--article-game-frame-height": frameSpec.height ? `${frameSpec.height}px` : "680px",
+    "--article-game-render-width": frameSpec.width ? `${frameSpec.width * frameScale}px` : "100%",
+    "--article-game-render-height": frameSpec.height ? `${frameSpec.height * frameScale}px` : "680px",
+    "--article-game-frame-scale": String(frameScale),
     overflow: "hidden",
   } as CSSProperties;
   const keyHelpRows = keyboardHelpRows(definition);
@@ -354,6 +609,7 @@ export function ArticleGameView({
   return (
     <section
       className={`article-game-view ${active ? "is-active" : "is-inactive"}`}
+      data-input-mode={resolvedInputMode}
       aria-labelledby={`article-game-title-${definition.id}`}
       aria-hidden={!active}
       onPointerDown={stopEvent}
@@ -363,7 +619,7 @@ export function ArticleGameView({
     >
       <header className="article-game-header">
         <div className="article-game-heading">
-          <div className="article-game-icon"><GameIcon name={definition.icon} /></div>
+          <GameArtMark name={definition.icon} size={46} />
           <div>
             <span className="eyebrow">文章项目 · {definition.license}</span>
             <h2 id={`article-game-title-${definition.id}`}>{definition.title}</h2>
@@ -371,6 +627,23 @@ export function ArticleGameView({
           </div>
         </div>
         <div className="article-game-toolbar">
+          {definition.availability === "offline" && (
+            <div className="article-game-input-switch" role="group" aria-label="游戏操作方式">
+              {(["auto", "desktop", "mobile"] as const).map((mode) => (
+                <button
+                  type="button"
+                  key={mode}
+                  className={inputMode === mode ? "is-active" : ""}
+                  aria-pressed={inputMode === mode}
+                  title={mode === "auto" ? "自动选择操作方式" : mode === "desktop" ? "桌面键鼠操作" : "手机触控操作"}
+                  onClick={() => setInputMode(mode)}
+                >
+                  {mode === "auto" ? <WandSparkles size={15} /> : mode === "desktop" ? <Laptop size={15} /> : <Smartphone size={15} />}
+                  <span>{mode === "auto" ? "自动" : mode === "desktop" ? "桌面" : "手机"}</span>
+                </button>
+              ))}
+            </div>
+          )}
           {definition.availability === "offline" && (
             <button
               className="icon-button"
@@ -388,7 +661,7 @@ export function ArticleGameView({
               <select
                 aria-label="俄罗斯方块难度级别"
                 value={tetrisDifficulty}
-                onChange={(event) => setTetrisDifficulty(Number(event.target.value))}
+                onChange={(event) => changeTetrisDifficulty(Number(event.target.value))}
               >
                 {[1, 2, 3, 4, 5, 6].map((level) => <option key={level} value={level}>{level}</option>)}
               </select>
@@ -455,7 +728,7 @@ export function ArticleGameView({
       <div className="article-game-meta" aria-label={`${definition.title}信息`}>
         <span>{definition.controls}</span>
         <span>{definition.difficulty}</span>
-        <span>{definition.availability === "online" ? "需要网络" : "本机可玩"}</span>
+        <span>{definition.availability === "online" ? "需要网络" : "服务器托管"}</span>
       </div>
 
       {definition.availability === "online" ? (
@@ -470,7 +743,8 @@ export function ArticleGameView({
           {notice && <p className="article-game-notice" role="status">{notice}</p>}
         </div>
       ) : (
-        <div className={`article-game-stage ${hasSideHelp ? "has-side-help" : ""}`}>
+        <>
+        <div ref={stageRef} className={`article-game-stage ${hasSideHelp ? "has-side-help" : ""} ${resolvedInputMode === "mobile" ? "is-mobile" : ""}`}>
           <div
             className={`article-game-frame-wrap article-game-frame-wrap-${layout}`}
             data-game-id={definition.id}
@@ -479,7 +753,7 @@ export function ArticleGameView({
             {loadState === "starting" && (
               <div className="article-game-loading" role="status">
                 <LoaderCircle className="is-spinning" size={22} aria-hidden="true" />
-                <span>{sessionState === "starting" ? "正在准备本机游戏" : "正在加载游戏"}</span>
+                <span>{sessionState === "starting" ? "正在连接游戏服务" : "正在加载游戏"}</span>
               </div>
             )}
             {loadState === "error" && (
@@ -518,11 +792,20 @@ export function ArticleGameView({
           </div>
           {sideHelp}
         </div>
+        {resolvedInputMode === "mobile" && (
+          <MobileGameControls
+            profile={mobileProfile}
+            disabled={!gameActive || paused || loadState !== "ready"}
+            onPress={pressMobileControl}
+            onRelease={releaseMobileControl}
+          />
+        )}
+        </>
       )}
 
       {definition.sourceUrl && (
         <footer className="article-game-footer">
-          <span>资源来自开源仓库，运行文件已随应用打包。</span>
+          <span>资源来自开源仓库，运行文件由联机服务器统一托管。</span>
           <a href={definition.sourceUrl} target="_blank" rel="noreferrer">查看源项目 <ExternalLink size={13} aria-hidden="true" /></a>
         </footer>
       )}

@@ -33,6 +33,14 @@ describe("article game frame specs", () => {
       chromeHeight: 176,
       normalCenterSize: { width: 1080, height: 730 },
     });
+    expect(articleGameFrameSpec(ARTICLE_GAME_DEFINITIONS.find((game) => game.id === "sliding-puzzle")!)).toEqual({
+      layout: "portrait",
+      width: 420,
+      height: 700,
+      chromeWidth: 300,
+      chromeHeight: 176,
+      normalCenterSize: { width: 1080, height: 730 },
+    });
   });
 
   it("does not invent a local frame size for the online chess entry", () => {
