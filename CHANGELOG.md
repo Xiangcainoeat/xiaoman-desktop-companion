@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.10.6 - 2026-09-04
+
+- Reflowed mobile game controls into two compact rows: action buttons now share the upper row with the up direction while left, down and right remain together below.
+- Kept long action labels on one line and centered direction-only controls without wasting an empty action row.
+
 ## 1.10.5 - 2026-09-04
 
 - Audited every bundled single-player game's real keyboard contract and restored the missing mobile `Enter`/`Space` actions for Pac-Man, Tetris, Star Battle and Space Invaders without inventing controls for direct-touch games.

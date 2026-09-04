@@ -8726,15 +8726,24 @@ select:focus-visible {
   }
 
   .mobile-game-control-groups {
-    grid-template-columns: 1fr;
-    gap: 10px;
-    justify-items: center;
+    width: 147px;
+    grid-template-columns: repeat(3, 47px);
+    grid-template-rows: repeat(2, 43px);
+    gap: 8px 3px;
+    justify-self: center;
+    align-items: start;
+  }
+
+  .mobile-game-control-groups:has(.mobile-game-action-pad) {
+    width: min(100%, 310px);
+    grid-template-columns: repeat(3, 47px) minmax(90px, 1fr);
   }
 
   .mobile-game-direction-pad {
-    grid-column: 1;
-    width: 148px;
-    min-width: 148px;
+    grid-column: 1 / 4;
+    grid-row: 1 / 3;
+    width: 147px;
+    min-width: 147px;
     height: 94px;
     grid-template-columns: repeat(3, 47px);
     grid-template-rows: repeat(2, 43px);
@@ -8748,8 +8757,21 @@ select:focus-visible {
   }
 
   .mobile-game-action-pad {
-    width: min(100%, 236px);
-    grid-column: 1;
+    z-index: 1;
+    width: 100%;
+    grid-column: 3 / 5;
+    grid-row: 1;
+    align-self: start;
+    gap: 6px;
+  }
+
+  .mobile-game-action-pad .mobile-game-control-button {
+    min-width: 0;
+    white-space: nowrap;
+  }
+
+  .mobile-game-control-groups:not(:has(.mobile-game-direction-pad)) .mobile-game-action-pad {
+    grid-column: 1 / -1;
   }
 }
 
