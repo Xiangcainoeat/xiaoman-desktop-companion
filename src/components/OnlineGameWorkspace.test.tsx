@@ -198,7 +198,9 @@ describe("联机房间工作区", () => {
     expect(viewportAwareBoardValue(desktopCss)).toBeDefined();
     expect(viewportAwareBoardValue(mobileCss)).toBeDefined();
     expect(desktopCss).toMatch(/\.online-game-workspace\[data-focus-mode=["']game["']\]\s+\.online-gomoku-surface\s*\{[^}]*padding\s*:\s*0/);
-    expect(mobileCss).toMatch(/\.center-shell\.is-web:has\(\.online-game-workspace\[data-focus-mode=["']game["']\]\)\s+\.topbar\s*\{[^}]*display\s*:\s*none/);
+    expect(onlineSection).toMatch(/\.center-shell\.is-web:has\(\.online-game-workspace\[data-focus-mode=["']game["']\]\)\s+\.topbar\s*\{[^}]*display\s*:\s*none/);
+    expect(onlineSection).toMatch(/\.center-shell\.is-web:has\(\.online-game-workspace\[data-focus-mode=["']game["']\]\)\s+\.content-scroll\s*\{[^}]*height\s*:\s*100dvh/);
+    expect(desktopCss).toMatch(/--match-board-square\s*:\s*min\((?:8|9)\d{2}px/);
 
     const stageDeclarations = flatCssRules(css)
       .filter(({ selectors }) => selectors.includes(".online-game-board-stage"))
@@ -211,5 +213,16 @@ describe("联机房间工作区", () => {
 
     expect(stageDeclarations).toMatch(/overflow\s*:\s*hidden/);
     expect(boardDeclarations).toMatch(/max-(?:width|height|inline-size)\s*:/);
+  });
+
+  it("只在棋盘交互面阻止长按菜单、复制选择和拖图", () => {
+    const stageTag = openingTagContaining(source, "online-game-board-stage");
+    expect(stageTag).toContain('data-game-interaction-surface="true"');
+    expect(stageTag).toContain("onContextMenu");
+    expect(stageTag).toContain("onCopy");
+    expect(stageTag).toContain("onDragStart");
+    expect(source).toContain('boardStage.addEventListener("selectstart", preventBoardBrowserInterference, true)');
+    expect(css).toMatch(/\.online-game-board-stage\s*\{[^}]*-webkit-touch-callout\s*:\s*none/);
+    expect(css).toMatch(/\.online-game-board-stage\s*\{[^}]*user-select\s*:\s*none/);
   });
 });

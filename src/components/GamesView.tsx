@@ -31,6 +31,12 @@ function stopEvent(event: React.SyntheticEvent) {
   event.stopPropagation();
 }
 
+const BLOCKED_GAME_SURFACE_EVENTS = ["contextmenu", "copy", "cut", "dragstart", "selectstart"] as const;
+
+function preventGameSurfaceInterference(event: { preventDefault: () => void }) {
+  event.preventDefault();
+}
+
 function articleGameBadge(definition: ArticleGameDefinition): string {
   return definition.requiresNetwork ? "外部在线" : "服务器托管";
 }
@@ -121,6 +127,8 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
   const gamesViewRef = useRef<HTMLDivElement>(null);
   const homeScrollRef = useRef<HTMLDivElement>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
+  const gameSurfaceRef = useRef<HTMLDivElement>(null);
+  const guardedFrameDocumentsRef = useRef(new Map<HTMLIFrameElement, Document>());
   const sessionOwnedRef = useRef(false);
   const sessionRequestRef = useRef<symbol | null>(null);
   const needSessionRef = useRef({ enabled: gameEnabled, offlineCount: 0 });
@@ -187,6 +195,22 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
     sessionOwnedRef.current = false;
     sessionRequestRef.current = null;
     restoreGameWindowIfAvailable();
+  }, []);
+
+  useEffect(() => {
+    const surface = gameSurfaceRef.current;
+    if (!surface) return;
+    surface.addEventListener("selectstart", preventGameSurfaceInterference, true);
+    return () => surface.removeEventListener("selectstart", preventGameSurfaceInterference, true);
+  }, [workspace.openTabs.length]);
+
+  useEffect(() => () => {
+    for (const document of guardedFrameDocumentsRef.current.values()) {
+      for (const eventName of BLOCKED_GAME_SURFACE_EVENTS) {
+        document.removeEventListener(eventName, preventGameSurfaceInterference, true);
+      }
+    }
+    guardedFrameDocumentsRef.current.clear();
   }, []);
 
   useEffect(() => {
@@ -257,6 +281,26 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
         activeTab: normalizeWorkspaceTab(activeTabAfterWorkspaceClose(current.activeTab, current.openTabs, id), openTabs),
       };
     });
+  };
+  const guardEmbeddedGameDocument = (event: React.SyntheticEvent<HTMLDivElement>) => {
+    const frame = event.target;
+    if (!(frame instanceof HTMLIFrameElement)) return;
+    try {
+      const document = frame.contentDocument;
+      if (!document || guardedFrameDocumentsRef.current.get(frame) === document) return;
+      const previousDocument = guardedFrameDocumentsRef.current.get(frame);
+      if (previousDocument) {
+        for (const eventName of BLOCKED_GAME_SURFACE_EVENTS) {
+          previousDocument.removeEventListener(eventName, preventGameSurfaceInterference, true);
+        }
+      }
+      for (const eventName of BLOCKED_GAME_SURFACE_EVENTS) {
+        document.addEventListener(eventName, preventGameSurfaceInterference, true);
+      }
+      guardedFrameDocumentsRef.current.set(frame, document);
+    } catch {
+      // Cross-origin online games manage browser interactions in their own page.
+    }
   };
 
   return (
@@ -408,7 +452,16 @@ export function GamesView({ enabled, gameModeEnabled, snapshot, desktopInteracti
       )}
 
       {gameEnabled && workspace.openTabs.length > 0 && (
-        <div className="article-game-tab-panels">
+        <div
+          ref={gameSurfaceRef}
+          className="article-game-tab-panels single-player-game-surface"
+          data-game-interaction-guard="browser-selection"
+          onContextMenuCapture={preventGameSurfaceInterference}
+          onCopyCapture={preventGameSurfaceInterference}
+          onCutCapture={preventGameSurfaceInterference}
+          onDragStartCapture={preventGameSurfaceInterference}
+          onLoadCapture={guardEmbeddedGameDocument}
+        >
           {workspace.openTabs.map((id) => {
             const active = workspace.activeTab === id;
             const native = isNativeGomoku(id);

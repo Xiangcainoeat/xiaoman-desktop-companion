@@ -112,4 +112,29 @@ describe("GamesView source contract", () => {
     expect(source).toContain("gamesViewRef.current?.scrollTo");
     expect(source).toContain('ref={gamesViewRef}');
   });
+
+  it("blocks long-press browser actions only on the single-player game surface", () => {
+    expect(source).toContain('className="article-game-tab-panels single-player-game-surface"');
+    expect(source).toContain('data-game-interaction-guard="browser-selection"');
+    expect(source).toContain("onContextMenuCapture={preventGameSurfaceInterference}");
+    expect(source).toContain("onCopyCapture={preventGameSurfaceInterference}");
+    expect(source).toContain("onCutCapture={preventGameSurfaceInterference}");
+    expect(source).toContain("onDragStartCapture={preventGameSurfaceInterference}");
+    expect(source).toContain('surface.addEventListener("selectstart", preventGameSurfaceInterference, true)');
+  });
+
+  it("guards same-origin iframe documents without consuming game controls", () => {
+    expect(source).toContain("onLoadCapture={guardEmbeddedGameDocument}");
+    for (const eventName of ["contextmenu", "copy", "cut", "dragstart", "selectstart"]) {
+      expect(source).toContain(`"${eventName}"`);
+    }
+    const surfaceStart = source.indexOf('className="article-game-tab-panels single-player-game-surface"');
+    const surfaceEnd = source.indexOf(">", surfaceStart);
+    const surfaceAttributes = source.slice(surfaceStart, surfaceEnd);
+    expect(surfaceAttributes).not.toContain("onClickCapture");
+    expect(surfaceAttributes).not.toContain("onTouchStartCapture");
+    expect(surfaceAttributes).not.toContain("onPointerDownCapture");
+    expect(surfaceAttributes).not.toContain("onKeyDownCapture");
+    expect(surfaceAttributes).not.toContain("onKeyUpCapture");
+  });
 });

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.5 - 2026-09-04
+
+- Audited every bundled single-player game's real keyboard contract and restored the missing mobile `Enter`/`Space` actions for Pac-Man, Tetris, Star Battle and Space Invaders without inventing controls for direct-touch games.
+- Disabled long-press selection, copy, context menus and image dragging only inside local and online game surfaces while preserving taps, swipes, keyboard input and room-code copying.
+- Expanded active online matches into a board-first full-viewport layout with a narrower control rail so boards use more of the available desktop and mobile width.
+
 ## 1.10.4 - 2026-09-04
 
 - Added a board-first focus layout for active online matches while keeping the complete room, invite and ready flow before play starts.

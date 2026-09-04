@@ -8,6 +8,7 @@ import {
   ChevronsDown,
   CircleDot,
   ChevronDown,
+  CornerDownLeft,
   Crosshair,
   ExternalLink,
   Gamepad2,
@@ -38,7 +39,6 @@ import {
   resolveGameInputMode,
   type GameInputMode,
   type MobileControlAction,
-  type MobileControlIcon,
   type MobileControlProfile,
 } from "../article-games/mobile-controls";
 import { isDesktopRuntime } from "../bridge";
@@ -110,15 +110,15 @@ type KeyboardHelpRow = readonly [label: string, keys: string];
 function keyboardHelpRows(definition: ArticleGameDefinition): readonly KeyboardHelpRow[] {
   switch (definition.id) {
     case "pacman":
-      return [["移动", "方向键 / WASD"], ["暂停", "P / Esc"]];
+      return [["移动", "方向键 / WASD"], ["开始 / 暂停 / 重开", "Enter / 空格"], ["暂停", "P / Esc"]];
     case "react-tetris":
       return [["移动", "← → ↓"], ["旋转", "↑"], ["硬降", "空格"], ["暂停", "P / Esc"], ["重开", "R"]];
     case "battle-city":
       return [["单人", "WASD 移动 · J 开火"], ["双人", "玩家一 WASD + J；玩家二方向键 + /"], ["暂停", "P / Esc"]];
     case "star-battle":
-      return [["操作", "鼠标点击"], ["暂停", "P / Esc"]];
+      return [["移动", "WASD"], ["发射", "空格"], ["暂停", "P / Esc"]];
     case "space-invaders":
-      return [["移动", "← →"], ["射击", "空格"], ["暂停", "P / Esc"]];
+      return [["移动", "← →"], ["开始 / 重开", "空格"], ["暂停", "P / Esc"]];
     case "snake":
       return [["移动", "方向键 / WASD"], ["暂停", "P / Esc"]];
     case "super-mario-bros":
@@ -180,9 +180,69 @@ function initialInputMode(): GameInputMode {
   return "auto";
 }
 
-function controlIcon(icon: MobileControlIcon) {
+const STAR_BATTLE_DIRECTIONS: readonly MobileControlAction[] = [
+  { id: "up", label: "上移", icon: "up", position: "up", key: "w", code: "KeyW", keyCode: 87, hold: true },
+  { id: "right", label: "右移", icon: "right", position: "right", key: "d", code: "KeyD", keyCode: 68, hold: true },
+  { id: "down", label: "下移", icon: "down", position: "down", key: "s", code: "KeyS", keyCode: 83, hold: true },
+  { id: "left", label: "左移", icon: "left", position: "left", key: "a", code: "KeyA", keyCode: 65, hold: true },
+];
+
+const PACMAN_CONFIRM_ACTION: MobileControlAction = {
+  id: "confirm",
+  label: "开始 / 暂停 / 重开",
+  icon: "fire",
+  key: "Enter",
+  code: "Enter",
+  keyCode: 13,
+};
+
+const STAR_BATTLE_FIRE_ACTION: MobileControlAction = {
+  id: "fire",
+  label: "发射",
+  icon: "fire",
+  key: " ",
+  code: "Space",
+  keyCode: 32,
+};
+
+/**
+ * Corrects mobile controls against the bundled games' actual keyboard listeners.
+ * Keep this local to the host view so the shared registry remains source metadata.
+ */
+export function articleGameMobileControlProfile(gameId: ArticleGameDefinition["id"]): MobileControlProfile {
+  const profile = mobileControlProfile(gameId);
+  switch (gameId) {
+    case "pacman":
+      return {
+        ...profile,
+        hint: "方向键移动，点击开始、暂停或重新挑战",
+        actions: [...(profile.actions ?? []), PACMAN_CONFIRM_ACTION],
+      };
+    case "star-battle":
+      return {
+        kind: "buttons",
+        hint: "WASD 移动飞船，点击发射",
+        directions: STAR_BATTLE_DIRECTIONS,
+        actions: [STAR_BATTLE_FIRE_ACTION],
+      };
+    case "space-invaders":
+      return {
+        ...profile,
+        hint: "长按左右移动，点击开始或重新挑战",
+        actions: profile.actions?.map((action) => action.keyCode === 32
+          ? { ...action, id: "start-restart", label: "开始 / 重开" }
+          : action),
+      };
+    default:
+      return profile;
+  }
+}
+
+function controlIcon(action: MobileControlAction) {
   const props = { size: 21, strokeWidth: 2, "aria-hidden": true as const };
-  switch (icon) {
+  if (action.id === "confirm") return <CornerDownLeft {...props} />;
+  if (action.id === "start-restart") return <Play {...props} />;
+  switch (action.icon) {
     case "left": return <ArrowLeft {...props} />;
     case "right": return <ArrowRight {...props} />;
     case "up": return <ArrowUp {...props} />;
@@ -240,7 +300,7 @@ function MobileGameControls({
           onRelease(action);
         }}
       >
-        {controlIcon(action.icon)}
+        {controlIcon(action)}
         <span>{action.label}</span>
       </button>
     );
@@ -297,7 +357,7 @@ export function ArticleGameView({
   const gameActive = active && windowActive;
   const hasSideHelp = definition.id === "battle-city" || definition.id === "2048";
   const resolvedInputMode = resolveGameInputMode(inputMode, viewportWidth, coarsePointer);
-  const mobileProfile = mobileControlProfile(definition.id);
+  const mobileProfile = articleGameMobileControlProfile(definition.id);
 
   useEffect(() => {
     const pointerQuery = window.matchMedia?.("(pointer: coarse)");

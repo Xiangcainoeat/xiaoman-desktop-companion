@@ -120,6 +120,10 @@ function copyValue(value: string): Promise<void> {
   return Promise.resolve();
 }
 
+function preventBoardBrowserInterference(event: { preventDefault: () => void }) {
+  event.preventDefault();
+}
+
 function lastActivityLabel(updatedAt: number): string {
   const elapsed = Math.max(0, Date.now() - updatedAt);
   if (elapsed < 60_000) return "刚刚有活动";
@@ -185,6 +189,7 @@ export function OnlineGameWorkspace({
   const [now, setNow] = useState(() => Date.now());
   const [dismissedResultKey, setDismissedResultKey] = useState<string | null>(null);
   const workspaceRef = useRef<HTMLElement>(null);
+  const boardStageRef = useRef<HTMLDivElement>(null);
   const [armyMode, setArmyMode] = useState<"dark" | "flip">("dark");
   const ownPlayer = seat ? room.players[seat] : null;
   const hasOpponent = Boolean(room.players.red && room.players.black);
@@ -231,6 +236,13 @@ export function OnlineGameWorkspace({
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const boardStage = boardStageRef.current;
+    if (!boardStage) return;
+    boardStage.addEventListener("selectstart", preventBoardBrowserInterference, true);
+    return () => boardStage.removeEventListener("selectstart", preventBoardBrowserInterference, true);
   }, []);
 
   useEffect(() => {
@@ -313,7 +325,15 @@ export function OnlineGameWorkspace({
             )}
           </div>
         )}
-        <div className="online-game-board-stage">
+        <div
+          ref={boardStageRef}
+          className="online-game-board-stage"
+          data-game-interaction-surface="true"
+          onContextMenu={preventBoardBrowserInterference}
+          onCopy={preventBoardBrowserInterference}
+          onCut={preventBoardBrowserInterference}
+          onDragStart={preventBoardBrowserInterference}
+        >
           <div className="online-game-board-host">
             <ArmyChessModeContext.Provider value={room.gameId === "army-chess" ? armyMode : "dark"}>{board}</ArmyChessModeContext.Provider>
           </div>
