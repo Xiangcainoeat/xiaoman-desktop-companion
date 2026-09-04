@@ -370,7 +370,7 @@ test("online rooms require opponent confirmation before undoing the latest move"
   }
 });
 
-test("resigning finishes the game and a rematch starts only after the opponent accepts", async () => {
+test("Gomoku rematches require acceptance and alternate the black-playing red seat", async () => {
   const context = await start();
   const sockets = [];
   try {
@@ -386,6 +386,8 @@ test("resigning finishes the game and a rematch starts only after the opponent a
       body: { gameId: "gomoku" },
     });
     const room = created.payload.data;
+    assert.equal(room.turn, "red");
+    assert.equal(room.players.red.user.id, alice.session.user.id);
     await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/join`, { method: "POST", token: bob.token, body: {} });
     await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/ready`, { method: "POST", token: alice.token, body: { ready: true } });
     await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/ready`, { method: "POST", token: bob.token, body: { ready: true } });
@@ -402,6 +404,7 @@ test("resigning finishes the game and a rematch starts only after the opponent a
     assert.equal(finished.players.red.ready, false);
     assert.equal(finished.players.black.ready, false);
     assert.equal(finished.rematchRequest, null);
+    context.runtime.store.setRoomUserConnected(bob.session.user.id, false);
 
     const requestEvent = waitForMessage(bobSocket, (message) => message.type === "room.updated" && message.payload.room.rematchRequest?.requestedByUserId === alice.session.user.id);
     const requested = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/rematch`, {
@@ -432,6 +435,46 @@ test("resigning finishes the game and a rematch starts only after the opponent a
     assert.equal(restarted.rematchRequest, null);
     assert.equal(restarted.players.red.ready, true);
     assert.equal(restarted.players.black.ready, true);
+    assert.equal(restarted.players.red.user.id, bob.session.user.id);
+    assert.equal(restarted.players.red.connected, false);
+    assert.equal(restarted.players.black.user.id, alice.session.user.id);
+    assert.equal(restarted.players.black.connected, true);
+
+    const secondResign = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/resign`, {
+      method: "POST",
+      token: alice.token,
+      body: {},
+    });
+    assert.equal(secondResign.response.status, 204);
+
+    const secondRequest = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/rematch`, {
+      method: "POST",
+      token: bob.token,
+      body: {},
+    });
+    assert.equal(secondRequest.response.status, 204);
+    const secondAccept = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/rematch`, {
+      method: "POST",
+      token: alice.token,
+      body: {},
+    });
+    assert.equal(secondAccept.response.status, 204);
+
+    const secondRestartedResponse = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}`, { token: alice.token });
+    assert.equal(secondRestartedResponse.response.status, 200);
+    const secondRestarted = secondRestartedResponse.payload.data;
+    assert.equal(secondRestarted.status, "playing");
+    assert.equal(secondRestarted.turn, "red");
+    assert.equal(secondRestarted.seq, 0);
+    assert.equal(secondRestarted.position, "0".repeat(225));
+    assert.equal(secondRestarted.winner, null);
+    assert.equal(secondRestarted.rematchRequest, null);
+    assert.equal(secondRestarted.players.red.user.id, alice.session.user.id);
+    assert.equal(secondRestarted.players.red.ready, true);
+    assert.equal(secondRestarted.players.red.connected, true);
+    assert.equal(secondRestarted.players.black.user.id, bob.session.user.id);
+    assert.equal(secondRestarted.players.black.ready, true);
+    assert.equal(secondRestarted.players.black.connected, false);
   } finally {
     for (const socket of sockets) socket.close();
     await stop(context);

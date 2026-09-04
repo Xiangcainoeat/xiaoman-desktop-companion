@@ -188,6 +188,20 @@ function gomokuInitialBoard(): string {
   return boardToString(createGomokuBoard());
 }
 
+function legacyGomokuTurn(board: string): GameSeat | null {
+  let redCount = 0;
+  let blackCount = 0;
+
+  for (const cell of board) {
+    if (cell === "1") redCount += 1;
+    if (cell === "2") blackCount += 1;
+  }
+
+  if (redCount === blackCount) return RED;
+  if (redCount === blackCount + 1) return BLACK;
+  return null;
+}
+
 const gomokuEngine: OnlineGameEngine = {
   id: "gomoku",
   board: { kind: "grid", columns: GOMOKU_SIZE, rows: GOMOKU_SIZE, aspectRatio: 1 },
@@ -197,7 +211,9 @@ const gomokuEngine: OnlineGameEngine = {
     if (parsed) return parsed;
     // Compatibility with the already deployed five-in-a-row room protocol.
     if (position.length === GOMOKU_SIZE * GOMOKU_SIZE && /^[012]+$/.test(position)) {
-      return { game: "gomoku", board: position, turn: RED, __encoding: "legacy-gomoku" };
+      const turn = legacyGomokuTurn(position);
+      if (!turn) return null;
+      return { game: "gomoku", board: position, turn, __encoding: "legacy-gomoku" };
     }
     return null;
   },

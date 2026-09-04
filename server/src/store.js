@@ -860,7 +860,17 @@ export class SocialStore {
       if (pending.requested_by_user_id === userId) return this.roomById(roomId);
 
       this.db.prepare("UPDATE rooms SET status = 'playing', turn = 'red', seq = 0, position = ?, last_move_json = NULL, winner = NULL, updated_at = ? WHERE id = ?").run(initialPosition(row.game_id), now, roomId);
-      this.db.prepare("UPDATE room_players SET ready = 1 WHERE room_id = ?").run(roomId);
+      if (row.game_id === "gomoku") {
+        // SQLite checks UNIQUE(room_id, seat) after each updated row, so a direct
+        // red/black CASE swap can collide midway. Reinsert both rows atomically.
+        this.db.prepare("DELETE FROM room_players WHERE room_id = ?").run(roomId);
+        const insertPlayer = this.db.prepare("INSERT INTO room_players (room_id, user_id, seat, ready, connected) VALUES (?, ?, ?, 1, ?)");
+        for (const player of players) {
+          insertPlayer.run(roomId, player.user_id, player.seat === "red" ? "black" : "red", player.connected);
+        }
+      } else {
+        this.db.prepare("UPDATE room_players SET ready = 1 WHERE room_id = ?").run(roomId);
+      }
       this.db.prepare("DELETE FROM room_moves WHERE room_id = ?").run(roomId);
       this.db.prepare("DELETE FROM room_undo_requests WHERE room_id = ?").run(roomId);
       this.db.prepare("DELETE FROM room_rematch_requests WHERE room_id = ?").run(roomId);

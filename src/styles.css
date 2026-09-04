@@ -10342,6 +10342,81 @@ select:focus-visible {
 
 .reference-line-point:hover .reference-stone { transform: none; }
 
+/* Gomoku uses a 14-unit SVG viewBox. Reset the generic non-scaling fractional
+ * strokes here so its wooden grid and stones retain the earlier crisp finish. */
+.reference-line-board.is-gomoku {
+  border: 6px solid #9e713e;
+  border-radius: 7px;
+  background-color: #e7c98f;
+  background-image:
+    repeating-linear-gradient(0deg, rgba(104, 76, 39, .045) 0 1px, transparent 1px 5px),
+    repeating-linear-gradient(90deg, rgba(255, 248, 218, .07) 0 2px, transparent 2px 44px),
+    linear-gradient(135deg, #eed7a4 0%, #e4bf82 52%, #ebcf98 100%);
+  box-shadow:
+    0 8px 24px rgba(75, 56, 28, .16),
+    inset 0 0 0 2px rgba(255, 244, 208, .38);
+}
+
+.reference-line-board.is-gomoku .reference-line-board-fill { fill: transparent; }
+
+.reference-line-board.is-gomoku .reference-line-board-graphic {
+  shape-rendering: geometricPrecision;
+}
+
+.reference-line-board.is-gomoku .reference-line-board-graphic line {
+  stroke: #76562f;
+  stroke-width: .04;
+  vector-effect: none;
+}
+
+.reference-line-board.is-gomoku .reference-line-board-outline {
+  stroke: #61431f;
+  stroke-width: .075;
+  vector-effect: none;
+}
+
+.reference-line-board.is-gomoku .reference-line-board-star { fill: #60421f; }
+
+.reference-line-board.is-gomoku .reference-stone {
+  width: 82%;
+  border: 1px solid rgba(44, 31, 18, .28);
+  box-shadow:
+    0 2px 3px rgba(53, 36, 18, .34),
+    inset 1px 1px 2px rgba(255, 255, 255, .28);
+}
+
+.reference-line-board.is-gomoku .reference-line-point.is-black .reference-stone,
+.reference-line-board.is-gomoku .reference-line-point.is-red .reference-stone {
+  border-color: #1e1c1a;
+  background: radial-gradient(circle at 33% 27%, #5d5a55 0%, #282725 35%, #10100f 100%);
+  box-shadow:
+    0 2px 3px rgba(53, 36, 18, .4),
+    inset 1px 1px 2px rgba(255, 255, 255, .24);
+}
+
+.reference-line-board.is-gomoku .reference-line-point.is-white .reference-stone {
+  border-color: #aa8c61;
+  background: radial-gradient(circle at 32% 26%, #fffdf4 0%, #f4e8ca 54%, #d5ba89 100%);
+  box-shadow:
+    0 2px 3px rgba(53, 36, 18, .32),
+    inset 1px 1px 2px rgba(255, 255, 255, .45);
+}
+
+.reference-line-board.is-gomoku .reference-line-point.is-last::after {
+  width: 14%;
+  height: 14%;
+  border: 0;
+  background: #d85f47;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .68);
+}
+
+.reference-line-board.is-gomoku .reference-line-point.is-winning .reference-stone {
+  box-shadow:
+    0 0 0 3px rgba(216, 95, 71, .72),
+    0 2px 5px rgba(53, 36, 18, .36),
+    inset 1px 1px 2px rgba(255, 255, 255, .28);
+}
+
 /* Chess: green tournament board with ivory and charcoal local vector pieces,
  * matching the reference site's restrained palette. */
 .reference-square-board.is-chess {

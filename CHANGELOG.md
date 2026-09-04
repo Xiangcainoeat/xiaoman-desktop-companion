@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.9 - 2026-09-05
+
+- Fixed legacy 225-cell Gomoku rooms so the client infers the active turn from the board and the white player can move immediately after the opening black stone.
+- Restored the clearer wooden Gomoku board, higher-contrast grid, dimensional black/white stone styles, last-move marker and winning-line highlight.
+- Alternated which player holds the black-playing first seat after each accepted Gomoku rematch while preserving ready and connection state.
+
 ## 1.10.8 - 2026-09-04
 
 - Moved Army Chess piece reveals from browser-only UI state into the shared, server-confirmed room position so both players always see the same board.

@@ -240,6 +240,21 @@ describe("联机棋盘 catalog 与位置契约", () => {
     const move = createOnlineMove({ roomId: "legacy", gameId: "gomoku", seat: "red", seq: 1, position: legacy, from: { x: 7, y: 7 } });
     expect(move?.position).toHaveLength(225);
     expect(move?.position[7 * 15 + 7]).toBe("1");
+    expect(parseOnlinePosition("gomoku", move!.position)?.turn).toBe("black");
+    expect(getLegalMoves("gomoku", move!.position, "red")).toHaveLength(0);
+    expect(getLegalMoves("gomoku", move!.position, "black")).toHaveLength(224);
+
+    const reply = createOnlineMove({
+      roomId: "legacy",
+      gameId: "gomoku",
+      seat: "black",
+      seq: 2,
+      position: move!.position,
+      from: { x: 8, y: 7 },
+    });
+    expect(reply?.position).toHaveLength(225);
+    expect(reply?.position[7 * 15 + 8]).toBe("2");
+    expect(parseOnlinePosition("gomoku", reply!.position)?.turn).toBe("red");
     expect(() => JSON.parse(createInitialPosition("gomoku"))).not.toThrow();
   });
 });
