@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.10.7 - 2026-09-04
+
+- Anchored the mobile direction pad to the exact horizontal center while placing action controls only in the left and right side lanes.
+- Kept every mobile control inside the same two-row height and removed action labels from the constrained side buttons without changing their accessible names or tooltips.
+
 ## 1.10.6 - 2026-09-04
 
 - Reflowed mobile game controls into two compact rows: action buttons now share the upper row with the up direction while left, down and right remain together below.
