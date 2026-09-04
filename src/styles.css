@@ -9059,6 +9059,7 @@ select:focus-visible {
   --match-line: #e4e2dc;
   --match-muted: #6c7882;
   --match-ink: #1f2933;
+  --match-board-square: min(780px, calc(100dvh - 190px));
   display: grid;
   position: relative;
   width: 100%;
@@ -10953,5 +10954,289 @@ select:focus-visible {
 
   .center-shell.is-web .gomoku-game {
     display: flex;
+  }
+}
+
+/* Online matches enter a board-first focus mode only after both players have
+   started. Lobby, invite, and ready controls remain complete before play. */
+.social-view:has(.online-game-workspace[data-focus-mode="game"]) {
+  gap: 0;
+}
+
+.social-view:has(.online-game-workspace[data-focus-mode="game"]) > .social-page-heading,
+.social-view:has(.online-game-workspace[data-focus-mode="game"]) > .social-identity-panel,
+.social-view:has(.online-game-workspace[data-focus-mode="game"]) > .social-tabs,
+.social-my-rooms-panel.is-active-room.is-room-playing > .social-room-active-heading,
+.social-my-rooms-panel.is-active-room.is-room-playing > .social-room-share-strip {
+  display: none;
+}
+
+.social-my-rooms-panel.is-active-room.is-room-playing {
+  gap: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.center-shell.is-web .social-view:has(.online-game-workspace[data-focus-mode="game"]) {
+  width: min(100%, 1480px);
+  max-width: 1480px;
+  padding: 8px clamp(8px, 1.5vw, 20px);
+}
+
+.online-game-workspace[data-focus-mode="game"] {
+  width: 100%;
+  max-width: 1420px;
+  height: min(860px, calc(100dvh - 104px));
+  min-height: min(620px, calc(100dvh - 104px));
+  grid-template-columns: minmax(0, 1fr) clamp(260px, 21vw, 300px);
+  gap: 16px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.online-game-workspace[data-focus-mode="game"] .online-game-board-stage {
+  padding: 10px;
+}
+
+.online-game-workspace[data-focus-mode="game"] .online-game-board-host {
+  container-type: size;
+}
+
+.online-game-workspace[data-focus-mode="game"] .online-gomoku-surface {
+  padding: 0;
+}
+
+.online-game-workspace[data-focus-mode="game"] .reference-line-board,
+.online-game-workspace[data-focus-mode="game"] .reference-square-board,
+.online-game-workspace[data-focus-mode="game"] .reference-shogi-board,
+.online-game-workspace[data-focus-mode="game"] .reference-star-board,
+.online-game-workspace[data-focus-mode="game"] .reference-dots-board,
+.online-game-workspace[data-focus-mode="game"] .online-gomoku-surface > .reference-board {
+  width: min(100cqw, 100cqh, var(--match-board-square));
+}
+
+.online-game-workspace[data-focus-mode="game"] .reference-square-board.is-tic-tac-toe {
+  width: min(100cqw, 100cqh, 520px);
+}
+
+.online-game-workspace[data-focus-mode="game"] .reference-xiangqi-board {
+  width: min(100cqw, calc(100cqh * 0.914), 720px);
+}
+
+.online-game-workspace[data-focus-mode="game"] .reference-animal-board {
+  width: min(100cqw, calc(100cqh * 2), 900px);
+}
+
+.online-game-workspace[data-focus-mode="game"] .reference-mancala-board {
+  width: min(100cqw, calc(100cqh * 2.25), 900px);
+}
+
+.online-game-workspace[data-focus-mode="game"] .reference-ludo-board {
+  width: min(100cqw, calc(100cqh * 1.55), 860px);
+}
+
+.online-game-workspace[data-focus-mode="game"] .reference-backgammon-board {
+  width: min(100cqw, calc(100cqh * 1.85), 900px);
+}
+
+.online-game-workspace[data-focus-mode="game"] .online-army-chess-board {
+  width: min(100cqw, calc(100cqh * 0.703), 470px);
+  max-height: 100cqh;
+}
+
+@media (max-width: 860px) {
+  .online-game-workspace[data-focus-mode="game"] {
+    height: auto;
+    min-height: 0;
+    grid-template-columns: 1fr;
+    grid-template-rows: auto auto;
+    gap: 10px;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-main {
+    min-height: 0;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-board-stage {
+    width: 100%;
+    height: min(72svh, calc(100vw - 28px));
+    min-height: min(72svh, calc(100vw - 28px));
+  }
+
+  .online-game-workspace[data-focus-mode="game"].is-xiangqi .online-game-board-stage {
+    height: min(74svh, calc((100vw - 28px) * 1.094));
+    min-height: min(74svh, calc((100vw - 28px) * 1.094));
+  }
+
+  .online-game-workspace[data-focus-mode="game"].is-army-chess .online-game-board-stage {
+    height: min(76svh, calc((100vw - 28px) * 1.422));
+    min-height: min(76svh, calc((100vw - 28px) * 1.422));
+  }
+
+  .online-game-workspace[data-focus-mode="game"].is-animal-chess .online-game-board-stage,
+  .online-game-workspace[data-focus-mode="game"].is-mancala .online-game-board-stage,
+  .online-game-workspace[data-focus-mode="game"].is-ludo .online-game-board-stage,
+  .online-game-workspace[data-focus-mode="game"].is-backgammon .online-game-board-stage {
+    height: min(56svh, 430px);
+    min-height: min(56svh, 430px);
+  }
+
+  .online-game-sidebar {
+    max-height: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .center-shell.is-web:has(.online-game-workspace[data-focus-mode="game"]) .topbar {
+    display: none;
+  }
+
+  .center-shell.is-web:has(.online-game-workspace[data-focus-mode="game"]) .content-scroll {
+    height: 100dvh;
+  }
+
+  .social-view:has(.online-game-workspace[data-focus-mode="game"]),
+  .center-shell.is-web .social-view:has(.online-game-workspace[data-focus-mode="game"]) {
+    width: 100%;
+    min-height: 0;
+    padding: 4px 6px max(12px, env(safe-area-inset-bottom));
+  }
+
+  .online-game-workspace[data-focus-mode="game"] {
+    gap: 7px;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-main,
+  .online-game-workspace[data-focus-mode="game"] .online-game-sidebar {
+    border-radius: 10px;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-matchbar {
+    min-height: 56px;
+    padding: 6px 8px;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-matchbar-back,
+  .online-game-workspace[data-focus-mode="game"] .online-game-matchbar-tools {
+    gap: 4px;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-icon-button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-board-stage {
+    height: min(72svh, calc(100vw - 12px));
+    min-height: min(72svh, calc(100vw - 12px));
+    padding: 5px;
+  }
+
+  .online-game-workspace[data-focus-mode="game"].is-xiangqi .online-game-board-stage {
+    height: min(74svh, calc((100vw - 12px) * 1.094));
+    min-height: min(74svh, calc((100vw - 12px) * 1.094));
+  }
+
+  .online-game-workspace[data-focus-mode="game"].is-army-chess .online-game-board-stage {
+    height: min(76svh, calc((100vw - 12px) * 1.422));
+    min-height: min(76svh, calc((100vw - 12px) * 1.422));
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-sidebar-scroll {
+    display: grid;
+    overflow: visible;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    padding: 8px;
+  }
+
+  .online-game-workspace.is-playing .online-game-room-summary,
+  .online-game-workspace.is-playing .online-game-players-section,
+  .online-game-workspace.is-playing .online-game-rules-section {
+    display: none;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-audio-section,
+  .online-game-workspace[data-focus-mode="game"] .online-game-match-actions,
+  .online-game-workspace[data-focus-mode="game"] .online-game-room-actions-section {
+    min-width: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-match-actions {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 7px;
+    padding-bottom: 7px;
+    border-bottom: 1px solid #eeeae4;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-match-actions .online-game-sidebar-section-title {
+    display: none;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-action-grid {
+    display: block;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-action-grid button,
+  .online-game-workspace[data-focus-mode="game"] .online-game-resign-link {
+    min-height: 40px;
+    padding: 0 8px;
+    border: 1px solid #e2e6e2;
+    border-radius: 8px;
+    background: #fbfcfa;
+    font-size: 12px;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-resign-link {
+    color: #a84e46;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-audio-section {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-room-actions-section {
+    grid-column: 2;
+    grid-row: 2;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-control-row,
+  .online-game-workspace[data-focus-mode="game"] .online-game-leave-button {
+    min-height: 42px;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-control-row {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding: 0 8px;
+    border: 1px solid #e2e6e2;
+    border-radius: 8px;
+    background: #fbfcfa;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-control-row > span {
+    display: none;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-switch {
+    width: 46px;
+    height: 26px;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-switch i {
+    width: 20px;
+    height: 20px;
+  }
+
+  .online-game-workspace[data-focus-mode="game"] .online-game-switch.is-on i {
+    transform: translateX(20px);
   }
 }

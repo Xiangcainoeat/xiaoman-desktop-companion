@@ -473,7 +473,10 @@ function RoomList({
   if (activeRoom && activeBoard) {
     const remaining = formatRemaining(roomExpiresAt(activeRoom) - now);
     return (
-      <section className="social-my-rooms-panel is-active-room">
+      <section
+        className={`social-my-rooms-panel is-active-room is-room-${activeRoom.status}`}
+        data-room-status={activeRoom.status}
+      >
         <div className="social-room-active-heading">
           <div>
             <span className="eyebrow">我的房间 · 对局</span>

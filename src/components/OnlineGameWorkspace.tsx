@@ -270,7 +270,14 @@ export function OnlineGameWorkspace({
   };
 
   return (
-    <section ref={workspaceRef} className={`online-game-workspace is-${room.gameId}`} data-game-id={room.gameId} aria-label={`${definition.label}联机对局`}>
+    <section
+      ref={workspaceRef}
+      className={`online-game-workspace is-${room.gameId} is-${room.status} is-room-${room.status}`}
+      data-game-id={room.gameId}
+      data-status={room.status}
+      data-focus-mode={room.status === "playing" ? "game" : "room"}
+      aria-label={`${definition.label}联机对局`}
+    >
       <main className="online-game-main">
         <header className="online-game-matchbar">
           <div className="online-game-matchbar-back">
@@ -371,7 +378,7 @@ export function OnlineGameWorkspace({
             </section>
           )}
 
-          <section className="online-game-sidebar-section">
+          <section className="online-game-sidebar-section online-game-rules-section">
             <div className="online-game-sidebar-section-title"><span>玩法</span><Gamepad2 size={16} /></div>
             {room.gameId === "army-chess" ? (
               <div className="online-army-mode-picker" role="group" aria-label="军棋玩法模式">
@@ -383,7 +390,7 @@ export function OnlineGameWorkspace({
             <div className="online-game-turn-summary"><span className={`online-game-turn-dot is-${room.status}`} />{statusLabel(room, room.gameId)}</div>
           </section>
 
-          <section className="online-game-sidebar-section">
+          <section className="online-game-sidebar-section online-game-audio-section">
             <div className="online-game-control-row">
               {muted ? <VolumeX size={19} /> : <Volume2 size={19} />}
               <span><strong>音效</strong><small>只控制当前游戏</small></span>

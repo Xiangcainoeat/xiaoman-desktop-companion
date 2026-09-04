@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.10.4 - 2026-09-04
+
+- Added a board-first focus layout for active online matches while keeping the complete room, invite and ready flow before play starts.
+- Enlarged square and non-square boards against the actual desktop and mobile content area without clipping or nested scrolling.
+- On phones, active matches now hide the site header, room summary, seats and rules while retaining turn state, undo, resign, audio and leave controls.
+- Removed the duplicated Gomoku surface inset that could make a full-width mobile board overflow its stage.
+
 ## 1.10.3 - 2026-09-04
 
 - Made the displayed online room an explicit workspace selection instead of deriving it from a possibly stale global active-room snapshot.
