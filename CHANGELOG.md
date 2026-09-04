@@ -1,5 +1,88 @@
 # Changelog
 
+## 1.10.2 - 2026-09-04
+
+- Replaced the online-room mode/room tabs with one compact vertical control column and made the ready action the first, most prominent control after both players enter.
+- Removed the unfinished replay and record-export actions from online games, while retaining room sharing, rules, game-only audio and leave controls.
+- Added opponent-approved rematch invitations: the first player invites, the second accepts, and the server atomically clears the board, readies both players and starts the next game.
+- Added a shared result dialog for normal wins, resignations and rematch invitations, with realtime recovery after refresh or reconnect.
+- Kept undo opponent-approved and made its accept/reject controls explicit in every online board game.
+
+## 1.10.1 - 2026-09-04
+
+- Restored one outer vertical scroller for active mobile game pages so tall boards and settings remain reachable without nested iframe/page scrolling conflicts.
+- Removed redundant mobile control panels from direct-touch games, including Chinese Xiangqi and 2048; their original board gestures remain the only input surface.
+- Centered mobile direction and action controls, centered the Battle City stage, and made the native Gomoku workspace participate in the same outer-page scrolling model.
+- Stopped mobile iframe focus changes from resetting ancestor scroll positions while retaining the fitted, non-scrolling desktop workspace.
+
+## 1.10.0 - 2026-09-04
+
+- Added responsive mobile game workspaces with automatic detection, an explicit automatic/desktop/mobile switch, and outside-the-frame touch controls for every keyboard-driven single-player game.
+- Moved third-party single-player game assets to the shared server origin; packaged desktop builds no longer contain `dist/article-games`, while the hosted web build remains the source of truth.
+- Added opponent-confirmed undo requests to every online board room, including authoritative server rollback, move locking while a request is pending, reconnect persistence and realtime room updates.
+- Routed online Xiangqi board art and its compatibility iframe through the same server asset origin so the downloaded app has no hidden local-game dependency.
+- Restricted the renderer frame policy to the configured Xiaoman server plus explicit loopback development origins.
+
+## 1.9.0 - 2026-09-02
+
+- Replaced the visible friend workspace with a room-only flow: 单机游戏, 联机房间 and 我的房间.
+- Added invite links, invite codes and room-number joining, plus a one-hour idle room expiry/countdown.
+- Kept legacy friend/chat transport routes only as a compatibility layer; the current client no longer
+  loads those collections during login or reconnect.
+- Added a dedicated 联机游戏 workspace split into 单机游戏 and 联机房间 navigation groups.
+- Added the complete 16-game online catalog from the reference room directory, with room creation,
+  join/share codes, ready-to-start flow, reconnect snapshots and WebSocket move updates.
+- Added reusable board engines and renderers for Gomoku, Connect6, chess, Xiangqi, Go, Shogi,
+  Reversi, Checkers, Chinese Checkers, Ludo, Animal Chess, Army Chess, Backgammon, Dots and Boxes,
+  Mancala and Tic-Tac-Toe.
+- Expanded the standalone social server protocol and regression coverage without exposing desktop-only
+  Codex tasks, context, pet packs or preferences in the public web boundary.
+
+## 1.8.1 - 2026-09-01
+
+- Enforced the runtime boundary: the public server UI only exposes interactive games and
+  server-backed social/online features, while Codex tasks, context, pet packs, care, reminders,
+  app events and settings remain available only in the installed Electron app.
+- Restored and verified native Codex task discovery from the local Codex state database in the
+  packaged application, and removed the stale 1.2.0 LaunchAgent preview that could mask updates.
+- Replaced the expired-domain default with `http://47.97.219.242:18080`, added bounded connection
+  timeouts and a settled error state, and widened the social authentication layout.
+
+## 1.8.0 - 2026-08-31
+
+- Switched the production desktop and web social workspace to the server transport only.
+  The UI no longer exposes a local guest/demo mode; local transport fixtures remain test-only.
+- Added the standalone Node/SQLite social service with registration, login, friend requests,
+  direct and group chat, game invitations, realtime events and online Xiangqi rooms.
+- Added an authentication gate so private social data is not loaded before login, and added
+  a dedicated deployment at `http://47.97.219.242:18080` without touching existing services.
+- Split runtime capabilities explicitly: the public web build exposes games and server social
+  only, while Codex sessions, pet packs, care, reminders and settings remain desktop-only.
+- Added server persistence, hashed passwords and session tokens, CORS allow-listing, malformed
+  input handling and REST/WebSocket protocol regression tests.
+
+## 1.7.0 - 2026-08-31
+
+- Added a standalone 好友与联机 workspace with guest-first use, login/register, friends,
+  group chat, game invites and room tabs.
+- Added a local two-seat Chinese-chess room demo that works without a server, plus a
+  server transport boundary ready for REST and WebSocket integration later.
+- Added authenticated-only realtime connection setup, cookie-session support, in-memory
+  bearer tokens, reconnect handling and runtime validation for untrusted realtime events.
+- Fixed initialization/login races, stale private data after logout, server response
+  envelopes, room snapshot updates and online Gomoku/Xiangqi resource initialization.
+
+## 1.6.1 - 2026-08-30
+
+- Moved the one-click Pet Studio launcher to the bottom of 偏好设置.
+- Replaced the external app-server Pet Studio flow with the native Codex new-conversation deep link; the prompt is prefilled and the user sends it in Codex.
+- Flattened preference sections into an intrinsic two-column grid so short and long sections no longer create an imbalanced nested layout.
+
+## 1.4.1 - 2026-08-29
+
+- Fixed the final embedded-game fit pass: Star Battle now has a strict 960 x 480 document boundary with no inner scroll or footer, and Battle City/Pacman stay on their native play surfaces.
+- Kept the games workspace on persistent top tabs, restored the normal center-window size outside a game, and paused/muted inactive or hidden game frames.
+
 ## 1.4.0 - 2026-08-27
 
 - Follow-up polish: care, interaction and Codex task controls now share one expanded overlay host with identical geometry; only pressing and holding Xiaoman moves that host, while panel headers remain stationary. Sleep locks auxiliary panels and reports “小满睡着了” until wake.
@@ -10,10 +93,14 @@
 - Added three local jobs, daily quests, gift-box opening with documented food weights, offline job settlement and explicit reward collection; the code-helper job exposes its separate 12% bonus gift chance.
 - Added a separate care center and a read-only overview handoff so care operations do not duplicate ordinary interaction actions.
 - Added configurable inactivity sleep with a complete curled-body atlas, a dirty state when cleanliness falls below 18, and a bathing animation.
-- Added a switchable local-games page with rock-paper-scissors, fish catching and bubble popping; game settlements are bounded to affection and experience.
+- Retired the former self-authored H5 and independent-game launchers from the visible catalog.
+- Replaced them with an exact 11-entry open-source catalog: ten bundled static H5 projects plus the retained `itlwei/Chess` Chinese-chess repository; the Lila international-chess entry remains an explicit online handoff because it is a full server application.
+- Added a loopback static host and one sandboxed iframe surface for local article games, with source/commit/license records and tests that reject the retired catalog IDs and directories.
+- Added persistent game tabs, per-game frame sizing, shared keyboard forwarding and inactive-game audio pausing; cleaned the Tetris side rails/QR, repaired Snake wall loss and Sliding Puzzle startup, and added compact Chinese 2048 controls.
 - Added original fish and bubble target bitmap assets, deterministic extraction, care/sleep atlas verification and the `verify:care-atlas` command.
 - Preserved the native Codex profile, native task routing and explicit CLI compatibility boundary.
 - Added a visible `退出小满` command in the control center, preferences and overlay actions, backed by trusted Electron IPC; the tray and context-menu exits remain available.
+- Standardized control-center typography across navigation, overview, care, games, Codex tasks, reminders, events and preferences with shared page, section, card, body, meta and metric levels.
 
 ## 1.3.1 - 2026-08-27
 

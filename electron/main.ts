@@ -2,12 +2,14 @@ import path from "node:path";
 import {
   app,
   BrowserWindow,
+  dialog,
   ipcMain,
   Menu,
   nativeImage,
   Notification,
   powerMonitor,
   screen,
+  shell,
   Tray,
   type IpcMainInvokeEvent,
   type MenuItemConstructorOptions,
@@ -33,7 +35,7 @@ import {
   openGiftBox as openCareGiftBox,
   startPetJob as startCareJob,
 } from "../src/shared/care";
-import { settleGameResult } from "../src/shared/games";
+import { isRewardedGameId, REWARDED_GAME_IDS, settleGameResult } from "../src/shared/games";
 import {
   canOpenAuxiliaryPanel,
   isSleepAllowedInteraction,
@@ -59,6 +61,11 @@ import {
   persistedOverlayPosition,
 } from "../src/shared/overlay-layout";
 import { mapCodexThreadStatus } from "../src/shared/codex-ui";
+import {
+  articleGameServerUrl,
+  DEFAULT_XIAOMAN_SERVER_ORIGIN,
+  normalizeServerOrigin,
+} from "../src/shared/server-origin";
 import {
   canHitDesktopBubble,
   DESKTOP_BUBBLE_MAX_HITS,
@@ -87,6 +94,9 @@ import {
   type OverlayHitRegion,
   type OverlayInteractionReport,
   type OverlayPanelMode,
+  type PetPackOperationResult,
+  type PetPackSummary,
+  type PetStudioStartResult,
   type PersistedData,
   type PetState,
   type Reminder,
@@ -94,6 +104,23 @@ import {
   type SoundName,
   type QuickViewMode,
 } from "../src/shared/types";
+import {
+  getArticleGameDefinition,
+  isArticleGameId,
+  type ArticleGameId,
+} from "../src/article-games/registry";
+import { articleGameWindowLayout, NORMAL_CENTER_WINDOW_SIZE } from "../src/article-games/layout";
+import {
+  PetPackService,
+  PetPackServiceError,
+  type PetPackSummary as InstalledPetPackSummary,
+} from "./pet-pack-service";
+import {
+  BUNDLED_PET_PACK_ID,
+  createBundledPetPackRuntime,
+} from "../src/pet-pack/runtime";
+import type { PetPackRuntime } from "../src/shared/types";
+import { PET_STUDIO_INSTALL_COMMAND, buildPetStudioPrompt } from "../src/pet-studio/prompt";
 
 app.commandLine.appendSwitch("autoplay-policy", "no-user-gesture-required");
 app.setName("小满桌面伴侣");
@@ -104,6 +131,7 @@ if (!gotSingleInstanceLock) app.quit();
 const isDevelopment = Boolean(process.env.VITE_DEV_SERVER_URL);
 const DEFAULT_OVERLAY_WIDTH = 320;
 const DEFAULT_OVERLAY_HEIGHT = 360;
+const CENTER_WINDOW_MIN_SIZE = { width: 900, height: 640 } as const;
 const CODEX_THREAD_CACHE_MS = 2_000;
 const NATIVE_REPLY_ASSUMED_ACTIVE_MS = 45_000;
 
@@ -137,7 +165,7 @@ export interface CodexCompletionBoundaryEvent {
   recovered?: boolean;
 }
 
-const GAME_IDS: GameId[] = ["rock-paper-scissors", "fish-catch", "bubble-pop"];
+const GAME_IDS: readonly GameId[] = REWARDED_GAME_IDS;
 
 function isFoodId(value: unknown): value is FoodId {
   return typeof value === "string" && FOOD_IDS.includes(value as FoodId);
@@ -148,7 +176,7 @@ function isJobId(value: unknown): value is JobId {
 }
 
 function isGameId(value: unknown): value is GameId {
-  return typeof value === "string" && GAME_IDS.includes(value as GameId);
+  return isRewardedGameId(value);
 }
 
 function isInteractionAction(value: unknown): value is InteractionAction {
@@ -611,6 +639,9 @@ export function setOverlayMouseModeForWindow(
 
 let store: CompanionStore;
 let data: PersistedData;
+let petPackService: PetPackService | null = null;
+let petPackRuntime: PetPackRuntime = createBundledPetPackRuntime();
+let petPackSummaries: PetPackSummary[] = [];
 let overlayWindow: BrowserWindow | null = null;
 let centerWindow: BrowserWindow | null = null;
 let pendingCenterTab: CenterTab | null = null;
@@ -638,6 +669,7 @@ let desktopSessionState = createDesktopBubbleSessionState();
 let overlayMouseMode: OverlayMouseMode = "passthrough";
 let overlayHitRegionState = createOverlayHitRegionState();
 let overlayMouseCapture: boolean | null = null;
+let overlaySuppressedForArticleGame = false;
 let lastSystemIdleSeconds: number | null = null;
 let careRandomSource: () => number = () => Math.random();
 
@@ -663,6 +695,82 @@ const monitoring: AppSnapshot["monitoring"] = {
   codexStartedAt: null,
 };
 
+function createBundledPetPackSummary(active: boolean): PetPackSummary {
+  const bundledRuntime = createBundledPetPackRuntime();
+  return {
+    id: BUNDLED_PET_PACK_ID,
+    name: "小满",
+    version: "bundled",
+    spriteVersionNumber: 2,
+    active,
+    bundled: true,
+    assetCount: bundledRuntime.assets.length,
+    hasCodex: true,
+    hasDesktop: true,
+    warnings: [],
+  };
+}
+
+function toRendererPetPackSummary(summary: InstalledPetPackSummary, activeId: string | null): PetPackSummary {
+  return {
+    id: summary.id,
+    name: summary.name,
+    version: summary.version,
+    spriteVersionNumber: summary.spriteVersionNumber,
+    active: activeId === summary.id,
+    bundled: false,
+    assetCount: summary.files.length,
+    hasCodex: summary.hasCodex,
+    hasDesktop: summary.hasDesktop,
+    warnings: [...summary.warnings],
+  };
+}
+
+function petPackErrorMessage(error: unknown): string {
+  if (error instanceof PetPackServiceError) {
+    return error.errors.length > 0
+      ? `${error.message}: ${error.errors.map((item) => item.message).join("；")}`
+      : error.message;
+  }
+  return error instanceof Error ? error.message : String(error);
+}
+
+async function refreshPetPackState(): Promise<void> {
+  const bundledRuntime = createBundledPetPackRuntime();
+  petPackRuntime = bundledRuntime;
+  if (!petPackService) {
+    petPackSummaries = [createBundledPetPackSummary(data?.activePetPackId === null)];
+    return;
+  }
+
+  const installed = await petPackService.listInstalled();
+  const activeId = data.activePetPackId;
+  if (activeId !== null) {
+    const selected = installed.find((summary) => summary.id === activeId);
+    if (!selected) {
+      data.activePetPackId = null;
+    } else {
+      try {
+        petPackRuntime = await petPackService.getRuntime(activeId);
+      } catch {
+        data.activePetPackId = null;
+      }
+    }
+  }
+  const resolvedActiveId = data.activePetPackId;
+  petPackSummaries = [
+    createBundledPetPackSummary(resolvedActiveId === null),
+    ...installed.map((summary) => toRendererPetPackSummary(summary, resolvedActiveId)),
+  ];
+}
+
+function broadcastPetPackChanged(): void {
+  const runtime = structuredClone(petPackRuntime);
+  for (const window of [overlayWindow, centerWindow]) {
+    if (window && !window.isDestroyed()) window.webContents.send("pet-pack:changed", runtime);
+  }
+}
+
 let runtimeState: RuntimeState = {
   state: "idle",
   message: STATE_LABELS.idle,
@@ -679,6 +787,8 @@ function snapshot(): AppSnapshot {
     stateSource: runtimeState.source,
     monitoring: { ...monitoring },
     desktopInteraction: { ...desktopSessionState.status },
+    petPacks: petPackSummaries,
+    petPackRuntime,
   };
 }
 
@@ -1547,6 +1657,51 @@ async function openCodexThread(threadId: string): Promise<CodexOpenResult> {
   }
 }
 
+async function startPetStudio(): Promise<PetStudioStartResult> {
+  const base = {
+    desktopOpened: false,
+    installCommand: PET_STUDIO_INSTALL_COMMAND,
+  };
+  if (!data.settings.codexSessionControls) {
+    return {
+      ...base,
+      ok: false,
+      message: "Codex 任务功能已关闭，请先在偏好设置中开启",
+    };
+  }
+
+  try {
+    const started = await codexSessionsService.startPetStudioThread(
+      buildPetStudioPrompt(),
+      app.getPath("home"),
+    );
+    codexThreadCache = null;
+    data.activity = appendActivity(data.activity, {
+      source: "codex",
+      title: "已打开宠物生成草稿",
+      detail: "原生 Codex 新对话已预填，等待点击发送",
+      state: "focused",
+    });
+    triggerState("focused", "原生 Codex 已打开，请点击发送", "codex", 6500, 86);
+    persistAndBroadcast();
+    return {
+      ...base,
+      ok: true,
+      message: "已在原生 Codex 新建对话，提示词已填入，请在 Codex 中点击发送",
+      desktopUrl: started.desktopUrl,
+      desktopOpened: true,
+      promptPrefilled: started.promptPrefilled,
+    };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    return {
+      ...base,
+      ok: false,
+      message: `无法打开原生 Codex 宠物生成对话：${detail || "未知错误"}`,
+    };
+  }
+}
+
 async function replyToCodexThread(threadId: string, message: string): Promise<CodexReplyResult> {
   if (!data.settings.codexSessionControls) throw new Error("Codex 任务功能已关闭");
   if (codexReplyStarts.has(threadId)) throw new Error("这项任务正在处理上一条回复");
@@ -1654,11 +1809,51 @@ function loadViewSafely(window: BrowserWindow, view: "overlay" | "center" | "qui
   void loadView(window, view, mode).catch((error) => reportViewLoadError(view, error));
 }
 
+function isExternalHttpUrl(value: string): boolean {
+  try {
+    const protocol = new URL(value).protocol;
+    return protocol === "http:" || protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+function openExternalHttpUrl(value: string): void {
+  if (!isExternalHttpUrl(value)) return;
+  void shell.openExternal(value).catch((error) => {
+    console.warn(`[xiaoman] failed to open external link: ${String(error)}`);
+  });
+}
+
+async function articleGameUrl(id: ArticleGameId): Promise<string> {
+  if (data.sleeping) {
+    notifySleeping();
+    throw new Error(SLEEPING_NOTICE);
+  }
+  if (!data.settings.gameModeEnabled) throw new Error("小游戏模式已关闭");
+  const definition = getArticleGameDefinition(id);
+  if (definition.availability !== "offline") {
+    throw new Error(`${definition.title}需要网络，请使用在线入口`);
+  }
+  const configuredOrigin = process.env.XIAOMAN_GAME_SERVER_ORIGIN
+    ?? process.env.XIAOMAN_SOCIAL_SERVER_ORIGIN
+    ?? DEFAULT_XIAOMAN_SERVER_ORIGIN;
+  const origin = normalizeServerOrigin(configuredOrigin);
+  if (!origin) throw new Error("游戏服务器地址无效");
+  return articleGameServerUrl(origin, id, definition.entryPath);
+}
+
 function hardenRendererWindow(window: BrowserWindow): void {
-  window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  window.webContents.setWindowOpenHandler(({ url }) => {
+    openExternalHttpUrl(url);
+    return { action: "deny" };
+  });
   window.webContents.on("will-navigate", (event, targetUrl) => {
     const currentUrl = window.webContents.getURL();
-    if (currentUrl && targetUrl !== currentUrl) event.preventDefault();
+    if (currentUrl && targetUrl !== currentUrl) {
+      event.preventDefault();
+      openExternalHttpUrl(targetUrl);
+    }
   });
 }
 
@@ -1789,6 +1984,7 @@ function createOverlayWindow(): void {
   });
   window.on("blur", () => {
     if (overlayWindow !== window) return;
+    setOverlayPanel(null);
     // A lost pointer capture must never leave the transparent window blocking the desktop.
     overlayMouseMode = "passthrough";
     applyOverlayMousePolicy();
@@ -1823,7 +2019,7 @@ function createOverlayWindow(): void {
     }
   });
   window.on("ready-to-show", () => {
-    if (data.settings.overlayVisible) window.showInactive();
+    if (data.settings.overlayVisible && !overlaySuppressedForArticleGame) window.showInactive();
     applyOverlayMousePolicy();
     broadcast();
     broadcastOverlayPanelState();
@@ -1835,6 +2031,8 @@ const CENTER_TABS: readonly CenterTab[] = [
   "features",
   "care",
   "games",
+  "online",
+  "social",
   "codex",
   "overview",
   "reminders",
@@ -1856,10 +2054,10 @@ function flushPendingCenterTab(): void {
 function createCenterWindow(): void {
   centerWindowLoaded = false;
   const window = new BrowserWindow({
-    width: 1080,
-    height: 730,
-    minWidth: 900,
-    minHeight: 640,
+    width: NORMAL_CENTER_WINDOW_SIZE.width,
+    height: NORMAL_CENTER_WINDOW_SIZE.height,
+    minWidth: CENTER_WINDOW_MIN_SIZE.width,
+    minHeight: CENTER_WINDOW_MIN_SIZE.height,
     show: false,
     title: "小满桌面伴侣",
     titleBarStyle: "hiddenInset",
@@ -1885,6 +2083,7 @@ function createCenterWindow(): void {
   window.on("close", (event) => {
     if (!quitting) {
       event.preventDefault();
+      restoreGameWindow();
       window.hide();
     }
   });
@@ -1895,6 +2094,7 @@ function createCenterWindow(): void {
   });
   window.on("closed", () => {
     if (centerWindow !== window) return;
+    restoreOverlayAfterArticleGame();
     centerWindowLoaded = false;
     pendingCenterTab = null;
     centerWindow = null;
@@ -1903,11 +2103,73 @@ function createCenterWindow(): void {
 }
 
 function showCenter(tab?: CenterTab): void {
+  // A center view replaces any overlay shortcut panel immediately.
+  if (overlayPanelMode !== null) setOverlayPanel(null);
   if (tab !== undefined) pendingCenterTab = tab;
   if (!centerWindow || centerWindow.isDestroyed()) createCenterWindow();
+  if (tab !== undefined && tab !== "games") restoreGameWindow();
   centerWindow?.show();
   centerWindow?.focus();
   flushPendingCenterTab();
+}
+
+function suppressOverlayForArticleGame(): void {
+  if (overlaySuppressedForArticleGame) return;
+  overlaySuppressedForArticleGame = true;
+  if (overlayPanelMode !== null) setOverlayPanel(null);
+  overlayMouseMode = "passthrough";
+  overlayMouseCapture = null;
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    overlayWindow.hide();
+    applyOverlayMousePolicy();
+  }
+}
+
+function restoreOverlayAfterArticleGame(): void {
+  if (!overlaySuppressedForArticleGame) return;
+  overlaySuppressedForArticleGame = false;
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    if (data.settings.overlayVisible && !data.sleeping) overlayWindow.showInactive();
+    applyOverlayMousePolicy();
+  }
+}
+
+function fitCenterWindowToArticleGame(gameId: ArticleGameId | null): void {
+  const window = centerWindow;
+  if (!window || window.isDestroyed()) return;
+  const layout = gameId ? articleGameWindowLayout(getArticleGameDefinition(gameId)) : null;
+  if (!layout) {
+    restoreGameWindow();
+    return;
+  }
+
+  suppressOverlayForArticleGame();
+  window.setMinimumSize(CENTER_WINDOW_MIN_SIZE.width, CENTER_WINDOW_MIN_SIZE.height);
+  const frameWidth = Math.max(layout.width, 1);
+  const frameHeight = Math.max(layout.height + layout.chromeHeight, 1);
+  const width = Math.max(layout.contentWidth, frameWidth);
+  const height = Math.max(layout.contentHeight, frameHeight);
+  window.setContentSize(width, height, false);
+  clampCenterWindowToWorkArea(window);
+}
+
+function clampCenterWindowToWorkArea(window: BrowserWindow): void {
+  const bounds = window.getBounds();
+  const workArea = screen.getDisplayMatching(bounds).workArea;
+  const maxX = Math.max(workArea.x, workArea.x + workArea.width - bounds.width);
+  const maxY = Math.max(workArea.y, workArea.y + workArea.height - bounds.height);
+  const x = Math.max(workArea.x, Math.min(bounds.x, maxX));
+  const y = Math.max(workArea.y, Math.min(bounds.y, maxY));
+  if (x !== bounds.x || y !== bounds.y) window.setPosition(x, y, false);
+}
+
+function restoreGameWindow(): void {
+  restoreOverlayAfterArticleGame();
+  const window = centerWindow;
+  if (!window || window.isDestroyed()) return;
+  window.setMinimumSize(CENTER_WINDOW_MIN_SIZE.width, CENTER_WINDOW_MIN_SIZE.height);
+  window.setSize(NORMAL_CENTER_WINDOW_SIZE.width, NORMAL_CENTER_WINDOW_SIZE.height, false);
+  clampCenterWindowToWorkArea(window);
 }
 
 function closeAuxiliaryPanelsForSleep(): void {
@@ -1934,16 +2196,16 @@ export function setOverlayMouseMode(mode: OverlayMouseMode): void {
 
 function toggleOverlay(): void {
   if (!overlayWindow) return;
-  if (data.sleeping && overlayWindow.isVisible()) {
+  if (data.sleeping && data.settings.overlayVisible && overlayWindow.isVisible()) {
     notifySleeping();
     return;
   }
-  data.settings.overlayVisible = !overlayWindow.isVisible();
-  if (data.settings.overlayVisible) {
+  data.settings.overlayVisible = !data.settings.overlayVisible;
+  if (data.settings.overlayVisible && !overlaySuppressedForArticleGame) {
     overlayWindow.showInactive();
     applyOverlayMousePolicy();
   }
-  else {
+  else if (!data.settings.overlayVisible) {
     setOverlayTaskPanel(false);
     overlayMouseMode = "passthrough";
     overlayWindow.hide();
@@ -2063,10 +2325,11 @@ function setOverlayPanel(mode: OverlayPanelMode | null): void {
   }
   const next = mode === "codex" && !data.settings.codexSessionControls ? null : mode;
   if (overlayPanelMode === next) return;
+  if (next !== null && overlaySuppressedForArticleGame) return;
   overlayPanelMode = next;
   overlayMouseMode = next !== null ? "interactive" : "passthrough";
   resizeOverlayForPet();
-  if (next !== null && overlayWindow && !overlayWindow.isDestroyed()) {
+  if (next !== null && overlayWindow && !overlayWindow.isDestroyed() && !overlaySuppressedForArticleGame) {
     overlayWindow.show();
     overlayWindow.focus();
   }
@@ -2084,7 +2347,7 @@ function setOverlayTaskPanel(open: boolean): void {
 function applySettingsSideEffects(previous: CompanionSettings): void {
   if (overlayWindow) {
     overlayWindow.setAlwaysOnTop(data.settings.alwaysOnTop);
-    if (data.settings.overlayVisible && !overlayWindow.isVisible()) overlayWindow.showInactive();
+    if (data.settings.overlayVisible && !overlaySuppressedForArticleGame && !overlayWindow.isVisible()) overlayWindow.showInactive();
     if (!data.settings.overlayVisible) {
       overlayMouseMode = "passthrough";
       if (overlayWindow.isVisible()) overlayWindow.hide();
@@ -2159,6 +2422,83 @@ function configureApplicationMonitor(): void {
   applicationMonitor.start();
 }
 
+async function importPetPackFromRenderer(filePath: unknown): Promise<PetPackOperationResult> {
+  if (!petPackService) {
+    return { ok: false, message: "Pet Pack 服务尚未启动", errorCode: "service-unavailable" };
+  }
+  let selectedPath: string | undefined;
+  if (typeof filePath === "string" && filePath.trim()) selectedPath = path.resolve(filePath);
+  if (!selectedPath) {
+    const result = await dialog.showOpenDialog({
+      title: "导入 Pet Pack",
+      properties: ["openFile"],
+      filters: [{ name: "小满 Pet Pack", extensions: ["xmpet", "zip"] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) {
+      return { ok: false, message: "已取消导入" };
+    }
+    selectedPath = result.filePaths[0];
+  }
+  try {
+    const installed = await petPackService.importPackage(selectedPath);
+    await refreshPetPackState();
+    persistAndBroadcast();
+    broadcastPetPackChanged();
+    return {
+      ok: true,
+      message: `已导入 ${installed.name}`,
+      summary: petPackSummaries.find((summary) => summary.id === installed.id),
+      files: installed.files,
+    };
+  } catch (error) {
+    return { ok: false, message: petPackErrorMessage(error), errorCode: error instanceof PetPackServiceError ? error.code : "import-failed" };
+  }
+}
+
+async function activatePetPackFromRenderer(id: unknown): Promise<AppSnapshot> {
+  if (!petPackService) throw new Error("Pet Pack 服务尚未启动");
+  if (id === null) {
+    await petPackService.clearActive();
+    data.activePetPackId = null;
+  } else {
+    if (typeof id !== "string" || !id.trim()) throw new Error("Pet Pack ID 无效");
+    await petPackService.setActive(id);
+    data.activePetPackId = id;
+  }
+  await refreshPetPackState();
+  persistAndBroadcast();
+  broadcastPetPackChanged();
+  return snapshot();
+}
+
+async function removePetPackFromRenderer(id: unknown): Promise<AppSnapshot> {
+  if (!petPackService) throw new Error("Pet Pack 服务尚未启动");
+  if (typeof id !== "string" || !id.trim()) throw new Error("Pet Pack ID 无效");
+  await petPackService.remove(id);
+  if (data.activePetPackId === id) data.activePetPackId = null;
+  await refreshPetPackState();
+  persistAndBroadcast();
+  broadcastPetPackChanged();
+  return snapshot();
+}
+
+async function exportPetPackToCodexFromRenderer(id: unknown): Promise<PetPackOperationResult> {
+  if (!petPackService) return { ok: false, message: "Pet Pack 服务尚未启动", errorCode: "service-unavailable" };
+  if (typeof id !== "string" || !id.trim()) return { ok: false, message: "Pet Pack ID 无效", errorCode: "invalid-id" };
+  try {
+    const result = await petPackService.exportCodex(id);
+    return {
+      ok: true,
+      message: `已导出到 ${result.path}`,
+      files: result.files,
+      path: result.path,
+      backupPath: result.backupPath,
+    };
+  } catch (error) {
+    return { ok: false, message: petPackErrorMessage(error), errorCode: error instanceof PetPackServiceError ? error.code : "export-failed" };
+  }
+}
+
 function registerIpcHandlers(): void {
   ipcMain.handle("snapshot:get", () => snapshot());
   ipcMain.handle("interaction:perform", (event, action: unknown) => {
@@ -2210,6 +2550,30 @@ function registerIpcHandlers(): void {
     if (!isGameId(gameId)) throw new Error("没有这个小游戏");
     if (!data.settings.gameModeEnabled) throw new Error("小游戏模式已关闭");
     return completeGame(gameId, score);
+  });
+  ipcMain.handle("article-game:url", async (event, gameId: unknown) => {
+    assertTrustedInvoke(event);
+    if (!isArticleGameId(gameId)) throw new Error("文章游戏无效");
+    return articleGameUrl(gameId);
+  });
+  ipcMain.handle("article-game:fit", (event, gameId: unknown) => {
+    assertTrustedInvoke(event);
+    if (gameId !== null && !isArticleGameId(gameId)) throw new Error("文章游戏无效");
+    fitCenterWindowToArticleGame(gameId);
+  });
+  ipcMain.handle("article-game:restore", (event) => {
+    assertTrustedInvoke(event);
+    restoreGameWindow();
+  });
+  ipcMain.handle("article-game:open-online", async (event, gameId: unknown) => {
+    assertTrustedInvoke(event);
+    if (!isArticleGameId(gameId)) throw new Error("文章游戏无效");
+    const definition = getArticleGameDefinition(gameId);
+    if (!definition.requiresNetwork || !definition.onlineUrl) {
+      return { ok: false, message: "这个游戏已经内置在应用中" };
+    }
+    await shell.openExternal(definition.onlineUrl);
+    return { ok: true, message: `已在浏览器打开${definition.title}` };
   });
   ipcMain.handle("desktop-bubble:start", (event) => {
     assertTrustedInvoke(event);
@@ -2303,6 +2667,34 @@ function registerIpcHandlers(): void {
   ipcMain.handle("codex:thread:reply", (event, threadId: string, message: string) => {
     assertTrustedInvoke(event);
     return replyToCodexThread(threadId, message);
+  });
+  ipcMain.handle("pet-studio:start", (event) => {
+    assertTrustedInvoke(event);
+    return startPetStudio();
+  });
+  ipcMain.handle("pet-pack:list", (event) => {
+    assertTrustedInvoke(event);
+    return structuredClone(petPackSummaries);
+  });
+  ipcMain.handle("pet-pack:runtime", (event) => {
+    assertTrustedInvoke(event);
+    return structuredClone(petPackRuntime);
+  });
+  ipcMain.handle("pet-pack:import", (event, filePath: unknown) => {
+    assertTrustedInvoke(event);
+    return importPetPackFromRenderer(filePath);
+  });
+  ipcMain.handle("pet-pack:activate", (event, id: unknown) => {
+    assertTrustedInvoke(event);
+    return activatePetPackFromRenderer(id);
+  });
+  ipcMain.handle("pet-pack:remove", (event, id: unknown) => {
+    assertTrustedInvoke(event);
+    return removePetPackFromRenderer(id);
+  });
+  ipcMain.handle("pet-pack:export-codex", (event, id: unknown) => {
+    assertTrustedInvoke(event);
+    return exportPetPackToCodexFromRenderer(id);
   });
   ipcMain.on("quick:show", (event, mode: unknown) => {
     assertTrustedSender(event.sender, event.senderFrame);
@@ -2407,6 +2799,24 @@ app.on("second-instance", () => showCenter());
 app.whenReady().then(async () => {
   store = new CompanionStore(app.getPath("userData"));
   data = store.load();
+  petPackService = new PetPackService(app.getPath("userData"));
+  const loadedActivePetPackId = data.activePetPackId;
+  try {
+    const installed = await petPackService.listInstalled();
+    const selected = data.activePetPackId && installed.some((summary) => summary.id === data.activePetPackId)
+      ? data.activePetPackId
+      : null;
+    if (selected) await petPackService.setActive(selected);
+    else await petPackService.clearActive();
+    if (data.activePetPackId !== selected) data.activePetPackId = selected;
+    await refreshPetPackState();
+  } catch (error) {
+    console.warn(`[xiaoman] Pet Pack state unavailable: ${petPackErrorMessage(error)}`);
+    data.activePetPackId = null;
+    petPackRuntime = createBundledPetPackRuntime();
+    petPackSummaries = [createBundledPetPackSummary(true)];
+  }
+  if (loadedActivePetPackId !== data.activePetPackId) persist();
   codexSessionsService = new CodexSessionsService();
   data.stats = decayStats(data.stats, data.sleeping);
   const dailyQuestsRolled = rolloverDailyQuests(Date.now());

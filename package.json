@@ -1,7 +1,7 @@
 {
   "name": "xiaoman-desktop-companion",
-  "version": "1.4.0",
-  "private": true,
+  "version": "1.10.2",
+  "private": false,
   "description": "Independent macOS desktop companion for the Xiaoman Codex pet.",
   "author": "zk",
   "license": "MIT",
@@ -12,6 +12,14 @@
     "build:electron": "node -e \"require('node:fs').rmSync('dist-electron',{recursive:true,force:true})\" && tsc -p tsconfig.node.json",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.test.json",
     "test": "vitest run",
+    "server:test": "npm --prefix server test",
+    "pet:init": "tsx scripts/pet-pack-cli.ts init",
+    "pet:prompts": "tsx scripts/pet-pack-cli.ts prompts",
+    "pet:generate": "tsx scripts/pet-pack-cli.ts generate",
+    "pet:validate": "tsx scripts/pet-pack-cli.ts validate",
+    "pet:pack": "tsx scripts/pet-pack-cli.ts pack",
+    "pet:install": "tsx scripts/pet-pack-cli.ts install",
+    "scan:public": "tsx scripts/scan-public.ts",
     "verify:care-atlas": "sh scripts/run_image_python.sh scripts/verify_care_atlas_30.py public/pet/sleeping-30.webp public/pet/sleeping-30.json && sh scripts/run_image_python.sh scripts/verify_care_atlas_30.py public/pet/care-actions-30.webp public/pet/care-actions-30.json",
     "verify:idle-atlas": "sh scripts/run_image_python.sh scripts/verify_idle_atlas_30.py",
     "verify:look-96": "sh scripts/run_image_python.sh scripts/verify_look_atlas_96.py public/pet/look-96.webp public/pet/look-96.json --reference work/xiaoman-pet-96/generation-inputs/native-color-reference.png",
@@ -20,7 +28,8 @@
     "verify:head-look-96": "sh scripts/run_image_python.sh scripts/verify_head_look_atlas_96.py public/pet/head-look-96.webp public/pet/head-look-96.json --contact-sheet work/xiaoman-pet-96/qa/head-look-96-verify-contact-sheet.png --report work/xiaoman-pet-96/qa/head-look-96-verify-report.json",
     "build": "npm run typecheck && vite build && npm run build:electron",
     "pack:mac": "npm run build && electron-builder --mac dir --arm64",
-    "dist:mac": "npm run build && electron-builder --mac dmg zip --arm64"
+    "dist:mac": "npm run build && electron-builder --mac dmg zip --arm64",
+    "install:mac": "sh scripts/install_mac_app.sh"
   },
   "dependencies": {
     "chokidar": "4.0.3",
@@ -29,6 +38,7 @@
     "react-dom": "19.2.8"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
     "@types/node": "26.3.0",
     "@types/react": "19.2.18",
     "@types/react-dom": "19.2.5",
@@ -37,6 +47,8 @@
     "cross-env": "10.1.0",
     "electron": "44.0.0",
     "electron-builder": "26.15.3",
+    "tailwindcss": "^4.3.3",
+    "tsx": "4.20.3",
     "typescript": "6.0.3",
     "vite": "8.2.2",
     "vitest": "4.1.11",

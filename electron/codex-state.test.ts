@@ -64,11 +64,11 @@ describe("Codex state database reader", () => {
     `);
     insert.run(
       "user-vscode",
-      "/Users/zk/.codex/sessions/user.jsonl",
+      "/Users/example/.codex/sessions/user.jsonl",
       1_700_000_000,
       1_700_000_100,
       "vscode",
-      "/Users/zk/project",
+      "/Users/example/project",
       "修复回复的第一句很长，当前不应该直接显示这句话作为任务标题",
       0,
       1,
@@ -153,8 +153,8 @@ describe("Codex state database reader", () => {
       expect(records).toHaveLength(1);
       expect(records[0]).toMatchObject({
         id: "user-vscode",
-        rolloutPath: "/Users/zk/.codex/sessions/user.jsonl",
-        cwd: "/Users/zk/project",
+        rolloutPath: "/Users/example/.codex/sessions/user.jsonl",
+        cwd: "/Users/example/project",
         title: "自动总结标题",
         preview: "状态库预览",
         source: "vscode",

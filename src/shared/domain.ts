@@ -180,6 +180,7 @@ export function createDefaultData(now = Date.now()): PersistedData {
     dailyQuests: createDailyQuests(now),
     sleepReason: null,
     codexRewardLedger: [],
+    activePetPackId: null,
   };
 }
 
@@ -505,5 +506,8 @@ export function normalizePersistedData(value: unknown): PersistedData {
     dailyQuests: quests.length === 5 ? quests : createDailyQuests(),
     sleepReason: source.sleepReason === "manual" || source.sleepReason === "inactivity" ? source.sleepReason : null,
     codexRewardLedger: ledger,
+    activePetPackId: typeof source.activePetPackId === "string" && /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(source.activePetPackId)
+      ? source.activePetPackId
+      : null,
   };
 }

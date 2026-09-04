@@ -38,4 +38,22 @@ describe("unified overlay panel contract", () => {
     expect(stylesSource).toContain("-webkit-app-region: no-drag;");
     expect(stylesSource).toContain(".overlay-root.has-auxiliary-panel .overlay-pet-hitbox");
   });
+
+  it("closes an open panel when a pointer lands outside its content in the overlay host", () => {
+    expect(overlaySource).toContain("handleOverlayPointerDownCapture");
+    expect(overlaySource).toContain("onPointerDownCapture={handleOverlayPointerDownCapture}");
+    expect(overlaySource).toContain("overlay-codex-panel");
+    expect(overlaySource).toContain("overlay-quick-panel");
+  });
+
+  it("clears the panel when the overlay window loses focus", () => {
+    const blurHandlerStart = mainSource.indexOf('window.on("blur", () => {');
+    const blurHandlerEnd = mainSource.indexOf("  });", blurHandlerStart);
+    expect(blurHandlerStart).toBeGreaterThanOrEqual(0);
+    expect(mainSource.slice(blurHandlerStart, blurHandlerEnd)).toContain("setOverlayPanel(null)");
+  });
+
+  it("hides the shortcut panel before opening the full games view", () => {
+    expect(quickSource).toMatch(/bridge\.setOverlayPanel\(null\);\s*bridge\.showCenter\("games"\)/);
+  });
 });

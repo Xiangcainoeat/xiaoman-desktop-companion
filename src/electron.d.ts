@@ -15,9 +15,14 @@ import type {
   InteractionAction,
   OverlayInteractionReport,
   OverlayPanelMode,
+  PetPackOperationResult,
+  PetPackRuntime,
+  PetPackSummary,
+  PetStudioStartResult,
   ReminderInput,
   SoundName,
 } from "./shared/types";
+import type { ArticleGameId, ArticleGameOpenResult } from "./article-games/registry";
 
 export interface XiaomanApi {
   getSnapshot(): Promise<AppSnapshot>;
@@ -32,6 +37,10 @@ export interface XiaomanApi {
   setGameActive(active: boolean): void;
   startGameSession(): Promise<GameStartResult>;
   completeGame(gameId: GameId, score: number): Promise<AppSnapshot>;
+  getArticleGameUrl(gameId: ArticleGameId): Promise<string>;
+  fitArticleGameWindow(gameId: ArticleGameId | null): Promise<void>;
+  restoreGameWindow(): Promise<void>;
+  openArticleGameOnline(gameId: ArticleGameId): Promise<ArticleGameOpenResult>;
   startDesktopBubbleSession(): Promise<AppSnapshot>;
   hitDesktopBubble(sessionId: string, bubbleId: string): Promise<AppSnapshot>;
   stopDesktopBubbleSession(sessionId: string, completed: boolean): Promise<AppSnapshot>;
@@ -48,6 +57,13 @@ export interface XiaomanApi {
   listCodexThreads(force?: boolean): Promise<CodexThreadListResult>;
   openCodexThread(threadId: string): Promise<CodexOpenResult>;
   replyCodexThread(threadId: string, message: string): Promise<CodexReplyResult>;
+  startPetStudio(): Promise<PetStudioStartResult>;
+  listPetPacks(): Promise<PetPackSummary[]>;
+  importPetPack(filePath?: string): Promise<PetPackOperationResult>;
+  activatePetPack(id: string | null): Promise<AppSnapshot>;
+  removePetPack(id: string): Promise<AppSnapshot>;
+  exportPetPackToCodex(id: string): Promise<PetPackOperationResult>;
+  getPetPackRuntime(): Promise<PetPackRuntime>;
   setOverlayTaskPanel(open: boolean): void;
   setOverlayPanel(mode: OverlayPanelMode | null): void;
   showCenter(tab?: CenterTab): void;
@@ -64,6 +80,7 @@ export interface XiaomanApi {
   onCenterTab(callback: (tab: CenterTab) => void): () => void;
   onOverlayTaskPanel(callback: (open: boolean) => void): () => void;
   onOverlayPanel(callback: (mode: OverlayPanelMode | null) => void): () => void;
+  onPetPackChanged(callback: (runtime: PetPackRuntime) => void): () => void;
 }
 
 declare global {

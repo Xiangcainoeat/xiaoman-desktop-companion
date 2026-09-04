@@ -75,13 +75,13 @@ Commit: `git add src/shared/animation.ts src/components/SpritePlayer.tsx src/com
 - `validate_action_sequence(frames, reference_rgb, safe_inset)` 返回包含 `duplicateRatio`, `edgePixels`, `mattePixels`, `bboxViolations`, `colorDrift` 的报告，并在任一硬约束失败时退出非零。
 
 - [ ] **Step 1: 写失败的图像契约测试。** 用当前图集验证重复率、bbox 安全内边距和黑/暖色边缘检查，确认当前实现至少在重复率或边界规则上失败。
-- [ ] **Step 2: 运行 `PYTHON=/Users/zk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 sh scripts/run_image_python.sh -m unittest tests/test_smooth_action_atlas.py`，记录正确的失败原因。**
+- [ ] **Step 2: 运行 `PYTHON=$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 sh scripts/run_image_python.sh -m unittest tests/test_smooth_action_atlas.py`，记录正确的失败原因。**
 - [ ] **Step 3: 修改确定性管线。** 使用 union bbox 和固定脚底线；将 `_composite_clipped` 改成越界报错或先按安全框等比缩小；清理黑色/深灰色 matte、绿边和暖色边缘；清理透明像素下残留 RGB；加入连续帧和内部透明孔洞检查。
 - [ ] **Step 4: 用本机 relay-imagegen CLI 生成新的动作源图。** 每个动作使用小满参考和原生颜色参考，生成 6x6 的真实时序接触表；只保留完整身体和道具，禁止文字、边框、背景、动作线和阴影。生成请求与其他 Agent 合计不超过 4 个并发。
 - [ ] **Step 5: 构建并检查新图集。** 生成 contact sheet，确认白色、深色和棋盘格背景无黑边/泛红/裁切；不接受只靠复制帧达到数量的结果。
 - [ ] **Step 6: 运行图像测试、验证器并提交。**
 
-Run: `PYTHON=/Users/zk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 sh scripts/run_image_python.sh -m unittest tests/test_smooth_action_atlas.py && npm run verify:care-atlas`
+Run: `PYTHON=$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 sh scripts/run_image_python.sh -m unittest tests/test_smooth_action_atlas.py && npm run verify:care-atlas`
 
 Commit: `git add scripts tests/test_smooth_action_atlas.py work/xiaoman-care-assets public/pet/care-actions-30.webp public/pet/care-actions-30.json public/pet/sleeping-30.webp public/pet/sleeping-30.json && git commit -m "fix: rebuild Xiaoman care action atlases"`
 
@@ -178,7 +178,7 @@ Run: `npm run typecheck && npm test`
 
 - [ ] **Step 3: 运行完整图像验证。**
 
-Run: `PYTHON=/Users/zk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 npm run verify:care-atlas && PYTHON=/Users/zk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 npm run verify:idle-atlas`
+Run: `PYTHON=$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 npm run verify:care-atlas && PYTHON=$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 npm run verify:idle-atlas`
 
 - [ ] **Step 4: 启动 Electron 开发版，在白色、深色和 Codex 窗口上检查 30/60Hz、动作切换、泡泡命中、拖动/点击分离、快捷框关闭恢复和原生 profile 切换。** 保存截图和实际结果，不以源码检查代替。
 - [ ] **Step 5: 构建并打包 arm64，检查 asar 内的新图集、快捷窗口代码和游戏资源；运行 ZIP/DMG 校验。**

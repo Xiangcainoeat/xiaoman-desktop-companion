@@ -277,7 +277,7 @@ export function QuickActionsView({
           <QuickSection title="和小满相处" icon={<Heart size={17} aria-hidden="true" />}>
             <div className="quick-interaction-actions">
               <button className="quick-wide-button" type="button" disabled={busy !== null} title="摸摸小满" aria-label="摸摸小满" onClick={() => void runAction("pet", () => bridge.interact("pet"))}><Heart size={16} aria-hidden="true" /><span>摸摸</span></button>
-              <button className="quick-wide-button" type="button" title="打开更多游戏" aria-label="打开更多游戏" onClick={(event) => { event.stopPropagation(); bridge.showCenter("games"); }}><Gamepad2 size={16} aria-hidden="true" /><span>更多游戏</span></button>
+              <button className="quick-wide-button" type="button" title="打开更多游戏" aria-label="打开更多游戏" onClick={(event) => { event.stopPropagation(); bridge.setOverlayPanel(null); bridge.showCenter("games"); }}><Gamepad2 size={16} aria-hidden="true" /><span>更多游戏</span></button>
             </div>
             <div className="quick-interaction-summary"><Sparkles size={14} aria-hidden="true" /><span>好感度 {Math.round(snapshot.stats.affection)} · 精力 {Math.round(snapshot.stats.energy)}</span></div>
           </QuickSection>

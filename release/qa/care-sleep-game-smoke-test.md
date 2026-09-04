@@ -2,7 +2,11 @@
 
 ## Scope
 
-This checklist covers the new local care economy, the inactivity sleep loop, the three mini-games, and the separation between `桌宠功能`, `养成照料`, `互动游戏` and `偏好设置`. It also records the compatibility boundary: the native Codex pet profile and native task reply path remain independent.
+This checklist covers the new local care economy, the inactivity sleep loop, the
+desktop bubble interaction, the 11-entry article/H5 game catalog, and the
+separation between `桌宠功能`, `养成照料`, `互动游戏` and `偏好设置`. It also
+records the compatibility boundary: the native Codex pet profile and native
+task reply path remain independent.
 
 ## Latest packaged smoke
 
@@ -12,8 +16,9 @@ Run against the freshly rebuilt unsigned arm64 package on 2026-08-28:
 - [x] `打开养成` opens a separate compact `养成照料` window with status meters, food/gift controls, bathing, jobs and quests.
 - [x] `打开互动` opens a separate compact `互动` window with bubble-session, petting and game handoff controls.
 - [x] Starting the bubble session from the compact window renders four clickable bubbles in the transparent overlay; clicking one changes the score from 0 to 1 and removes the hit bubble.
-- [x] `打开更多游戏` routes to the existing center window's `和小满玩游戏` view without creating a second center window.
+- [x] `打开更多游戏` routes to the existing center window's `互动游戏` view without creating a second center window.
 - [x] The packaged `app.asar` contains `dist/pet/sleeping-30.webp`, `dist/pet/sleeping-30.json`, `dist/pet/care-actions-30.webp` and `dist/pet/care-actions-30.json`.
+- [ ] The packaged app opens each of the ten local article games through the same loopback iframe host; only one embedded game page exists at a time, and the retained H5 Chinese chess page loads its opening book.
 
 The full manual checklist below remains the acceptance matrix for longer-lived care, sleep and native-Codex scenarios; items not exercised by this smoke run remain intentionally unchecked.
 
@@ -48,7 +53,9 @@ Expected results:
 - [ ] The code-helper card displays its separate 12% bonus gift chance and a successful boundary roll adds exactly one gift box.
 - [ ] Daily quest rewards remain disabled until the quest is complete, then can be claimed once.
 - [ ] The care panel explains the fish-snack Codex reward and the idempotent completion rule.
-- [ ] `互动游戏` starts each of 猜拳, 抓鱼干 and 射泡泡; canceling releases the active-game flag and grants no settlement.
+- [ ] `互动游戏` shows all 11 article entries; opening a local entry mounts one iframe and returning to the list releases the active-game flag.
+- [ ] The game directory shows accurate local/online and license labels; opening another entry replaces the previous embedded page.
+- [ ] The ten local upstream pages and the retained H5 Chinese-chess page remain readable and interactive at the packaged window size.
 - [ ] The game master switch in `桌宠功能` disables game entry and prevents settlement.
 - [ ] `概览` shows a read-only care summary and opens `养成照料`; it does not directly consume food. Games only grant bounded affection and experience.
 - [ ] `桌宠功能` contains gaze/motion/idle/sleep/game controls and action preview; `偏好设置` contains host/Codex/system controls without duplicate pet behavior controls.

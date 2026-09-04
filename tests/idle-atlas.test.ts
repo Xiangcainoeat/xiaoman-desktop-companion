@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { validateIdleAtlasReport } from "../scripts/idle-atlas-contract";
 
-const realReport = JSON.parse(readFileSync(resolve(__dirname, "../work/idle-actions-30-report.json"), "utf8"));
+const realReport = JSON.parse(readFileSync(resolve(__dirname, "../fixtures/idle-actions-30-report.json"), "utf8"));
 
 const cleanActionMetrics = {
   frames: 30,

@@ -1,12 +1,12 @@
 # RED: Smooth Action Atlas Expansion
 
 Date: 2026-08-27
-Worktree: `/Users/zk/.config/superpowers/worktrees/xiaoman-desktop-companion-release/xiaoman-care-and-games`
+Worktree: `$HOME/.config/superpowers/worktrees/xiaoman-desktop-companion-release/xiaoman-care-and-games`
 
 Command:
 
 ```text
-/Users/zk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest tests/test_smooth_action_atlas.py
+$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest tests/test_smooth_action_atlas.py
 ```
 
 Exit code: `1`
@@ -19,7 +19,7 @@ Exact output:
 FAIL: test_expand_interpolates_ten_source_poses_into_thirty_distinct_rgba_frames (tests.test_smooth_action_atlas.SmoothActionAtlasContractTest.test_expand_interpolates_ten_source_poses_into_thirty_distinct_rgba_frames)
 ----------------------------------------------------------------------
 Traceback (most recent call last):
-  File "/Users/zk/.config/superpowers/worktrees/xiaoman-desktop-companion-release/xiaoman-care-and-games/tests/test_smooth_action_atlas.py", line 44, in test_expand_interpolates_ten_source_poses_into_thirty_distinct_rgba_frames
+  File "$HOME/.config/superpowers/worktrees/xiaoman-desktop-companion-release/xiaoman-care-and-games/tests/test_smooth_action_atlas.py", line 44, in test_expand_interpolates_ten_source_poses_into_thirty_distinct_rgba_frames
     self.assertLess(report["duplicateRatio"], 0.1)
 AssertionError: 0.689655 not less than 0.1
 

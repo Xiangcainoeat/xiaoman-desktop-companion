@@ -394,6 +394,14 @@ export function Overlay() {
     resetPointerInteraction(!dragRef.current.active && clickSuppressionRef.current);
   };
 
+  const handleOverlayPointerDownCapture = (event: React.PointerEvent<HTMLElement>) => {
+    if (!hasAuxiliaryPanel) return;
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    if (target.closest(".overlay-codex-panel, .overlay-quick-panel, .overlay-pet-hitbox, .overlay-actions, .pet-bubble, .overlay-need-meter")) return;
+    closePanel();
+  };
+
   const handleContextMenu = (event: React.MouseEvent<HTMLElement>) => {
     event.preventDefault();
     resetPointerInteraction();
@@ -403,6 +411,7 @@ export function Overlay() {
   return (
     <main
       className={`overlay-root ${hasAuxiliaryPanel ? "has-auxiliary-panel has-task-panel" : ""} ${panelMode ? `panel-${panelMode}` : ""}`}
+      onPointerDownCapture={handleOverlayPointerDownCapture}
       onContextMenu={handleContextMenu}
     >
       {panelMode === "codex" && (

@@ -7,5 +7,32 @@ dist-electron/
 coverage/
 scripts/__pycache__/
 tests/__pycache__/
+__pycache__/
+.venv/
 /work/xiaoman-pet-90/frames-90/
 /work/xiaoman-pet-90/frames-90-v2/
+
+# The server image is built with a generated frontend bundle and a runtime-only database.
+server/node_modules/
+server/data/*
+!server/data/.gitkeep
+server/public/*
+!server/public/.gitkeep
+
+# Local authoring inputs and generated packages must never enter a public repo.
+.env
+.env.*
+!.env.example
+references/
+refs/
+*.xmpet
+generation-report.json
+jobs.json
+/tmp/
+
+# Internal authoring evidence and unlicensed snapshots stay out of the public repository.
+/work/
+/.superpowers/
+/docs/superpowers/
+/public/article-games/sliding-puzzle/
+/vendor/article-games/sliding-puzzle/

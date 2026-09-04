@@ -7,14 +7,14 @@
 > `work/xiaoman-care-assets/expanded-source-provenance.json`.
 
 Date: 2026-08-27
-Worktree: `/Users/zk/.config/superpowers/worktrees/xiaoman-desktop-companion-release/xiaoman-care-and-games`
+Worktree: `$HOME/.config/superpowers/worktrees/xiaoman-desktop-companion-release/xiaoman-care-and-games`
 
 ## Focused Python Tests
 
 Command:
 
 ```text
-/Users/zk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest tests/test_smooth_action_atlas.py
+$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest tests/test_smooth_action_atlas.py
 ```
 
 Result: exit code `0`
@@ -32,7 +32,7 @@ OK
 Command:
 
 ```text
-PYTHONPATH=scripts /Users/zk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest discover -s tests -p 'test_*.py'
+PYTHONPATH=scripts $HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest discover -s tests -p 'test_*.py'
 ```
 
 Result: exit code `1`; `Ran 35 tests in 32.365s`; `FAILED (failures=2, errors=2)`.

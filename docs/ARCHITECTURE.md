@@ -1,99 +1,73 @@
-# Architecture
+# 架构
 
-## Process model
+## 进程模型
 
-The app uses one Electron main process and two sandboxed renderer window
-types. The overlay owns the pet and every compact panel mode; the center is
-the full control surface.
+应用由一个 Electron 主进程、一个透明悬浮窗 renderer 和一个控制中心 renderer 组成：
 
-| Component | Responsibility |
+| 部件 | 职责 |
 | --- | --- |
-| Overlay window | Transparent pet, gaze, drag/hover interactions and the single compact panel host |
-| Control center | Feature switches, task controls, stats, reminders, app rules, activity and settings |
-| Main process | State priority, timers, persistence, notifications, tray, cursor sampling and IPC validation |
-| Preload bridge | Explicit typed IPC methods; no general Node or filesystem access |
-| Codex monitor | Append-only, read-only lifecycle classification of local JSONL records |
-| Codex sessions service | Native state-db discovery, native IPC follower replies and explicit CLI compatibility operations |
-| App monitor | Reads only the localized name of the frontmost macOS application |
+| 悬浮窗 | 宠物绘制、注视、拖动、悬停和单一快捷面板 |
+| 控制中心 | 桌宠功能、养成、游戏、Codex、提醒、应用事件和偏好设置 |
+| 主进程 | 状态优先级、定时器、持久化、通知、tray、光标采样和 IPC |
+| preload | 明确的类型化 IPC，不暴露 Node 或文件系统给 renderer |
+| 游戏资源服务 | 服务器提供登记过的静态游戏页面；桌面包只保留统一的生命周期和输入控制器 |
 
-All renderer windows run with `contextIsolation: true`, `nodeIntegration: false`, and `sandbox: true`.
+renderer 使用 `contextIsolation: true`、`nodeIntegration: false` 和 sandbox。桌宠、
+养成和互动面板共享一个 host geometry；打开新面板会关闭旧面板，标题区不是拖动区，
+只有按住宠物本体才会移动整个窗口。
 
-The overlay panel mode is one of `codex`, `care` or `interaction`, or `null`.
-All non-null modes use the same expanded host geometry and the same left-side
-panel rectangle. Opening a mode replaces the previous mode instead of creating
-another BrowserWindow. The compact panel header has no window drag region;
-only the pet hitbox sends `overlay:move-by`, so dragging the pet moves the
-entire host just like the native Codex pet.
+## 桌面与网页边界
 
-## State priority
+桌面应用和服务器网页共用视觉组件，但不共用能力集合。`runtimeSurface` 在 renderer 启动
+时根据 preload bridge 判定运行表面：桌面端开放完整控制中心，网页端只开放“互动游戏”
+和“联机房间”。网页收到指向悬浮窗、快捷面板或本机页面的 URL 时也必须回到网页控制
+中心，不能渲染本机 UI 的模拟版本。
 
-Transient reminders and direct interactions can temporarily override background states. When a transient state expires, the main process recomputes the base state in this order:
+Codex 当前任务、上下文、宠物 profile/素材包、养成、提醒、应用事件和偏好设置均为本机
+能力，只能通过 Electron preload 暴露的窄 IPC 契约访问。联机服务器只保存账号和联机房间
+数据，不提供读取用户 Codex 数据、文件系统或宠物配置的 API。
 
-1. Active Codex task
-2. Explicit sleep
-3. Hunger, low cleanliness or low energy
-4. Matching foreground application rule
-5. Idle
+## 宠物 profile
 
-Renderer-only motion does not mutate this business state. Drag running, hover jumping and idle actions temporarily select another atlas row, then return to the resolved state.
+内置 profile 有两个选择：
 
-## Gaze pipeline
+- `native`：原生 Codex v2 的 8×11 标准图集和 16 个注视方向。
+- `enhanced`：同一标准动作契约、96 个完整身体注视方向，以及待机、睡眠和照料图集。
 
-1. The main process samples `screen.getCursorScreenPoint()` at the selected 30Hz or 60Hz.
-2. The overlay converts the pointer to a clockwise target angle around the pet face center.
-3. A configurable deadzone with enter hysteresis suppresses nearby-pointer noise.
-4. Shortest-path exponential smoothing follows the target without frame-rate dependence.
-5. Upper-180 mode clamps lower targets to the horizon; full-360 mode permits low-head frames.
-6. Lower tracking is capped relative to the inactivity timeout so it reaches the lower quadrant before reset; return-to-neutral uses a separate prompt-but-smooth cap.
-7. Cursor samples carry timestamps. The renderer estimates instantaneous pointer velocity and lowers the gaze time constant while the pointer moves quickly, so a fast mouse move produces a fast response instead of a fixed-speed path.
-8. The enhanced profile selects one complete frame from the 96-frame full-body look atlas (`look-96.webp`), so the head, neck, torso, paws and tail remain a single coherent pose. The native profile keeps the accepted 16-frame full-body look atlas. Both profiles select one direction at a time, with no opacity cross-fade.
-9. After cursor inactivity, the direction eases to zero, the ordinary forward animation is restored, and the normal state animation resumes.
+profile 切换属于桌宠行为配置，控制中心的“桌宠功能”页顶部提供直接可见的“小满增强 /
+原生 Codex”切换；“偏好设置”只管理 Codex 通道、会话监听和系统级选项。
 
-The enhanced `look-96.webp` source is assembled deterministically from a repaired 32-anchor source, 64 generated in-betweens and four selected lower-hemisphere seam repairs. Its metadata, source hashes, prompts, concurrency record and contact sheets live under `work/xiaoman-pet-96/`. The experimental `head-look-96.webp` artifact is retained as provenance only and is not loaded by the runtime. The native `public/pet/native/` profile is a byte-for-byte copy of the accepted v2 `pet.json`, `spritesheet.webp` and extracted `look-16.webp`; it is never written back to `~/.codex/pets/xiaoman`. The older `look-32.webp` and `look-90.webp` remain provenance only.
+注视每次选择一个离散整帧，不做透明混合。主进程以 30/60 Hz 采样光标，renderer
+根据死区、上半区/全向范围、静止回正和光标速度选择方向；拖动奔跑和悬停跳跃会暂时
+压过注视，动作结束后恢复普通状态。图集尺寸、帧数、动作行和替换路径由
+[`public/pet/asset-manifest.json`](../public/pet/asset-manifest.json) 约束。
 
-## Motion and idle behavior
+## 状态与持久化
 
-- Horizontal drag crosses a 4px threshold before choosing left/right running rows.
-- Hover starts one jump cycle when enabled and repeats it for the persisted 1–5 jump count.
-- Idle lick, blink and raised-front-paw actions use `idle-actions-30.webp`, a 10x9 transparent atlas with 30 frames per action. Rows 0–2 are lick, 3–5 blink, and 6–8 are the visible `举前爪` action while retaining the `idle-scratch` compatibility key.
-- Idle scheduling pauses during drag, gaze, hidden overlay or higher-priority state animation.
-- Random speech is selected from a normalized list of at most 40 unique phrases, each at most 80 characters.
-- Overlay dimensions derive from the 150–340px pet size and preserve the lower-right screen anchor.
+主进程是业务状态的唯一写入者。Codex 工作、显式睡眠、饥饿/清洁度/精力、应用规则和
+普通 idle 按优先级解析；renderer-only 的奔跑、跳跃和待机动作不会伪造业务状态。
+睡眠会抑制注视、游戏快捷面板和普通交互，叫醒后重新计算环境状态。状态、库存、任务、
+奖励账本、活动 profile ID 和设置写入用户数据目录，并通过原子 JSON 替换保存。
 
-## Care and progression
+## Pet Pack
 
-The care domain is shared pure TypeScript rather than renderer-owned state. A feed operation validates and consumes one inventory item before applying that food's bounded stat effects. Bathing increases cleanliness; the enhanced renderer uses the native-colored idle loop for bathing and the native-colored lick loop for feeding, while the validated generated care atlas remains a retained asset/provenance record. Jobs, gift boxes, daily quests and Codex completion rewards all return a new `PersistedData` value; the main process is the only writer and appends one activity record per successful operation.
+`.xmpet` 是带根 `manifest.json` 的 ZIP。导入流程检查 schema、相对路径、文件存在性、
+SHA-256、Codex 两文件契约和归档安全限制，再将包原子安装到用户数据目录。活动包缺少
+可选动作时由内置 profile 回退；损坏或不兼容的包不会成为活动包。桌面增强资源与
+Codex 的 `pet.json`/`spritesheet.webp` 彼此独立。
 
-The progression economy has deliberately separate sources and sinks:
+## 游戏生命周期
 
-- fish snacks are food and are consumed only by feeding;
-- real Codex completions grant one fish snack and may grant one gift box, keyed by `threadId:turnId`;
-- jobs and daily quests grant fixed food, gift boxes or experience;
-- opening a gift box consumes the box and rolls one food item at fixed weights;
-- games grant only bounded affection and experience.
+11 个上游互动游戏页面由服务器托管并以隔离 iframe 运行；原生五子棋使用 React 棋盘
+和本机规则/AI 模块。服务器网页和桌面应用使用同一资源 URL，桌面安装包不携带第三方
+游戏目录。顶部标签页同时管理两类页面，切换时暂停非活动 iframe 的音频和输入，原生棋盘
+则卸载输入处理但保留局面；回切后仍保留棋盘、分数和当前回合。退出游戏视图时默认
+暂停并静音；重新进入后由用户通过游戏页面的键盘操作恢复。五子棋的“联机房间”按钮
+进入社交工作区，服务器房间协议同时支持五子棋和中国象棋；五子棋棋盘状态由服务端
+校验并通过 WebSocket 广播；在线棋局的悔棋申请由对手确认，服务端回滚最后一步后广播
+权威房间快照。国际象棋是系统浏览器中的
+在线 Lichess 入口，不会把完整服务伪装成离线静态页面。
 
-This keeps ordinary click interactions and care operations from double-counting inventory or rewards. Inventory quantities are capped at 9999, experience derives the persisted level, and malformed saved rewards are replaced with canonical job/quest values during normalization.
-
-Cleanliness decreases only across elapsed awake time. Once it falls below 18, the ambient state becomes `dirty`; Codex work, reminders, explicit interactions and sleep retain their existing priority. Schema version 3 persists inventory, active job, daily quests, sleep reason and the bounded Codex reward ledger.
-
-## Sleep and games
-
-When enabled, the main process polls Electron's system idle seconds once per second. It enters inactivity sleep only when there is no active Codex task, high-priority reminder, job or game. The enhanced profile uses `sleeping-30.webp` for a complete curled-body loop; the native profile falls back to its untouched standard atlas. A game session is renderer-local, but its active flag and bounded settlement cross the typed IPC boundary. The main process rejects a settlement unless the game mode is enabled and a session is active, then clears the flag after a successful settlement.
-
-## Codex task controls
-
-In native mode, task identity comes from the newest local Codex `state_*.sqlite` database. The query is read-only, excludes archived rows, `exec`, subagent sources and subagent thread sources, and does not union arbitrary JSONL files. If the state database is unavailable, the service may ask the existing app-server for the same filtered authority; it never falls back to an unrelated log list in native mode. The renderer receives only title, project label, status, reply capability and update time.
-
-The append-only monitor reads lifecycle markers only. It maps each JSONL file's `session_meta` ID to a thread and overlays `running`, `waiting`, `idle` or `error` on the matching state-db record. Files identified as `exec` or `subagent` are ignored. This supplies live “执行中” labels without using log contents as task discovery.
-
-Replies never edit JSONL files. In the default native channel, the companion opens a fresh connection to `~/.codex/ipc/ipc.sock`, initializes as a follower, declines router ownership discovery, finds the exact owner with `thread-owner-discovery`, then sends `thread-follower-steer-turn` for an active turn or `thread-follower-start-turn` for an idle turn. The owner client ID is taken from the IPC response envelope, so a reply is delivered to the existing native Codex window rather than a newly opened window. Each send has a unique client message ID and a per-thread lock; sequential sends use independent connections.
-
-The optional CLI compatibility channel retains the older operations: active or waiting tasks use `codex queue --thread <id> --message <text>`, while idle or failed tasks use `codex exec resume --skip-git-repo-check <id> - --json` with the message on stdin. Queue/resume is never a silent fallback for native IPC. Arguments are passed as an array without a shell, IDs and message size are validated, and idle resume requires a `turn.started` acknowledgement. Exact task navigation remains an explicit `codex://threads/<id>` action; native reply success does not invoke that deep link again.
-
-## Persistence
-
-`CompanionStore` writes JSON through a temporary file followed by an atomic rename. The file mode is `0600`. Schema versions 1 and 2 migrate to version 3 while preserving stats, reminders, rules, activity, startup preference and overlay position; new care defaults are added without modifying the native Codex pet files. Every nested field is normalized at runtime. Malformed or unsupported future data is renamed to an `.invalid-*.bak` file before defaults are created, preventing silent overwrite of the only recoverable copy.
-
-## Integration boundary
-
-The host does not patch ChatGPT/Codex application bundles, `config.toml`, hooks, session JSONL or `~/.codex/pets/xiaoman`. State DB and lifecycle monitoring are read-only. Only an explicit reply invokes native IPC or, when explicitly selected, a supported Codex CLI write operation. Removing the desktop host leaves the native two-file pet intact.
+手机网页在 760px 及以下或粗指针设备上自动使用移动输入层，也允许用户手动选择桌面或
+手机模式。触控按钮位于 iframe 外，由宿主转成版本一致的键盘消息；直接点击型游戏保留
+原棋盘触摸交互。

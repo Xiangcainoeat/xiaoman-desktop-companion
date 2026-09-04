@@ -32,7 +32,7 @@ const DEFAULT_APP_SERVER_TIMEOUT_MS = 8_000;
 const NATIVE_REPLY_ASSUMED_ACTIVE_MS = 45_000;
 const THREAD_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$/;
 
-type JsonObject = Record<string, unknown>;
+export type JsonObject = Record<string, unknown>;
 
 export function getCodexDesktopAppCandidates(preferredPath?: string): string[] {
   return [...new Set([
@@ -141,6 +141,11 @@ export type CodexAppServerRequester = (
   method: string,
   params: JsonObject,
 ) => Promise<unknown>;
+
+export interface CodexPetStudioThreadResult {
+  desktopUrl: string;
+  promptPrefilled: boolean;
+}
 
 export interface CodexProcessInvocation {
   executable: string;
@@ -308,6 +313,24 @@ function requireMessage(message: string): string {
 
 export function getCodexThreadDeepLink(threadId: string): string {
   return `codex://threads/${encodeURIComponent(requireThreadId(threadId))}`;
+}
+
+/**
+ * Build the native Codex route for a new conversation.
+ *
+ * The desktop app owns the thread created by this route. The prompt is
+ * intentionally prefilled rather than submitted by an external process;
+ * native Codex keeps submission and authentication inside its own window.
+ */
+export function getCodexNewThreadDeepLink(prompt: string, cwd?: string | null): string {
+  const url = new URL(`${CODEX_DESKTOP_SCHEME}://new`);
+  url.searchParams.set("prompt", requireMessage(prompt));
+  if (cwd !== undefined && cwd !== null) {
+    if (!path.isAbsolute(cwd)) throw new TypeError("Codex working directory must be absolute");
+    if (cwd.includes("\u0000")) throw new TypeError("Codex working directory contains a NUL character");
+    url.searchParams.set("path", path.resolve(cwd));
+  }
+  return url.toString();
 }
 
 export function buildCodexQueueArgs(threadId: string, message: string): string[] {
@@ -809,7 +832,7 @@ async function requestAppServerProcess(
             clientInfo: {
               name: "xiaoman_desktop_companion",
               title: "Xiaoman Desktop Companion",
-              version: "1.4.0",
+              version: "1.6.1",
             },
             capabilities: {
               optOutNotificationMethods: [
@@ -1200,6 +1223,32 @@ export class CodexSessionsService {
 
   async openDesktopTarget(threadId: string): Promise<void> {
     await this.desktopOpener(this.getDesktopTarget(threadId));
+  }
+
+  getNewThreadTarget(prompt: string, cwd?: string | null): CodexDesktopTarget {
+    const appPath = this.getAvailableDesktopAppPath();
+    return {
+      available: this.platform === "darwin" && existsSync(appPath),
+      appPath,
+      bundleId: CODEX_DESKTOP_BUNDLE_ID,
+      scheme: CODEX_DESKTOP_SCHEME,
+      url: getCodexNewThreadDeepLink(prompt, cwd),
+      source: "official-deep-link",
+    };
+  }
+
+  async startPetStudioThread(
+    prompt: string,
+    cwd?: string | null,
+  ): Promise<CodexPetStudioThreadResult> {
+    const message = requireMessage(prompt);
+    const safeCwd = await usableWorkingDirectory(cwd) ?? os.homedir();
+    const target = this.getNewThreadTarget(message, safeCwd);
+    await this.desktopOpener(target);
+    return {
+      desktopUrl: target.url,
+      promptPrefilled: true,
+    };
   }
 
   async listSessions(options: CodexSessionListOptions = {}): Promise<CodexSessionListResult> {

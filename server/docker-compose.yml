@@ -1,0 +1,17 @@
+services:
+  xiaoman-social:
+    container_name: xiaoman-social
+    build:
+      context: .
+    ports:
+      - "${SOCIAL_PORT:-18080}:18080"
+    environment:
+      HOST: 0.0.0.0
+      PORT: 18080
+      SOCIAL_DB_PATH: /data/social.sqlite
+      SOCIAL_PUBLIC_ORIGIN: ${SOCIAL_PUBLIC_ORIGIN:-http://47.97.219.242:18080}
+      SOCIAL_CORS_ORIGINS: ${SOCIAL_CORS_ORIGINS:-http://localhost:5173,http://127.0.0.1:5173,http://localhost:61950,http://127.0.0.1:61950,http://47.97.219.242:18080,null}
+      SOCIAL_COOKIE_SECURE: ${SOCIAL_COOKIE_SECURE:-false}
+    volumes:
+      - ./data:/data
+    restart: unless-stopped

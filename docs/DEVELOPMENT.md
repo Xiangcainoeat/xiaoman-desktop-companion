@@ -1,133 +1,114 @@
-# Development
+# 开发说明
 
-## Source layout
+## 目录
 
 ```text
-electron/                 Main process, monitors, Codex service, store and preload
-src/components/           Overlay and control-center React views
-src/shared/               Shared types and pure domain/gaze/motion/layout functions
-public/pet/               Runtime atlases and tray icon
-scripts/                  Deterministic atlas assembly and packaging hooks
-tests/                    Renderer/shared Vitest suites
-work/                     Generation prompts, selected images and QA evidence
+electron/                 Electron 主进程、preload 和桌面窗口生命周期
+src/components/           悬浮窗、控制中心和游戏视图
+src/article-games/        游戏目录、来源边界和输入适配
+src/shared/                桌宠状态、养成、Codex 和桌面交互逻辑
+public/article-games/     部署到服务器的静态游戏运行文件
+public/pet/               内置宠物图集和机器可读素材清单
+vendor/article-games/     上游来源与许可证记录
+templates/pet-pack/       可复制的新宠物作者模板
+scripts/                  Pet Pack、构建、扫描和安装工具
+tests/                    Vitest 测试
 ```
 
-## Commands
+## 常用命令
 
 ```bash
-npm run dev          # Compile Electron and launch Vite + native windows
-npm run dev:web      # Browser-only UI with an in-memory mock bridge
-npm run typecheck    # Renderer and Electron TypeScript checks
-npm test             # Unit tests; build/release output is excluded
-npm run build        # Production renderer and clean Electron build
-npm run pack:mac     # Unpacked arm64 .app
-npm run dist:mac     # Unsigned arm64 DMG and ZIP
+npm run dev          # 编译 Electron，并启动 Vite 与桌面窗口
+npm run dev:web      # 启动公开网页面，只提供互动游戏和联机房间
+npm run typecheck    # Renderer、Electron、脚本和测试的 TypeScript 检查
+npm test             # 单元测试
+npm run build        # 生产 renderer、静态资源和 Electron 构建
+npm run dist:mac     # 未签名 Apple Silicon DMG/ZIP
+npm run install:mac  # 安装构建结果并刷新 macOS 启动注册
+npm run scan:public  # 发布前扫描私人路径和内联密钥
 ```
 
-`build:electron` deletes stale `dist-electron/` output before compilation and excludes Electron test files from the packaged main process. `verify:care-atlas` checks both the curled sleeping atlas and the bath/feed atlas; it uses the same bundled-Python launcher as the existing idle/look checks.
-
-## Rebuilding the gaze atlases
-
-The host has two selectable gaze profiles. The native profile is a deterministic
-extraction of the accepted v2 rows 9–10:
+Pet Pack 命令见 [PET-PACK.md](PET-PACK.md)：
 
 ```bash
-python3 scripts/build_native_look_atlas.py \
-  --source public/pet/spritesheet.webp \
-  --output public/pet/look-16.webp \
-  --contact-sheet work/look-16-contact-sheet.png \
-  --report work/look-16-validation.json
+npm run pet:init
+npm run pet:prompts
+npm run pet:generate
+npm run pet:validate
+npm run pet:pack
+npm run pet:install
 ```
 
-Expected contract: `1536x416`, `8x2`, 16 populated transparent cells of `192x208`.
+## 并行开发与写入原则
 
-The enhanced profile is the 96-direction atlas. The source repair, generated
-in-betweens and lower-hemisphere seam repair are recorded under
-`work/xiaoman-pet-96/`. Every runtime cell is an independent RGBA frame; the
-renderer never cross-fades two look frames. The assembler uses shared
-scale/baseline registration and the atlas builder writes a `12x8` sheet:
+可以让多个 agent 同时做只读检索、源码审计、测试设计和结果复核，但工作树的实际写入
+始终由一个主写入线程负责。并行 agent 不得修改主线程正在处理的文件，也不得直接执行
+覆盖安装、发布或推送；它们只返回文件位置、复现证据和最小修复建议。主线程逐项合并
+建议后统一运行测试、类型检查和构建，再进行安装与发布。生图请求同样计入总并发预算，
+整个任务的活动请求数不得超过 6。
 
-```bash
-sh scripts/run_image_python.sh scripts/assemble_look_96.py \
-  --generation-manifest work/xiaoman-pet-96/generation-manifest.json \
-  --anchors-dir work/xiaoman-pet-96/anchors \
-  --generated-dir work/xiaoman-pet-96/relay-output \
-  --seam-repairs work/xiaoman-pet-96/relay-output/seam-pairs-15-23.png \
-  --reference work/xiaoman-pet-96/generation-inputs/native-color-reference.png \
-  --frames-dir work/xiaoman-pet-96/ordered-frames \
-  --output public/pet/look-96.webp \
-  --metadata public/pet/look-96.json \
-  --provenance work/xiaoman-pet-96/assembly-provenance.json
-npm run verify:look-96
-```
+## 运行边界
 
-Expected enhanced contract: `2304x1664`, `12x8`, 96 populated transparent
-cells, `3.75°` steps, no empty frames, no hidden RGB and no double-exposure
-alpha ratios. The final runtime atlas and metadata are already checked in; the
-command above is a reproducibility path, not a runtime dependency.
+项目有两个互不等价的运行表面，开发时不得用浏览器 mock 代替桌面能力：
 
-The runtime enhanced profile uses the complete approved 96-direction body
-atlas. Each selected cell contains the coherent head, neck, torso, paws and
-tail pose, so the gaze renderer does not splice a separate neck or face layer:
+- Electron 桌面应用可以显示全部页面，并通过 preload/IPC 读取本机 Codex 状态、宠物包、
+  养成、提醒、应用事件和偏好设置。
+- 服务器网页只能显示“互动游戏”和“联机房间”。它不得显示本机页面，也不得为
+  Codex 上下文、当前任务、宠物配置或用户目录增加服务端接口。
 
-```bash
-npm run verify:look-96
-```
+新增导航或路由时必须同时更新 `src/shared/runtime.ts` 的白名单和对应测试。桌面回归还要
+直接验证 `CodexSessionsService` 能从本机状态库返回当前任务；仅看网页截图不能证明桌面
+任务读取正常。
 
-Expected enhanced contract: `2304x1664`, `12x8`, 96 non-empty RGBA cells,
-`3.75°` steps, no temporal blend, no hidden RGB and no double-exposure alpha.
-The native profile does not load the enhanced atlas.
+## 字体标准
 
-The experimental `build_head_look_atlas_96.py` and
-`verify_head_look_atlas_96.py` scripts, together with their generated assets,
-remain in the repository as historical provenance. They are not part of the
-runtime profile and are not required to build the application.
+控制中心使用统一的五级层次，新增页面应优先复用现有 token，不要为单个卡片引入
+新的字号：
 
-## Rebuilding idle actions
+| 层级 | 字号 / 行高 | 用途 |
+| --- | --- | --- |
+| 页面标题 | 26 / 32px | 顶栏和页面引导 |
+| 分区标题 | 20 / 26px | 设置组、面板和目录标题 |
+| 卡片标题 | 16 / 22px | 任务、游戏和列表项目 |
+| 正文/控件 | 14 / 20-21px | 说明、标签、字段和按钮 |
+| 元数据/眉题 | 12 / 16-18px | 来源、状态和辅助信息 |
 
-The selected ImageGen sources are `work/idle-actions-30-generated-lick.png`,
-`work/idle-actions-30-generated-blink.png`, and the three raised-front-paw
-phase sheets under `work/xiaoman-pet-96/relay-output/`. The deterministic build
-keeps the accepted lick and blink rows and replaces the legacy scratch rows with
-30 independent lift/hold/lower paw frames:
+数字进度和时间读数可以使用 18 / 22px。悬浮窗是更密集的独立交互表面，可以保留
+自己的尺寸，但不应让控制中心字体随意缩小。
 
-```bash
-sh scripts/run_image_python.sh scripts/assemble_paw_action_30.py \
-  --base-atlas public/pet/idle-actions-30.webp \
-  --paw-lift work/xiaoman-pet-96/relay-output/paw-lift.png \
-  --paw-hold work/xiaoman-pet-96/relay-output/paw-hold.png \
-  --paw-lower work/xiaoman-pet-96/relay-output/paw-lower.png
-npm run verify:idle-atlas
-```
+## 增加游戏
 
-Expected contract: `1920x1872`, `10x9`, 90 populated transparent cells, no
-hidden RGB, and detected green/magenta edge contamination within the configured
-limits. Install the optional tools
-with `python3 -m pip install -r requirements-image.txt` when the bundled Codex
-runtime is not available.
+1. 在 `src/article-games/registry.ts` 增加稳定 ID、中文名称、来源 URL、固定提交、
+   许可证和运行边界。
+2. 页面放在 `public/article-games/<id>/index.html`，并把脚本、样式、字体、图像和音频
+   一起部署到小满服务器；不要加入未经说明的第三方运行时依赖。
+3. 在 `vendor/article-games/<id>/SOURCE.md` 记录来源快照和每一处本地修改，单独标记
+   尚未解决的媒体权利。
+4. 在 `src/article-games/mobile-controls.ts` 明确手机端是直接触摸还是外置控制按钮；
+   先写注册表、服务器 URL 和输入测试，再修改目录数量。
+5. 运行完整的 typecheck、test、build 和公共扫描。
 
-The prior `look-32.webp` and `look-90.webp` pipelines remain in `work/` and
-`public/pet/` for historical provenance only; no runtime profile loads them
-directly.
+Electron 包不包含 `dist/article-games`。renderer 和主进程都会校验游戏 ID，并只生成
+已登记服务器来源的 URL。完整在线服务必须明确标记为 online handoff，不能写成已托管
+的静态资源。
 
-## Care and game assets
+## 修改宠物素材
 
-The sleep pipeline uses `public/pet/sleeping-30.webp`; the generated `public/pet/care-actions-30.webp` remains assembled and validated as a retained source/provenance atlas. Enhanced runtime feeding uses the native-colored `idle-actions-30.webp` lick row and bathing uses the native standard idle row, with discrete frame selection and no cross-frame blending. The accepted supplementary sheets contain 36 generated poses each and can still be rebuilt with:
+不要直接改 renderer 中的文件名判断。先更新
+[`public/pet/asset-manifest.json`](../public/pet/asset-manifest.json) 和对应的测试，
+再让 `src/pet-pack/runtime.ts` 保持稳定 ID。自定义包可以只提供必要 profile，但缺少
+可选动作时必须让内置 profile 回退；缺少 Codex 两个必需文件时，导入必须失败。
 
-```bash
-sh scripts/run_image_python.sh scripts/build_care_atlas_30.py \
-  --sleep-source work/xiaoman-care-assets/expanded-sleep-source.png \
-  --bath-source work/xiaoman-care-assets/expanded-bath-source.png \
-  --feed-source work/xiaoman-care-assets/expanded-feed-gift-source.png \
-  --output-dir release/candidates/care-rebuild
-```
+图集处理要保持离散整帧、透明像素 RGB 清零、固定注册点和明确的帧规格。图片 API
+只在作者显式传入 `--execute` 时调用，且并发范围不能超过 6。
 
-`public/game/fish-target.png` and `public/game/bubble-target.png` are cleaned transparent bitmap targets extracted deterministically from the local generated sources. Prompts, source images, reports and concurrency notes are kept in `work/xiaoman-care-assets/`. Image generation and agent work share a hard maximum of four active workers for this release.
+## 测试重点
 
-## Testing a local build
+- 宠物包：manifest schema、路径安全、校验和、可选文件、原子导入和 Codex 导出。
+- 生成器：多参考图请求、dry-run 默认行为、并发上限、跳过已有文件、失败报告。
+- 游戏：目录顺序、服务器 URL、桌面/手机输入、标签页生命周期、暂停/静音和在线边界。
+- 联机：WebSocket 落子、断线恢复、房间过期、悔棋确认和服务端权威回滚。
+- UI：统一字体层次、窗口适配、面板互斥、睡眠状态和无障碍标签。
 
-Browser mock QA covers forms, profile toggles, care inventory/actions, job and quest controls, game lifecycle, feature/settings ownership, task composition and responsive control-center layouts. Native QA additionally verifies transparent-window alpha, 30/60Hz cursor tracking, 96/native profile asset selection, configurable hover count, configurable inactivity reset, lower-quadrant continuity, owner-routed native IPC replies, owner-not-found CLI fallback, repeated sends, filtered task identity, explicit CLI queue/resume compatibility, system notifications, care/sleep assets and packaged resources.
-
-## Distribution
-
-The local release is unsigned/not notarized. Public distribution should add a Developer ID Application certificate, hardened runtime and notarization. No updater is configured.
+完成改动后必须用新命令输出证据，再在 README 中描述结果；不要只依据旧的构建目录或
+旧应用窗口判断更新是否生效。

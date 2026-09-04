@@ -1,9 +1,11 @@
 import { appendActivity, clampStat, createDefaultData, decayStats, FOOD_IDS, makeId, STATE_LABELS } from "./shared/domain";
 import { applyBath, applyFeed, claimDailyQuest, completePetJob, openGiftBox, startPetJob } from "./shared/care";
 import { canHitDesktopBubble, DESKTOP_SESSION_DURATION_MS } from "./shared/desktop-interaction";
-import { settleGameResult } from "./shared/games";
+import { isRewardedGameId, settleGameResult } from "./shared/games";
 import { isSleepAllowedInteraction, SLEEPING_NOTICE } from "./shared/sleep";
 import type { XiaomanApi } from "./electron";
+import { BUNDLED_PET_PACK_ID, createBundledPetPackRuntime } from "./pet-pack/runtime";
+import { PET_STUDIO_INSTALL_COMMAND } from "./pet-studio/prompt";
 import type {
   AppRuleInput,
   AppSnapshot,
@@ -20,31 +22,57 @@ import type {
   OverlayPanelMode,
   QuickViewMode,
   OverlayInteractionReport,
+  PetPackOperationResult,
+  PetPackRuntime,
+  PetPackSummary,
+  PetStudioStartResult,
   ReminderInput,
   SoundName,
 } from "./shared/types";
+import type { ArticleGameId, ArticleGameOpenResult } from "./article-games/registry";
+import { articleGameServerUrl, serverOriginForPage } from "./shared/server-origin";
+
+function browserGameServerOrigin(): string {
+  return serverOriginForPage(typeof window === "undefined" ? null : window.location);
+}
 
 function createMockApi(): XiaomanApi {
   const listeners = new Set<(snapshot: AppSnapshot) => void>();
   const soundListeners = new Set<(sound: SoundName) => void>();
   const centerTabListeners = new Set<(tab: CenterTab) => void>();
   const overlayPanelListeners = new Set<(mode: OverlayPanelMode | null) => void>();
+  const petPackListeners = new Set<(runtime: PetPackRuntime) => void>();
   let overlayPanelMode: OverlayPanelMode | null = null;
   const data = createDefaultData();
+  const bundledPetPackRuntime = createBundledPetPackRuntime();
+  const bundledPetPackSummary: PetPackSummary = {
+    id: BUNDLED_PET_PACK_ID,
+    name: "小满",
+    version: "bundled",
+    spriteVersionNumber: 2,
+    active: true,
+    bundled: true,
+    assetCount: bundledPetPackRuntime.assets.length,
+    hasCodex: true,
+    hasDesktop: true,
+    warnings: [],
+  };
   let current: AppSnapshot = {
     ...data,
     state: "idle",
     stateMessage: "我在这里",
     stateSource: "ambient",
     monitoring: {
-      codex: "watching",
-      applications: "watching",
-      notifications: "available",
-      activeApplication: "Visual Studio Code",
+      codex: "off",
+      applications: "off",
+      notifications: "off",
+      activeApplication: null,
       codexBusy: false,
       codexStartedAt: null,
     },
     desktopInteraction: { active: false, sessionId: null, startedAt: null, score: 0 },
+    petPacks: [bundledPetPackSummary],
+    petPackRuntime: bundledPetPackRuntime,
   };
 
   let gameActive = false;
@@ -151,7 +179,7 @@ function createMockApi(): XiaomanApi {
         : { ok: false as const, message: "现在没有打工" };
     } else if (operation.kind === "claim-quest") result = claimDailyQuest(baseData, operation.questId, now);
     else {
-      if (operation.gameId !== "rock-paper-scissors" && operation.gameId !== "fish-catch" && operation.gameId !== "bubble-pop") {
+      if (!isRewardedGameId(operation.gameId)) {
         throw new Error("没有这个小游戏");
       }
       const settlement = settleGameResult(operation.gameId, operation.score);
@@ -184,6 +212,8 @@ function createMockApi(): XiaomanApi {
       stateSource: "interaction",
       monitoring: current.monitoring,
       desktopInteraction: current.desktopInteraction,
+      petPacks: current.petPacks,
+      petPackRuntime: current.petPackRuntime,
     };
     current.activity = appendActivity(current.activity, {
       source: "interaction",
@@ -266,7 +296,7 @@ function createMockApi(): XiaomanApi {
     completeGame: async (gameId: GameId, score: number) => {
       rejectSleepingCare();
       if (!current.settings.gameModeEnabled) throw new Error("小游戏模式已关闭");
-      if (gameId !== "rock-paper-scissors" && gameId !== "fish-catch" && gameId !== "bubble-pop") {
+      if (!isRewardedGameId(gameId)) {
         throw new Error("没有这个小游戏");
       }
       expireDesktopSessionAndPublishIfNeeded();
@@ -278,6 +308,16 @@ function createMockApi(): XiaomanApi {
         gameActive = false;
       }
     },
+    getArticleGameUrl: async (gameId: ArticleGameId) => articleGameServerUrl(
+      browserGameServerOrigin(),
+      gameId,
+    ),
+    fitArticleGameWindow: async (_gameId: ArticleGameId | null): Promise<void> => undefined,
+    restoreGameWindow: async (): Promise<void> => undefined,
+    openArticleGameOnline: async (_gameId: ArticleGameId): Promise<ArticleGameOpenResult> => ({
+      ok: false,
+      message: "浏览器预览不会打开在线游戏，请使用 Electron 应用",
+    }),
     startDesktopBubbleSession: async () => {
       rejectSleepingCare();
       expireDesktopSessionAndPublishIfNeeded();
@@ -379,32 +419,9 @@ function createMockApi(): XiaomanApi {
       return publish();
     },
     listCodexThreads: async (): Promise<CodexThreadListResult> => ({
-      source: "mock",
-      warnings: ["浏览器预览仅模拟任务状态；真实回复请使用 Electron 应用"],
-      threads: [
-        {
-          id: "01a03ab3-1111-7111-8111-111111111111",
-          title: "完善小满桌面伴侣",
-          projectName: "xiaoman",
-          status: "active",
-          updatedAt: Date.now(),
-          activeTurnId: "turn-preview",
-          sourceKind: "appServer",
-          canReply: true,
-          waitReason: null,
-        },
-        {
-          id: "01a03ab3-2222-7222-8222-222222222222",
-          title: "整理宠物发布目录",
-          projectName: "release",
-          status: "idle",
-          updatedAt: Date.now() - 720_000,
-          activeTurnId: null,
-          sourceKind: "appServer",
-          canReply: true,
-          waitReason: null,
-        },
-      ],
+      source: "off",
+      warnings: ["Codex 当前任务仅在下载的桌面应用中可用"],
+      threads: [],
     }),
     openCodexThread: async () => ({ ok: false, message: "浏览器预览不会打开 Codex 任务，请使用 Electron 应用" }),
     replyCodexThread: async (_threadId: string, message: string) => ({
@@ -413,6 +430,31 @@ function createMockApi(): XiaomanApi {
       transport: "native",
       message: message.trim() ? "浏览器预览仅模拟回复，未调用 Codex；请使用 Electron 应用" : "请输入回复内容",
     }),
+    startPetStudio: async (): Promise<PetStudioStartResult> => ({
+      ok: false,
+      message: "浏览器预览不会创建原生 Codex 任务，请使用 Electron 应用",
+      desktopOpened: false,
+      installCommand: PET_STUDIO_INSTALL_COMMAND,
+    }),
+    listPetPacks: async () => structuredClone(current.petPacks),
+    importPetPack: async (_filePath?: string): Promise<PetPackOperationResult> => ({
+      ok: false,
+      message: "浏览器预览不会安装 Pet Pack，请使用 Electron 应用",
+    }),
+    activatePetPack: async (id: string | null) => {
+      if (id !== null && id !== BUNDLED_PET_PACK_ID) throw new Error("浏览器预览只支持内置小满");
+      current.activePetPackId = null;
+      current.petPacks = [bundledPetPackSummary];
+      current.petPackRuntime = bundledPetPackRuntime;
+      for (const listener of petPackListeners) listener(structuredClone(current.petPackRuntime));
+      return publish();
+    },
+    removePetPack: async (_id: string) => publish(),
+    exportPetPackToCodex: async (_id: string): Promise<PetPackOperationResult> => ({
+      ok: false,
+      message: "浏览器预览不会写入 Codex 目录，请使用 Electron 应用",
+    }),
+    getPetPackRuntime: async () => structuredClone(current.petPackRuntime),
     showQuickWindow: (mode: QuickViewMode) => setOverlayPanel(mode),
     quitApp: () => undefined,
     setOverlayTaskPanel: (open: boolean) => setOverlayPanel(open ? "codex" : null),
@@ -464,13 +506,25 @@ function createMockApi(): XiaomanApi {
       });
       return () => overlayPanelListeners.delete(listener);
     },
+    onPetPackChanged: (listener) => {
+      petPackListeners.add(listener);
+      queueMicrotask(() => {
+        if (petPackListeners.has(listener)) listener(structuredClone(current.petPackRuntime));
+      });
+      return () => petPackListeners.delete(listener);
+    },
   };
 }
 
 let mockApi: XiaomanApi | null = null;
 
+export function isDesktopRuntime(): boolean {
+  return typeof window !== "undefined" && Boolean(window.xiaoman);
+}
+
 export function getBridge(): XiaomanApi {
-  if (typeof window !== "undefined" && window.xiaoman) return window.xiaoman;
+  const desktopBridge = typeof window !== "undefined" ? window.xiaoman : undefined;
+  if (desktopBridge) return desktopBridge;
   mockApi ??= createMockApi();
   return mockApi;
 }

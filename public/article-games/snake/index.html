@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+  <head lang="zh-CN">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>贪吃蛇</title>
+    <!-- Link our styles from main.css -->
+    <link rel="stylesheet" type="text/css" href="main.css" />
+  </head>
+  <body>
+    <!-- #gameContainer is the main game board-->
+    <div id="gameContainer"></div>
+
+    <!-- #scoreContainer contains the scores  -->
+    <div id="scoreContainer">
+      <div class="scoreBoard">食物：<span id="pointsEarned">0</span></div>
+      <div class="scoreBoard">步数：<span id="blocksTravelled">0</span></div>
+    </div>
+
+    <section id="gameOver" class="gameOver" hidden role="status">
+      <strong>游戏结束</strong>
+      <span id="gameOverReason">撞到边界了</span>
+      <button id="restartButton" type="button">重新开始</button>
+    </section>
+
+    <div class="developerDetails">
+      <div>
+        开源项目：
+        <a href="https://github.com/RabiRoshan/snake_game" target="_blank" rel="noreferrer">Snake Game</a>
+      </div>
+      <div>
+        方向键或 WASD 控制移动
+      </div>
+    </div>
+  </body>
+
+  <!-- #Load our jscript.js containing the game logic -->
+  <script src="../xiaoman-audio-hook.js"></script>
+  <script src="jscript.js"></script>
+  <script src="../xiaoman-frame-adapter.js"></script>
+</html>

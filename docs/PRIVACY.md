@@ -1,36 +1,33 @@
-# Privacy
+# 隐私边界
 
-## Runtime network use
+## 运行时
 
-The desktop host contains no analytics, telemetry, updater, account system, custom backend or remote storage. Ordinary pet animation, interaction, reminders, notifications and application-event features run locally.
+小满桌面伴侣没有遥测或自动更新器。桌宠动画、养成、提醒和系统通知都在本机执行；
+H5 单机游戏从小满服务器加载静态资源，联机房间只有登录后才读取服务器上的账号和房间数据。
 
-When the user explicitly replies to a Codex task, the default native channel sends the text over the local Codex IPC socket to the client that owns the selected thread. The host does not open a second Codex window or duplicate the response to another service. If the user explicitly selects `CLI 兼容`, the installed Codex CLI is used instead and inherits the user's existing authentication, network connection and service settings. Task metadata may be read from the local state DB; an existing app-server daemon is used only as a filtered fallback.
+当用户回复 Codex 任务时，默认的原生通道通过本机 IPC socket 把文本交给拥有该任务
+的 Codex 客户端；应用不会直接写 session 数据库或 JSONL，也不会为了发送消息打开
+第二个任务窗口。用户明确选择 CLI 兼容通道后，应用才调用已经安装的 Codex CLI。
 
-## Codex sessions
+## 读取的数据
 
-When status monitoring is enabled, the app watches local files under `~/.codex/sessions` and reads only lifecycle markers from appended JSONL bytes. In native mode, task identity comes from the local `state_*.sqlite` database; the monitor only overlays a status when the file's `session_meta` ID matches that state-db thread. `exec` and subagent files are ignored. Task controls may use an existing local Codex app-server only as a filtered state-db fallback. The UI may display:
+- Codex 监听只读取本机状态库中的任务身份和有限生命周期信息，以及匹配身份的追加日志。
+- 应用事件只读取前台应用的名称，不读取窗口标题、文档、URL、键盘、剪贴板或屏幕像素。
+- 本地数据文件保存宠物数值、库存、任务、提醒、应用规则、设置、悬浮窗位置和有限的
+  最近活动。账号和联机房间数据保存在配置的联机服务器，不写入桌宠本地数据文件。
+- 桌面端登录后的 bearer token 只保存在当前进程内存；网页端可使用服务器下发的
+  HttpOnly cookie。退出登录会清除客户端会话和私有列表。
+- 当前联调地址使用 HTTP，不能保护传输中的真实密码；正式使用前应配置 HTTPS/WSS。
 
-- task title or a short first-message preview supplied by Codex
-- workspace/project label
-- task status and update time
-- thread identifier internally for navigation and reply
+## 图片生成
 
-Reasoning, tool arguments and tool outputs are not copied into the companion data store or displayed by this app. The bounded recent activity list stores only generic event titles and the selected task title.
+图片生成是作者主动执行的构建时功能，不是桌宠运行时功能。`pet:init` 记录参考图的
+本地路径和 SHA-256；`--execute` 时，参考图才会按用户配置发送到 OpenAI-compatible
+图片接口。API key 只从环境变量读取，不写入 jobs、manifest、日志或 `.xmpet`。
+公共仓库不包含原始照片、废弃候选、私有 relay 配置或真实密钥。
 
-An explicit native reply is validated, assigned a unique client message ID, owner-routed through the local IPC socket and sent to the existing Codex client. The app never writes session JSONL or the state DB directly. In the explicit CLI compatibility mode, active replies use the Codex queue and idle replies use the supported resume command; queue text can be visible briefly to same-user process inspection tools while that short-lived command runs, while resume text is sent on stdin.
+## Codex 独立性
 
-## Foreground applications
-
-The app asks macOS `NSWorkspace` for the localized name of the frontmost application every 2.2 seconds. It does not read window titles, document names, URLs, keystrokes, clipboard contents or screen pixels.
-
-## Stored data
-
-The local JSON store contains pet stats, inventory quantities, active job timing, daily quest progress, a bounded Codex reward ledger, reminder text, app-name rules, idle phrases, settings, overlay position and a bounded recent activity list. It is written with owner-only file permissions. Food, gift boxes and experience are local game data; they are never sent to Codex or a remote service.
-
-## Build-time image generation
-
-The idle action sheet, enhanced gaze transition references, care/sleep sources and game target sources were produced during development through the user's private OpenAI-compatible ImageGen relay with `gpt-image-2`, using the local `relay-imagegen` CLI wrapper. The relay endpoint and credentials are not included in the app and are never called at runtime. The native 16-direction gaze atlas is extracted locally from the accepted native spritesheet; the enhanced 96-direction atlas and care/game resources are assembled or cleaned locally from recorded sources.
-
-## Codex independence
-
-The app does not modify Codex configuration, hooks, session files or native pet files. Disabling Codex monitoring stops the lifecycle watcher. Disabling “Codex 任务与回复” removes task listing/reply controls while leaving other companion features available.
+桌面宿主不会修改 Codex 的设置、hooks、session 文件或原生宠物目录。切换自定义
+`.xmpet` 只改变桌面宿主读取的活动 profile；“导出到 Codex”是用户明确触发的独立
+操作，并且会在替换前保留备份。

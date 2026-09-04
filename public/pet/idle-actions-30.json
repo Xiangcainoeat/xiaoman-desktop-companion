@@ -1,0 +1,39 @@
+{
+  "algorithm": "xiaoman-idle-atlas-30-v2-stable-registration",
+  "format": "RGBA/WebP",
+  "dimensions": [
+    1920,
+    1872
+  ],
+  "columns": 10,
+  "rows": 9,
+  "frameCount": 90,
+  "frameWidth": 192,
+  "frameHeight": 208,
+  "cell": [
+    192,
+    208
+  ],
+  "actions": {
+    "idle-lick": {
+      "row": 0,
+      "rows": 3,
+      "frames": 30,
+      "columns": 10
+    },
+    "idle-blink": {
+      "row": 3,
+      "rows": 3,
+      "frames": 30,
+      "columns": 10
+    },
+    "idle-scratch": {
+      "row": 6,
+      "rows": 3,
+      "frames": 30,
+      "columns": 10,
+      "displayName": "举起前爪"
+    }
+  },
+  "notes": "Each action uses one 10x3 section; the renderer plays 30 frames from the selected section."
+}

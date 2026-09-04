@@ -29,7 +29,19 @@ export type FoodId = "fish-snack" | "milk" | "tuna-bites" | "salmon";
 export type JobId = "desk-organizer" | "code-helper" | "delivery-run";
 export type QuestKind = "feed" | "bathe" | "play" | "work" | "codex-complete" | "open-gift";
 export type SleepReason = "manual" | "inactivity" | null;
-export type GameId = "rock-paper-scissors" | "fish-catch" | "bubble-pop";
+/** All local games that can report a bounded result to the companion. */
+export type GameId =
+  | "rock-paper-scissors"
+  | "fish-catch"
+  | "bubble-pop"
+  | "xiangqi"
+  | "gomoku"
+  | "animal-chess"
+  | "monopoly"
+  | "doudizhu"
+  | "spider-solitaire"
+  | "hearts"
+  | "minesweeper";
 
 export interface GameStartResult {
   accepted: boolean;
@@ -50,7 +62,7 @@ export type PetMotion =
 
 export type QuickViewMode = "care" | "interaction";
 export type OverlayPanelMode = "codex" | QuickViewMode;
-export type CenterTab = "features" | "care" | "games" | "codex" | "overview" | "reminders" | "events" | "settings";
+export type CenterTab = "features" | "care" | "games" | "online" | "social" | "codex" | "overview" | "reminders" | "events" | "settings";
 
 export interface DesktopInteractionStatus {
   active: boolean;
@@ -121,6 +133,18 @@ export interface CodexThreadListResult {
 export interface CodexOpenResult {
   ok: boolean;
   message: string;
+}
+
+export interface PetStudioStartResult {
+  ok: boolean;
+  message: string;
+  threadId?: string;
+  turnId?: string;
+  desktopUrl?: string;
+  desktopOpened: boolean;
+  promptPrefilled?: boolean;
+  installCommand: string;
+  missing?: string[];
 }
 
 export interface PetStats {
@@ -256,6 +280,49 @@ export interface MonitoringStatus {
   codexStartedAt: number | null;
 }
 
+/** A validated, renderer-safe description of one asset in the active pack. */
+export interface PetPackAssetInfo {
+  id: string;
+  kind: "spritesheet" | "look-atlas" | "action-atlas" | "avatar" | "tray" | "metadata";
+  path: string;
+  url: string;
+  width?: number;
+  height?: number;
+  frameCount?: number;
+  columns?: number;
+  rows?: number;
+  optional?: boolean;
+}
+
+export interface PetPackSummary {
+  id: string;
+  name: string;
+  version: string;
+  spriteVersionNumber: number;
+  active: boolean;
+  bundled: boolean;
+  assetCount: number;
+  hasCodex: boolean;
+  hasDesktop: boolean;
+  warnings: string[];
+}
+
+export interface PetPackRuntime {
+  id: string;
+  assets: PetPackAssetInfo[];
+  warnings: string[];
+}
+
+export interface PetPackOperationResult {
+  ok: boolean;
+  message: string;
+  summary?: PetPackSummary;
+  files?: string[];
+  path?: string;
+  backupPath?: string;
+  errorCode?: string;
+}
+
 export interface PersistedData {
   version: 3;
   stats: PetStats;
@@ -277,6 +344,8 @@ export interface PersistedData {
   dailyQuests: DailyQuest[];
   sleepReason: SleepReason;
   codexRewardLedger: string[];
+  /** Null means the immutable bundled Xiaoman pack is active. */
+  activePetPackId: string | null;
 }
 
 export interface AppSnapshot extends PersistedData {
@@ -285,6 +354,8 @@ export interface AppSnapshot extends PersistedData {
   stateSource: string;
   monitoring: MonitoringStatus;
   desktopInteraction: DesktopInteractionStatus;
+  petPacks: PetPackSummary[];
+  petPackRuntime: PetPackRuntime;
 }
 
 export interface ReminderInput {

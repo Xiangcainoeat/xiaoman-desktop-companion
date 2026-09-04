@@ -16,10 +16,15 @@ import type {
   OverlayHitRegion,
   OverlayInteractionReport,
   OverlayPanelMode,
+  PetPackOperationResult,
+  PetPackRuntime,
+  PetPackSummary,
+  PetStudioStartResult,
   QuickViewMode,
   ReminderInput,
   SoundName,
 } from "../src/shared/types";
+import type { ArticleGameId, ArticleGameOpenResult } from "../src/article-games/registry";
 
 // Sandboxed preloads cannot require application-relative runtime modules.
 // Keep this protocol limit local and aligned with the shared type contract.
@@ -38,6 +43,8 @@ const CENTER_TABS: readonly CenterTab[] = [
   "features",
   "care",
   "games",
+  "online",
+  "social",
   "codex",
   "overview",
   "reminders",
@@ -55,6 +62,7 @@ const overlayTaskPanelListeners = new Set<(open: boolean) => void>();
 let pendingOverlayTaskPanelState: boolean | null = null;
 const overlayPanelListeners = new Set<(mode: OverlayPanelMode | null) => void>();
 let pendingOverlayPanelState: OverlayPanelMode | null | undefined;
+const petPackListeners = new Set<(runtime: PetPackRuntime) => void>();
 
 ipcRenderer.on("center:select-tab", (_event, value: unknown) => {
   if (!isCenterTab(value)) return;
@@ -81,6 +89,11 @@ ipcRenderer.on("overlay:panel-state", (_event, value: unknown) => {
     return;
   }
   for (const listener of overlayPanelListeners) listener(mode);
+});
+
+ipcRenderer.on("pet-pack:changed", (_event, value: unknown) => {
+  if (!value || typeof value !== "object") return;
+  for (const listener of petPackListeners) listener(value as PetPackRuntime);
 });
 
 function rounded(value: number): number {
@@ -245,6 +258,11 @@ contextBridge.exposeInMainWorld("xiaoman", {
   setGameActive: (active: boolean): void => ipcRenderer.send("game:set-active", active),
   startGameSession: (): Promise<GameStartResult> => ipcRenderer.invoke("game:start"),
   completeGame: (gameId: GameId, score: number): Promise<AppSnapshot> => ipcRenderer.invoke("game:complete", gameId, score),
+  getArticleGameUrl: (gameId: ArticleGameId): Promise<string> => ipcRenderer.invoke("article-game:url", gameId),
+  fitArticleGameWindow: (gameId: ArticleGameId | null): Promise<void> => ipcRenderer.invoke("article-game:fit", gameId),
+  restoreGameWindow: (): Promise<void> => ipcRenderer.invoke("article-game:restore"),
+  openArticleGameOnline: (gameId: ArticleGameId): Promise<ArticleGameOpenResult> =>
+    ipcRenderer.invoke("article-game:open-online", gameId),
   startDesktopBubbleSession: (): Promise<AppSnapshot> => ipcRenderer.invoke("desktop-bubble:start"),
   hitDesktopBubble: (sessionId: string, bubbleId: string): Promise<AppSnapshot> =>
     ipcRenderer.invoke("desktop-bubble:hit", sessionId, bubbleId),
@@ -265,6 +283,13 @@ contextBridge.exposeInMainWorld("xiaoman", {
   openCodexThread: (threadId: string): Promise<CodexOpenResult> => ipcRenderer.invoke("codex:thread:open", threadId),
   replyCodexThread: (threadId: string, message: string): Promise<CodexReplyResult> =>
     ipcRenderer.invoke("codex:thread:reply", threadId, message),
+  startPetStudio: (): Promise<PetStudioStartResult> => ipcRenderer.invoke("pet-studio:start"),
+  listPetPacks: (): Promise<PetPackSummary[]> => ipcRenderer.invoke("pet-pack:list"),
+  importPetPack: (filePath?: string): Promise<PetPackOperationResult> => ipcRenderer.invoke("pet-pack:import", filePath),
+  activatePetPack: (id: string | null): Promise<AppSnapshot> => ipcRenderer.invoke("pet-pack:activate", id),
+  removePetPack: (id: string): Promise<AppSnapshot> => ipcRenderer.invoke("pet-pack:remove", id),
+  exportPetPackToCodex: (id: string): Promise<PetPackOperationResult> => ipcRenderer.invoke("pet-pack:export-codex", id),
+  getPetPackRuntime: (): Promise<PetPackRuntime> => ipcRenderer.invoke("pet-pack:runtime"),
   setOverlayTaskPanel: (open: boolean): void => ipcRenderer.send("overlay:task-panel", open),
   setOverlayPanel: (mode: OverlayPanelMode | null): void => ipcRenderer.send("overlay:panel", mode),
   showCenter: (tab?: CenterTab): void => ipcRenderer.send("center:show", tab),
@@ -322,6 +347,10 @@ contextBridge.exposeInMainWorld("xiaoman", {
       });
     }
     return () => overlayPanelListeners.delete(callback);
+  },
+  onPetPackChanged: (callback: (runtime: PetPackRuntime) => void): (() => void) => {
+    petPackListeners.add(callback);
+    return () => petPackListeners.delete(callback);
   },
 });
 

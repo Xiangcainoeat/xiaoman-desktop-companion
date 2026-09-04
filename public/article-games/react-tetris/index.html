@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta name="renderer" content="webkit">
+    <meta name="description" content="使用React、Redux、Immutable制作的俄罗斯方块" />
+    <meta name="keywords" content="俄罗斯方块,Tetris,React,Redux,Immuatble,JavaScript">
+    <meta name="format-detection" content="telephone=no"/>
+    <script>;(function(){var w=parseInt(window.screen.width),s=w/640,u=navigator.userAgent.toLowerCase(),m='<meta name="viewport" content="width=640,';if(/android (\d+\.\d+)/.test(u)){if(parseFloat(RegExp.$1)>2.3)m+='minimum-scale='+s+',maximum-scale='+s+',';}else{m+='user-scalable=no,';}m+='target-densitydpi=device-dpi">';document.write(m);}());</script>
+    <meta charset="UTF-8">
+    <title>俄罗斯方块</title>
+    <link href="./loader.css" rel="stylesheet" />
+<link href="css-1.0.1.css" rel="stylesheet"></head>
+<body style="margin:0; width:640px; height:610px; min-height:610px; overflow: hidden; background:#f5f7f5;">
+<div id="root" data-xiaoman-tetris-input="keyboard-only">
+    <div class="load">
+        <div class="loader">加载中...</div>
+    </div>
+</div>
+<script src="../xiaoman-audio-hook.js"></script>
+<script type="text/javascript" src="app-1.0.1.js"></script>
+<style id="xiaoman-tetris-cleanup">
+  /* Local frame adaptation: keep the upstream board and hide only obsolete chrome. */
+  #root [data-xiaoman-tetris-role="guide"],
+  #root [data-xiaoman-tetris-role="qr"],
+  #root [data-xiaoman-tetris-role="rail"],
+  #root .J9SA,
+  #root [data-xiaoman-tetris-role="controls"] { display: none !important; }
+  /* The upstream score, level, and next-piece digits are sprite spans. Keep
+     the original sheet local so the offline pack never depends on Alibaba CDN. */
+  #root .bg {
+    background-image: url("./icon.png") !important;
+    background-repeat: no-repeat !important;
+  }
+  #root > [class*="_3Lk6"] {
+    width: 640px !important;
+    height: 610px !important;
+    top: 0 !important;
+    left: 50% !important;
+    margin-left: -320px !important;
+    margin-top: 0 !important;
+    padding-top: 42px !important;
+    padding-bottom: 0 !important;
+    transform: scale(1) !important;
+    transform-origin: top left !important;
+  }
+  #root { width: 640px; height: 610px; margin: 0; position: relative; overflow: hidden; }
+</style>
+<script>
+  // Local frame adaptation: the compiled upstream bundle has no stable DOM ids, so tag its exported guide roles deterministically.
+  function cleanupTetrisUpstreamChrome() {
+    var root = document.getElementById("root");
+    if (!root) return false;
+    var found = false;
+    root.setAttribute("data-xiaoman-tetris-input", "keyboard-only");
+    var app = root.querySelector('[class*="_3Lk6"]');
+    if (app) {
+      app.style.setProperty("transform", "scale(1)", "important");
+      app.style.setProperty("transform-origin", "top left", "important");
+      found = true;
+    }
+    root.querySelectorAll(".J9SA").forEach(function (node) {
+      node.setAttribute("data-xiaoman-tetris-role", "controls");
+      found = true;
+    });
+    root.querySelectorAll('[class*="_2iIk"]').forEach(function (node) {
+      var classes = node.className || "";
+      var role = classes.indexOf("_111n") >= 0 ? "qr" :
+        (classes.indexOf("_15Dj") >= 0 || classes.indexOf("_I0Q") >= 0 ? "rail" : "guide");
+      node.setAttribute("data-xiaoman-tetris-role", role);
+      found = true;
+    });
+    root.querySelectorAll('[class*="DOXx"], [class*="nVeA"]').forEach(function (node) {
+      node.setAttribute("data-xiaoman-tetris-role", "rail");
+      found = true;
+    });
+    root.querySelectorAll('[class*="_1deS"]').forEach(function (node) {
+      node.setAttribute("data-xiaoman-tetris-role", "stats");
+      found = true;
+    });
+    if (found) root.setAttribute("data-xiaoman-tetris-cleanup", "ready");
+    return found;
+  }
+  cleanupTetrisUpstreamChrome();
+  window.setTimeout(cleanupTetrisUpstreamChrome, 0);
+</script>
+<script src="xiaoman-tetris-bridge.js"></script>
+<script src="xiaoman-tetris-audio.js"></script>
+<script src="../xiaoman-frame-adapter.js"></script>
+</body>
+</html>

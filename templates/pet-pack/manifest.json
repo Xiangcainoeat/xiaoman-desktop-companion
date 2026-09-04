@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "id": "replace-me",
+  "name": "Pet Pack",
+  "version": "1.0.0",
+  "spriteVersionNumber": 2,
+  "assetRoot": "assets",
+  "entries": [
+    {
+      "id": "standard-spritesheet",
+      "path": "desktop/spritesheet.webp",
+      "kind": "spritesheet",
+      "mimeType": "image/webp",
+      "width": 1536,
+      "height": 2288,
+      "columns": 8,
+      "rows": 11
+    }
+  ],
+  "compatibility": {
+    "desktop": true,
+    "codex": false
+  },
+  "license": "UNLICENSED"
+}

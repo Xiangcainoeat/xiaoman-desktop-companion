@@ -6,6 +6,7 @@ directories:
   buildResources: build
 files:
   - dist/**/*
+  - "!dist/article-games/**/*"
   - dist-electron/**/*
   - package.json
 asar: true

@@ -1,6 +1,7 @@
 import { ControlCenter } from "./components/ControlCenter";
 import { QuickActionsView, parseQuickViewMode } from "./components/QuickActionsView";
 import { Overlay } from "./components/Overlay";
+import { isDesktopRuntime } from "./bridge";
 
 export function QuickRouteError() {
   return (
@@ -15,6 +16,7 @@ export function QuickRouteError() {
 export function App() {
   const params = new URLSearchParams(window.location.search);
   const view = params.get("view") ?? "center";
+  if (!isDesktopRuntime() && view !== "center") return <ControlCenter />;
   if (view === "overlay") return <Overlay />;
   if (view === "quick") {
     const mode = parseQuickViewMode(params.get("mode"));

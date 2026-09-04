@@ -6,7 +6,7 @@
 > `work/xiaoman-care-assets/expanded-source-provenance.json`.
 
 Date: 2026-08-28
-Worktree: `/Users/zk/.config/superpowers/worktrees/xiaoman-desktop-companion-release/xiaoman-care-and-games`
+Worktree: `$HOME/.config/superpowers/worktrees/xiaoman-desktop-companion-release/xiaoman-care-and-games`
 Branch: `feature/xiaoman-care-and-games`
 Implementation commit: `a1a1ca991262cf2b324a7386de13fe19e30f526b`
 
@@ -53,8 +53,8 @@ that write-back.
 Command:
 
 ```text
-/Users/zk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/verify_care_atlas_30.py check-output-care-v4-discrete-final/sleeping-30.webp check-output-care-v4-discrete-final/sleeping-30.json --report /tmp/xiaoman-sleep-final-verify.json
-/Users/zk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/verify_care_atlas_30.py check-output-care-v4-discrete-final/care-actions-30.webp check-output-care-v4-discrete-final/care-actions-30.json --report /tmp/xiaoman-care-final-verify.json
+$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/verify_care_atlas_30.py check-output-care-v4-discrete-final/sleeping-30.webp check-output-care-v4-discrete-final/sleeping-30.json --report /tmp/xiaoman-sleep-final-verify.json
+$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 scripts/verify_care_atlas_30.py check-output-care-v4-discrete-final/care-actions-30.webp check-output-care-v4-discrete-final/care-actions-30.json --report /tmp/xiaoman-care-final-verify.json
 ```
 
 Result: both commands exited `0` and returned `ok: true`.
@@ -84,13 +84,13 @@ requires new or recolored source poses, not a validator-threshold change.
 Passed:
 
 ```text
-/Users/zk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest tests.test_smooth_action_atlas -v
+$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m unittest tests.test_smooth_action_atlas -v
 Ran 18 tests in 4.279s
 OK
 ```
 
 ```text
-/Users/zk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m py_compile scripts/build_care_atlas_30.py scripts/build_idle_atlas_30.py scripts/verify_care_atlas_30.py
+$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m py_compile scripts/build_care_atlas_30.py scripts/build_idle_atlas_30.py scripts/verify_care_atlas_30.py
 ```
 
 The care contract suite ran 18 tests: 16 passed and 2 failed only because the

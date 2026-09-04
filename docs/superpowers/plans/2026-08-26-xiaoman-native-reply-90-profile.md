@@ -274,4 +274,4 @@ Run: `npm run dist:mac`，生成 arm64 DMG/ZIP、源码包和 `SHA256SUMS`。重
 
 - [ ] **Step 6: 同步外层源码并完成最终审查**
 
-只同步应用源码和发布交付物到 `/Users/zk/Documents/Codex/2026-08-21/hatch-pet-users-zk-codex-skills/xiaoman-desktop-companion` 的对应文件，不覆盖用户无关改动。运行 `git diff --check`、查看 `git status`、检查 release 清单，然后提交最终文档。
+只同步应用源码和发布交付物到当前发布工作区的对应文件，不覆盖用户无关改动。运行 `git diff --check`、查看 `git status`、检查 release 清单，然后提交最终文档。

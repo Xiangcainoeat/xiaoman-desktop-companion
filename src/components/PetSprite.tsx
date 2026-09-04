@@ -22,6 +22,8 @@ import {
   smoothAngle,
 } from "../shared/gaze";
 import { bridge } from "../useCompanion";
+import { findPetPackAsset, resolvePetAssetUrl } from "../pet-pack/runtime";
+import { usePetPackRuntime } from "../useCompanion";
 import type { CursorPositionSample } from "../shared/gaze";
 import type { CompanionSettings, PetMotion, PetProfile, PetState } from "../shared/types";
 
@@ -184,6 +186,31 @@ const LOOK_ATLAS_FALLBACKS: Record<PetProfile, LookAtlasMetadata> = {
   },
 };
 
+// Keep the canonical fallback names explicit so older packaged renderers and
+// asset-contract checks can still discover the built-in resources.
+const ENHANCED_LOOK_METADATA_NAME = "look-96.json";
+const ENHANCED_LOOK_ATLAS_NAME = "look-96.webp";
+const ENHANCED_LOOK_ATLAS_FALLBACK = `./pet/${ENHANCED_LOOK_ATLAS_NAME}`;
+const SLEEPING_ATLAS_FALLBACK = './pet/sleeping-30.webp';
+const CARE_ATLAS_FALLBACK = './pet/care-actions-30.webp';
+
+function runtimeLookMetadata(
+  runtime: ReturnType<typeof usePetPackRuntime>,
+  profile: PetProfile,
+  fallback: LookAtlasMetadata,
+): LookAtlasMetadata {
+  const asset = findPetPackAsset(runtime, profile === "native" ? "native-look-atlas" : "enhanced-look-atlas");
+  if (!asset || !asset.width || !asset.height || !asset.columns || !asset.rows || !asset.frameCount) return fallback;
+  return {
+    frameCount: asset.frameCount,
+    columns: asset.columns,
+    rows: asset.rows,
+    frameWidth: Math.round(asset.width / asset.columns),
+    frameHeight: Math.round(asset.height / asset.rows),
+    stepDegrees: 360 / asset.frameCount,
+  };
+}
+
 function MoodGlyph({ state }: { state: PetSpriteState }) {
   if (state === "hungry") return <Fish aria-hidden="true" />;
   if (state === "dirty") return <Bath aria-hidden="true" />;
@@ -205,6 +232,7 @@ export function PetSprite({
   gazeSuppressed = false,
   onGazeActivityChange,
 }: PetSpriteProps) {
+  const petPackRuntime = usePetPackRuntime();
   const [settled, setSettled] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const [lookIndex, setLookIndex] = useState<number | null>(null);
@@ -232,12 +260,16 @@ export function PetSprite({
 
   useEffect(() => {
     const profile = settings.petProfile;
-    const fallback = LOOK_ATLAS_FALLBACKS[profile];
-    const root = profile === "native" ? "./pet/native" : "./pet";
-    const metadataName = profile === "native" ? "look-16.json" : "look-96.json";
+    const fallback = runtimeLookMetadata(petPackRuntime, profile, LOOK_ATLAS_FALLBACKS[profile]);
+    const metadataId = profile === "native" ? "native-look-metadata" : "enhanced-look-metadata";
+    const metadataFallback = profile === "native" ? "./pet/native/look-16.json" : `./pet/${ENHANCED_LOOK_METADATA_NAME}`;
+    const metadataUrl = resolvePetAssetUrl(petPackRuntime, metadataId, metadataFallback);
     let cancelled = false;
     setLookMetadata(fallback);
-    void fetch(`${root}/${metadataName}`)
+    if (metadataUrl.startsWith("file:")) return () => {
+      cancelled = true;
+    };
+    void fetch(metadataUrl)
       .then((response) => response.ok ? response.json() as Promise<unknown> : null)
       .then((value) => {
         if (!cancelled && value) setLookMetadata(parseLookAtlasMetadata(value, fallback));
@@ -246,7 +278,7 @@ export function PetSprite({
     return () => {
       cancelled = true;
     };
-  }, [settings.petProfile]);
+  }, [petPackRuntime, settings.petProfile]);
 
   useEffect(() => {
     loopsRef.current = 0;
@@ -298,20 +330,22 @@ export function PetSprite({
     [lookMetadata.frameHeight, lookMetadata.frameWidth, size],
   );
   const baseSprite = useMemo(() => {
-    const root = settings.petProfile === "native" ? "./pet/native" : "./pet";
+    const standardId = settings.petProfile === "native" ? "codex-spritesheet" : "enhanced-spritesheet";
+    const standardFallback = settings.petProfile === "native" ? "./pet/native/spritesheet.webp" : "./pet/spritesheet.webp";
+    const atlasUrl = animation.atlas === "idle"
+      ? resolvePetAssetUrl(petPackRuntime, "idle-actions", "./pet/idle-actions-30.webp")
+      : animation.atlas === "sleeping"
+        ? resolvePetAssetUrl(petPackRuntime, "sleeping-actions", SLEEPING_ATLAS_FALLBACK)
+        : animation.atlas === "care"
+          ? resolvePetAssetUrl(petPackRuntime, "care-actions", CARE_ATLAS_FALLBACK)
+          : resolvePetAssetUrl(petPackRuntime, standardId, standardFallback);
     return {
       width: dimensions.width,
       height: dimensions.height,
-      backgroundImage: animation.atlas === "idle"
-        ? "url('./pet/idle-actions-30.webp')"
-        : animation.atlas === "sleeping"
-          ? "url('./pet/sleeping-30.webp')"
-          : animation.atlas === "care"
-            ? "url('./pet/care-actions-30.webp')"
-            : `url('${root}/spritesheet.webp')`,
+      backgroundImage: `url('${atlasUrl}')`,
       backgroundSize: `${size * animation.columns}px ${dimensions.height * animation.atlasRows}px`,
     };
-  }, [animation, dimensions.height, dimensions.width, settings.petProfile, size]);
+  }, [animation, dimensions.height, dimensions.width, petPackRuntime, settings.petProfile, size]);
 
   useEffect(() => {
     const canLook = settings.gazeEnabled
@@ -460,12 +494,12 @@ export function PetSprite({
     state,
   ]);
 
-  const lookAssetRoot = settings.petProfile === "native" ? "./pet/native" : "./pet";
-  const lookAssetName = settings.petProfile === "native" ? "look-16.webp" : "look-96.webp";
-  const lookLayerStyle = (index: number, assetName = lookAssetName) => ({
+  const lookAssetId = settings.petProfile === "native" ? "native-look-atlas" : "enhanced-look-atlas";
+  const lookFallbackUrl = settings.petProfile === "native" ? "./pet/native/look-16.webp" : ENHANCED_LOOK_ATLAS_FALLBACK;
+  const lookLayerStyle = (index: number) => ({
     width: dimensions.width,
     height: dimensions.height,
-    backgroundImage: `url('${lookAssetRoot}/${assetName}')`,
+    backgroundImage: `url('${resolvePetAssetUrl(petPackRuntime, lookAssetId, lookFallbackUrl)}')`,
     backgroundSize: `${size * lookMetadata.columns}px ${dimensions.height * lookMetadata.rows}px`,
     backgroundPosition: `${-(index % lookMetadata.columns) * size}px ${-Math.floor(index / lookMetadata.columns) * dimensions.height}px`,
   });

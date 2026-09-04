@@ -9,6 +9,7 @@ import {
   CodexSessionsService,
   canReplyToCodexSession,
   getCodexDesktopAppCandidates,
+  getCodexNewThreadDeepLink,
   getCodexThreadDeepLink,
   parseCodexSessionLog,
   scanLocalCodexSessions,
@@ -989,5 +990,55 @@ describe("safe reply dispatch", () => {
       "Reply message must not be empty",
     );
     expect(recorder.invocations).toHaveLength(0);
+  });
+});
+
+describe("native pet studio launch", () => {
+  it("opens a native new-thread deep link instead of creating an external app-server owner", async () => {
+    const opened: Array<{ available: boolean; appPath: string; url: string }> = [];
+    const service = new CodexSessionsService({
+      codexPath: "/safe/codex",
+      desktopAppPath: "/Applications/ChatGPT.app",
+      platform: "darwin",
+      desktopOpener: async (target) => {
+        opened.push({ available: target.available, appPath: target.appPath, url: target.url });
+      },
+      appServerRequest: async () => {
+        throw new Error("Pet Studio must not create a separate app-server task");
+      },
+    });
+
+    const result = await service.startPetStudioThread("$xiaoman-pet-studio 生成小满", "/tmp");
+
+    expect(result).toEqual({
+      desktopUrl: getCodexNewThreadDeepLink("$xiaoman-pet-studio 生成小满", "/tmp"),
+      promptPrefilled: true,
+    });
+    expect(opened).toHaveLength(1);
+    expect(opened[0]).toMatchObject({
+      appPath: "/Applications/ChatGPT.app",
+      url: result.desktopUrl,
+    });
+    const url = new URL(opened[0].url);
+    expect(url.protocol).toBe("codex:");
+    expect(url.hostname).toBe("new");
+    expect(url.searchParams.get("prompt")).toBe("$xiaoman-pet-studio 生成小满");
+    expect(url.searchParams.get("path")).toBe("/tmp");
+  });
+
+  it("encodes a native new-thread URL with a bounded prompt and optional working directory", () => {
+    const url = new URL(getCodexNewThreadDeepLink("  生成\n小满  ", null));
+    expect(url.protocol).toBe("codex:");
+    expect(url.hostname).toBe("new");
+    expect(url.searchParams.get("prompt")).toBe("生成\n小满");
+    expect(url.searchParams.has("path")).toBe(false);
+  });
+
+  it("rejects an empty native pet studio prompt before opening Codex", async () => {
+    const opener = vi.fn(async () => undefined);
+    const service = new CodexSessionsService({ desktopOpener: opener });
+
+    await expect(service.startPetStudioThread("  ", "/tmp")).rejects.toThrow("must not be empty");
+    expect(opener).not.toHaveBeenCalled();
   });
 });

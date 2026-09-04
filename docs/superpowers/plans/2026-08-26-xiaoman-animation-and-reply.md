@@ -94,14 +94,14 @@ Use the bundled Python runtime from codex_app__load_workspace_dependencies, not 
 
 - [ ] Step 4: Generate the actual additional action frames through the relay
 
-Read /Users/zk/.codex/skills/.system/imagegen/SKILL.md and /Users/zk/.codex/skills/relay-imagegen/SKILL.md immediately before generation. Use the relay wrapper at the skills/relay-imagegen/scripts/relay_imagegen.sh under CODEX_HOME or HOME. Generate one sheet per action using the native Xiaoman face/body as identity reference and work/idle-actions-30-guide.png as a layout guide. Each prompt must require 30 distinct sequential frames in a 10-column by 3-row grid, no labels, no borders, no shadows, no background, consistent camera, consistent body proportions, neutral first/last frame, and natural intermediate motion. Generate lick, blink, and scratch as separate outputs so a failed action can be regenerated without replacing the others.
+Read `$CODEX_HOME/skills/.system/imagegen/SKILL.md` and `$CODEX_HOME/skills/relay-imagegen/SKILL.md` immediately before generation. Use the relay wrapper at the skills/relay-imagegen/scripts/relay_imagegen.sh under CODEX_HOME or HOME. Generate one sheet per action using the native Xiaoman face/body as identity reference and work/idle-actions-30-guide.png as a layout guide. Each prompt must require 30 distinct sequential frames in a 10-column by 3-row grid, no labels, no borders, no shadows, no background, consistent camera, consistent body proportions, neutral first/last frame, and natural intermediate motion. Generate lick, blink, and scratch as separate outputs so a failed action can be regenerated without replacing the others.
 
 - [ ] Step 5: Inspect and build the generated sheets
 
 View all three generated PNGs and the contact sheet with view_image. Reject and regenerate only a sheet with a concrete defect such as missing cells, identity drift, clipped ears/tail, frozen duplicate frames, or visible colored matte. Run:
 
 ~~~
-PYTHON=/Users/zk/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3
+PYTHON=$HOME/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3
 $PYTHON scripts/build_idle_atlas_30.py \
   --lick work/idle-actions-30-generated-lick.png \
   --blink work/idle-actions-30-generated-blink.png \
