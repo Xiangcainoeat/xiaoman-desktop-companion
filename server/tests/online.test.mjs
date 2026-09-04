@@ -106,6 +106,60 @@ function gomokuMove(room, seat, x, y, moves) {
   };
 }
 
+function armyChessMove(room, seat, from, to) {
+  const state = JSON.parse(room.position);
+  const board = state.board.split("");
+  const revealed = new Set(Array.isArray(state.revealed) ? state.revealed : []);
+  const fromIndex = from.y * 5 + from.x;
+  const toIndex = to.y * 5 + to.x;
+  const captured = state.board[toIndex] === "0" ? null : to;
+  board[toIndex] = board[fromIndex];
+  board[fromIndex] = "0";
+  revealed.delete(fromIndex);
+  revealed.delete(toIndex);
+  revealed.add(toIndex);
+  return {
+    roomId: room.id,
+    gameId: "army-chess",
+    seat,
+    from,
+    to,
+    captured,
+    position: JSON.stringify({
+      ...state,
+      board: board.join(""),
+      turn: seat === "red" ? "black" : "red",
+      revealed: [...revealed].sort((left, right) => left - right),
+      lastAction: "move",
+      lastCapture: captured,
+    }),
+    seq: room.seq + 1,
+    createdAt: Date.now(),
+  };
+}
+
+function armyChessReveal(room, seat, point) {
+  const state = JSON.parse(room.position);
+  const index = point.y * 5 + point.x;
+  const revealed = Array.isArray(state.revealed) ? state.revealed : [];
+  return {
+    roomId: room.id,
+    gameId: "army-chess",
+    seat,
+    from: point,
+    to: point,
+    captured: null,
+    position: JSON.stringify({
+      ...state,
+      revealed: [...revealed, index].sort((left, right) => left - right),
+      turn: seat === "red" ? "black" : "red",
+      lastAction: "reveal",
+    }),
+    seq: room.seq + 1,
+    createdAt: Date.now(),
+  };
+}
+
 test("authenticated realtime clients receive friend requests and direct messages", async () => {
   const context = await start();
   const sockets = [];
@@ -621,6 +675,178 @@ test("two WebSocket clients exchange Gomoku moves with request IDs and strict se
     assert.equal(secondBobRoomEvent.payload.room.turn, "red");
   } finally {
     for (const socket of sockets) socket.close();
+    await stop(context);
+  }
+});
+
+test("Army Chess move turns are server-owned and strictly alternate between players", async () => {
+  const context = await start();
+  try {
+    const alice = await register(context.baseUrl, "armyturnalice");
+    const bob = await register(context.baseUrl, "armyturnbob");
+    const created = await request(context.baseUrl, "/api/v1/game-rooms", {
+      method: "POST",
+      token: alice.token,
+      body: { gameId: "army-chess" },
+    });
+    assert.equal(created.response.status, 200);
+    let room = created.payload.data;
+    const joined = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/join`, {
+      method: "POST",
+      token: bob.token,
+      body: {},
+    });
+    assert.equal(joined.response.status, 200);
+    await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/ready`, {
+      method: "POST",
+      token: alice.token,
+      body: { ready: true },
+    });
+    const started = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/ready`, {
+      method: "POST",
+      token: bob.token,
+      body: { ready: true },
+    });
+    assert.equal(started.response.status, 204);
+
+    room = (await request(context.baseUrl, `/api/v1/game-rooms/${room.id}`, { token: alice.token })).payload.data;
+    assert.equal(room.status, "playing");
+    assert.equal(room.turn, "red");
+
+    const redReveal = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/moves`, {
+      method: "POST",
+      token: alice.token,
+      body: armyChessReveal(room, "red", { x: 0, y: 7 }),
+    });
+    assert.equal(redReveal.response.status, 204);
+    room = (await request(context.baseUrl, `/api/v1/game-rooms/${room.id}`, { token: bob.token })).payload.data;
+
+    const blackReveal = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/moves`, {
+      method: "POST",
+      token: bob.token,
+      body: armyChessReveal(room, "black", { x: 0, y: 2 }),
+    });
+    assert.equal(blackReveal.response.status, 204);
+    room = (await request(context.baseUrl, `/api/v1/game-rooms/${room.id}`, { token: alice.token })).payload.data;
+    assert.equal(room.seq, 2);
+    assert.equal(room.turn, "red");
+
+    const firstMove = armyChessMove(room, "red", { x: 0, y: 7 }, { x: 1, y: 7 });
+    const first = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/moves`, {
+      method: "POST",
+      token: alice.token,
+      body: firstMove,
+    });
+    assert.equal(first.response.status, 204);
+
+    room = (await request(context.baseUrl, `/api/v1/game-rooms/${room.id}`, { token: bob.token })).payload.data;
+    assert.equal(room.seq, 3);
+    assert.equal(room.turn, "black");
+    assert.equal(JSON.parse(room.position).turn, "black");
+    const positionAfterFirstMove = room.position;
+
+    const consecutiveMove = armyChessMove(room, "red", { x: 2, y: 7 }, { x: 3, y: 7 });
+    const rejected = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/moves`, {
+      method: "POST",
+      token: alice.token,
+      body: consecutiveMove,
+    });
+    assert.equal(rejected.response.status, 409);
+    assert.equal(rejected.payload.error.code, "MOVE_REJECTED");
+
+    room = (await request(context.baseUrl, `/api/v1/game-rooms/${room.id}`, { token: bob.token })).payload.data;
+    assert.equal(room.seq, 3);
+    assert.equal(room.turn, "black");
+    assert.equal(room.position, positionAfterFirstMove);
+
+    const secondMove = armyChessMove(room, "black", { x: 0, y: 2 }, { x: 1, y: 2 });
+    const second = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/moves`, {
+      method: "POST",
+      token: bob.token,
+      body: secondMove,
+    });
+    assert.equal(second.response.status, 204);
+
+    room = (await request(context.baseUrl, `/api/v1/game-rooms/${room.id}`, { token: alice.token })).payload.data;
+    assert.equal(room.seq, 4);
+    assert.equal(room.turn, "red");
+    assert.equal(JSON.parse(room.position).turn, "red");
+  } finally {
+    await stop(context);
+  }
+});
+
+test("Army Chess reveals consume the same alternating turn as piece moves", async () => {
+  const context = await start();
+  try {
+    const alice = await register(context.baseUrl, "armyrevealalice");
+    const bob = await register(context.baseUrl, "armyrevealbob");
+    const created = await request(context.baseUrl, "/api/v1/game-rooms", {
+      method: "POST",
+      token: alice.token,
+      body: { gameId: "army-chess" },
+    });
+    assert.equal(created.response.status, 200);
+    let room = created.payload.data;
+    await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/join`, {
+      method: "POST",
+      token: bob.token,
+      body: {},
+    });
+    await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/ready`, {
+      method: "POST",
+      token: alice.token,
+      body: { ready: true },
+    });
+    await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/ready`, {
+      method: "POST",
+      token: bob.token,
+      body: { ready: true },
+    });
+    room = (await request(context.baseUrl, `/api/v1/game-rooms/${room.id}`, { token: alice.token })).payload.data;
+
+    const firstReveal = armyChessReveal(room, "red", { x: 0, y: 6 });
+    const first = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/moves`, {
+      method: "POST",
+      token: alice.token,
+      body: firstReveal,
+    });
+    assert.equal(first.response.status, 204);
+
+    room = (await request(context.baseUrl, `/api/v1/game-rooms/${room.id}`, { token: bob.token })).payload.data;
+    assert.equal(room.seq, 1);
+    assert.equal(room.turn, "black");
+    assert.equal(JSON.parse(room.position).turn, "black");
+    assert.deepEqual(JSON.parse(room.position).revealed, [30]);
+    const positionAfterFirstReveal = room.position;
+
+    const consecutiveReveal = armyChessReveal(room, "red", { x: 1, y: 6 });
+    const rejected = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/moves`, {
+      method: "POST",
+      token: alice.token,
+      body: consecutiveReveal,
+    });
+    assert.equal(rejected.response.status, 409);
+    assert.equal(rejected.payload.error.code, "MOVE_REJECTED");
+
+    room = (await request(context.baseUrl, `/api/v1/game-rooms/${room.id}`, { token: bob.token })).payload.data;
+    assert.equal(room.seq, 1);
+    assert.equal(room.position, positionAfterFirstReveal);
+
+    const secondReveal = armyChessReveal(room, "black", { x: 0, y: 0 });
+    const second = await request(context.baseUrl, `/api/v1/game-rooms/${room.id}/moves`, {
+      method: "POST",
+      token: bob.token,
+      body: secondReveal,
+    });
+    assert.equal(second.response.status, 204);
+
+    room = (await request(context.baseUrl, `/api/v1/game-rooms/${room.id}`, { token: alice.token })).payload.data;
+    assert.equal(room.seq, 2);
+    assert.equal(room.turn, "red");
+    assert.equal(JSON.parse(room.position).turn, "red");
+    assert.deepEqual(JSON.parse(room.position).revealed, [0, 30]);
+  } finally {
     await stop(context);
   }
 });

@@ -1031,24 +1031,71 @@ function armyInitialBoard(): string {
   return board.join("");
 }
 
+function armyRevealedIndices(state: OnlinePositionState): Set<number> {
+  if (!Array.isArray(state.revealed)) return new Set();
+  return new Set(state.revealed.filter((value): value is number => (
+    Number.isInteger(value) && value >= 0 && value < 5 * 12
+  )));
+}
+
+function armyMoveTargets(
+  board: string,
+  revealed: Set<number>,
+  from: OnlinePoint,
+  seat: GameSeat,
+): OnlineMoveCandidate[] {
+  const sourceIndex = indexOf(from, 5);
+  if (!revealed.has(sourceIndex) || armyOwner(board[sourceIndex]) !== seat) return [];
+  return adjacentTargets(board, from, seat, 5, 12, armyOwner)
+    .filter((move) => {
+      const targetIndex = indexOf(move.to, 5);
+      return board[targetIndex] === "0" || revealed.has(targetIndex);
+    });
+}
+
 const armyChessEngine: OnlineGameEngine = {
   id: "army-chess",
   board: { kind: "grid", columns: 5, rows: 12, aspectRatio: 0.42 },
-  initialPosition: () => jsonPosition("army-chess", armyInitialBoard(), RED),
+  initialPosition: () => jsonPosition("army-chess", armyInitialBoard(), RED, { revealed: [] }),
   parse: (position) => parseJsonPosition("army-chess", position),
   legalMoves: (position, seat, from) => {
     const state = armyChessEngine.parse(position);
     if (!state || state.turn !== seat || typeof state.board !== "string") return [];
-    return from ? adjacentTargets(state.board, from, seat, 5, 12, armyOwner) : gridCoordinates(5, 12).flatMap((point) => adjacentTargets(state.board as string, point, seat, 5, 12, armyOwner));
+    const board = state.board;
+    const revealed = armyRevealedIndices(state);
+    const movesForPoint = (point: OnlinePoint): OnlineMoveCandidate[] => {
+      const piece = board[indexOf(point, 5)];
+      if (piece !== "0" && !revealed.has(indexOf(point, 5))) {
+        return [candidate(point, point, null, "翻开棋子")];
+      }
+      return armyMoveTargets(board, revealed, point, seat);
+    };
+    return from ? movesForPoint(from) : gridCoordinates(5, 12).flatMap(movesForPoint);
   },
   apply: (position, seat, move) => {
     const state = armyChessEngine.parse(position);
     if (!state || state.turn !== seat || typeof state.board !== "string") return null;
-    const legal = adjacentTargets(state.board, move.from, seat, 5, 12, armyOwner).find((item) => samePoint(item.to, move.to));
+    const revealed = armyRevealedIndices(state);
+    const sourceIndex = indexOf(move.from, 5);
+    if (samePoint(move.from, move.to) && state.board[sourceIndex] !== "0" && !revealed.has(sourceIndex)) {
+      revealed.add(sourceIndex);
+      return jsonPosition("army-chess", state.board, otherSeat(seat), {
+        revealed: [...revealed].sort((left, right) => left - right),
+        lastAction: "reveal",
+      });
+    }
+    const legal = armyMoveTargets(state.board, revealed, move.from, seat).find((item) => samePoint(item.to, move.to));
     if (!legal) return null;
     let board = setBoardCell(state.board, move.from, "0", 5);
     board = setBoardCell(board, move.to, state.board[indexOf(move.from, 5)], 5);
-    return jsonPosition("army-chess", board, otherSeat(seat), { lastCapture: legal.captured });
+    revealed.delete(sourceIndex);
+    revealed.delete(indexOf(move.to, 5));
+    revealed.add(indexOf(move.to, 5));
+    return jsonPosition("army-chess", board, otherSeat(seat), {
+      revealed: [...revealed].sort((left, right) => left - right),
+      lastAction: "move",
+      lastCapture: legal.captured,
+    });
   },
 };
 

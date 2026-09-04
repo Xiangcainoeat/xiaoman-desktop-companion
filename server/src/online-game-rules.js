@@ -156,7 +156,11 @@ export function initialPosition(gameId) {
   // Existing Xiangqi rooms used an opaque H5 position. Keep that encoding
   // valid so an upgrade never invalidates a room already in progress.
   if (gameId === "xiangqi") return "initial";
-  const extra = gameId === "connect6" ? { moveCount: 0, stonesThisTurn: 0 } : {};
+  const extra = gameId === "connect6"
+    ? { moveCount: 0, stonesThisTurn: 0 }
+    : gameId === "army-chess"
+      ? { revealed: [] }
+      : {};
   return JSON.stringify({ v: 1, game: gameId, board: initialBoard(gameId), turn: RED, ...extra });
 }
 
@@ -226,6 +230,77 @@ function countChangedCells(left, right) {
   let changed = 0;
   for (let index = 0; index < left.length; index += 1) if (left[index] !== right[index]) changed += 1;
   return changed;
+}
+
+function armyRevealedSet(value, allowMissing = false) {
+  if (value === undefined && allowMissing) return new Set();
+  if (!Array.isArray(value)) return null;
+  const result = new Set();
+  for (const index of value) {
+    if (!Number.isInteger(index) || index < 0 || index >= 60 || result.has(index)) return null;
+    result.add(index);
+  }
+  return result;
+}
+
+function sameNumberSet(left, right) {
+  return left.size === right.size && [...left].every((value) => right.has(value));
+}
+
+function armyBoardAfterMove(board, fromIndex, toIndex) {
+  const next = board.split("");
+  next[toIndex] = next[fromIndex];
+  next[fromIndex] = "0";
+  return next.join("");
+}
+
+function validateArmyChessMove(current, next, move, seat) {
+  if (typeof current.board !== "string" || current.board.length !== 60
+    || typeof next.board !== "string" || next.board.length !== 60) {
+    throw new AppError("MOVE_REJECTED", "军棋棋盘状态无效", 400);
+  }
+  const currentRevealed = armyRevealedSet(current.revealed, true);
+  const nextRevealed = armyRevealedSet(next.revealed);
+  if (!currentRevealed || !nextRevealed) throw new AppError("MOVE_REJECTED", "军棋翻牌状态无效", 400);
+
+  const expectedTurn = seat === RED ? BLACK : RED;
+  if (next.turn !== expectedTurn) throw new AppError("MOVE_REJECTED", "军棋每步必须切换回合", 409);
+  const fromIndex = move.from.y * 5 + move.from.x;
+  const toIndex = move.to.y * 5 + move.to.x;
+  const source = current.board[fromIndex];
+  const destination = current.board[toIndex];
+
+  if (samePoint(move.from, move.to)) {
+    if (source === "0" || currentRevealed.has(fromIndex)) {
+      throw new AppError("MOVE_REJECTED", "这个军棋位置不能翻开", 409);
+    }
+    const expectedRevealed = new Set(currentRevealed);
+    expectedRevealed.add(fromIndex);
+    if (next.board !== current.board || !sameNumberSet(expectedRevealed, nextRevealed) || move.captured !== null) {
+      throw new AppError("MOVE_REJECTED", "军棋翻牌状态与服务器不同步", 409);
+    }
+    return { position: move.position, nextTurn: expectedTurn, winner: null, finished: false };
+  }
+
+  const adjacent = Math.abs(move.from.x - move.to.x) + Math.abs(move.from.y - move.to.y) === 1;
+  if (!adjacent || !currentRevealed.has(fromIndex) || !pieceBelongsToSeat("army-chess", source, seat)) {
+    throw new AppError("MOVE_REJECTED", "这个军棋棋子不能这样移动", 409);
+  }
+  if (pieceBelongsToSeat("army-chess", destination, seat)
+    || (destination !== "0" && !currentRevealed.has(toIndex))) {
+    throw new AppError("MOVE_REJECTED", "军棋目标位置不可用", 409);
+  }
+  const expectedBoard = armyBoardAfterMove(current.board, fromIndex, toIndex);
+  const expectedRevealed = new Set(currentRevealed);
+  expectedRevealed.delete(fromIndex);
+  expectedRevealed.delete(toIndex);
+  expectedRevealed.add(toIndex);
+  const expectedCapture = destination === "0" ? null : move.to;
+  if (next.board !== expectedBoard || !sameNumberSet(expectedRevealed, nextRevealed)
+    || !samePoint(move.captured, expectedCapture)) {
+    throw new AppError("MOVE_REJECTED", "军棋走子状态与服务器不同步", 409);
+  }
+  return { position: move.position, nextTurn: expectedTurn, winner: null, finished: false };
 }
 
 function lineWinner(board, columns, rows, point, marker, length) {
@@ -312,6 +387,7 @@ export function validateAndApplyMove(gameId, currentPosition, move, seat) {
   if (current.turn !== seat) throw new AppError("MOVE_REJECTED", "还没轮到这个席位", 409);
   if (!validBoardValue(next.board, gameId)) throw new AppError("MOVE_REJECTED", "棋盘状态格式无效", 400);
   if (move.position === currentPosition) throw new AppError("MOVE_REJECTED", "这一步没有改变棋局", 409);
+  if (gameId === "army-chess") return validateArmyChessMove(current, next, move, seat);
 
   // For string boards, reject impossible wholesale rewrites while allowing
   // games whose move changes several cells (captures, flips, sowing, etc.).

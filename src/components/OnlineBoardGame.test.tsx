@@ -188,6 +188,43 @@ describe("联机棋盘 catalog 与位置契约", () => {
     expect(flipMarkup).toContain("is-hidden");
   });
 
+  it("军棋翻牌写入共享局面并立即把回合交给对方", () => {
+    const initial = createInitialPosition("army-chess");
+    const redReveal = createOnlineMove({
+      roomId: "army-room",
+      gameId: "army-chess",
+      seat: "red",
+      seq: 1,
+      position: initial,
+      from: { x: 0, y: 0 },
+      to: { x: 0, y: 0 },
+    });
+
+    expect(redReveal).not.toBeNull();
+    const afterRed = parseOnlinePosition("army-chess", redReveal!.position);
+    expect(afterRed?.turn).toBe("black");
+    expect(afterRed?.revealed).toEqual([0]);
+    expect(getLegalMoves("army-chess", redReveal!.position, "red")).toEqual([]);
+
+    const blackReveal = createOnlineMove({
+      roomId: "army-room",
+      gameId: "army-chess",
+      seat: "black",
+      seq: 2,
+      position: redReveal!.position,
+      from: { x: 1, y: 0 },
+      to: { x: 1, y: 0 },
+    });
+    expect(blackReveal).not.toBeNull();
+    expect(parseOnlinePosition("army-chess", blackReveal!.position)?.turn).toBe("red");
+
+    const markup = renderToStaticMarkup(
+      <ArmyChessBoard state={afterRed} selected={null} targets={[]} onPoint={() => undefined} />,
+    );
+    expect(markup.match(/is-occupied is-revealed/g)?.length).toBe(1);
+    expect(markup.match(/is-hidden/g)?.length).toBe(49);
+  });
+
   it("中国象棋使用仓库内的真实棋盘和双方棋子素材", () => {
     const markup = renderToStaticMarkup(
       <OnlineBoardGame room={roomFor("xiangqi")} seat="red" client={{ sendMove: async () => undefined }} />,

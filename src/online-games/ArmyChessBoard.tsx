@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactElement } from "react";
+import { createContext, useContext, useMemo, type CSSProperties, type ReactElement } from "react";
 import type { GameMove, GameSeat } from "../social/types";
 import type { OnlineMoveCandidate, OnlinePoint, OnlinePositionState } from "./types";
 
@@ -211,29 +211,16 @@ export interface ArmyChessBoardProps {
 export function ArmyChessBoard({ state, selected, targets, lastMove, onPoint }: ArmyChessBoardProps): ReactElement {
   const board = useMemo(() => normalizedBoard(state), [state]);
   const mode = useContext(ArmyChessModeContext);
-  const [revealed, setRevealed] = useState<Set<number>>(() => new Set());
+  const revealed = useMemo(() => new Set(
+    Array.isArray(state?.revealed)
+      ? state.revealed.filter((value): value is number => Number.isInteger(value) && value >= 0 && value < COLUMNS * ROWS)
+      : [],
+  ), [state]);
   const targetKeys = useMemo(() => new Set(targets.map((move) => pointKey(move.to))), [targets]);
   const lastKey = lastMove?.gameId === "army-chess" ? pointKey(lastMove.to) : "";
 
-  useEffect(() => {
-    setRevealed(new Set());
-  }, [mode, state?.game]);
-
-  const handlePoint = (point: OnlinePoint, piece: string) => {
-    const index = pointIndex(point);
-    if (piece !== "0" && !revealed.has(index)) {
-      setRevealed((current) => {
-        const next = new Set(current);
-        next.add(index);
-        return next;
-      });
-      return;
-    }
-    onPoint(point);
-  };
-
   return (
-    <div className="online-army-chess-wrap">
+    <div className="online-army-chess-wrap" data-army-mode={mode}>
       <div className="online-army-chess-board" role="grid" aria-label="联机军棋棋盘">
         <ArmyBoardBackground />
         <ArmyMovePath move={lastMove} />
@@ -243,9 +230,8 @@ export function ArmyChessBoard({ state, selected, targets, lastMove, onPoint }: 
             const key = pointKey(point);
             const piece = board[index] ?? "0";
             const side = sideForPiece(piece);
-            // Both variants start with covered pieces. The difference is in the
-            // rules used by the room; the visual board reveals pieces one click
-            // at a time so switching variants never flashes the whole position.
+            // Reveals are part of the server-owned position. Both players render
+            // the same covered pieces and every reveal consumes one room turn.
             const hidden = Boolean(side && !revealed.has(index));
             const selectedHere = Boolean(selected && pointKey(selected) === key);
             const targetHere = targetKeys.has(key);
@@ -258,7 +244,7 @@ export function ArmyChessBoard({ state, selected, targets, lastMove, onPoint }: 
                 type="button"
                 role="gridcell"
                 aria-label={`${point.y + 1} 行 ${point.x + 1} 列${piece === "0" ? "空位" : hidden ? "未翻开的棋子" : pieceLabel(piece)}`}
-                onClick={() => handlePoint(point, piece)}
+                onClick={() => onPoint(point)}
               >
                 {piece !== "0" && <span className="online-army-piece" aria-hidden="true">{hidden ? "?" : pieceLabel(piece)}</span>}
                 {targetHere && <span className={`online-army-target-dot ${piece !== "0" ? "is-attack" : ""}`} aria-hidden="true" />}
@@ -270,7 +256,7 @@ export function ArmyChessBoard({ state, selected, targets, lastMove, onPoint }: 
       <div className="online-army-chess-log" aria-label="走子记录">
         <span>走子记录</span>
         <strong>{state?.turn === "red" ? "红方回合" : "蓝方回合"}</strong>
-        <small>{lastMove ? `第 ${lastMove.seq} 手 · ${lastMove.from.x + 1},${lastMove.from.y + 1} → ${lastMove.to.x + 1},${lastMove.to.y + 1}` : "等待第一步"}</small>
+        <small>{lastMove ? `第 ${lastMove.seq} 手 · ${state?.lastAction === "reveal" ? "翻开" : `${lastMove.from.x + 1},${lastMove.from.y + 1} →`} ${lastMove.to.x + 1},${lastMove.to.y + 1}` : "等待第一步"}</small>
       </div>
     </div>
   );

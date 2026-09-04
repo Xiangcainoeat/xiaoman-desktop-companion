@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.8 - 2026-09-04
+
+- Moved Army Chess piece reveals from browser-only UI state into the shared, server-confirmed room position so both players always see the same board.
+- Enforced strict alternating turns for both reveals and moves, including server rejection of repeated actions, stale sequences and client-forged next-turn state.
+- Limited Army Chess movement to revealed pieces and kept reveal/move history synchronized over the existing WebSocket protocol.
+
 ## 1.10.7 - 2026-09-04
 
 - Anchored the mobile direction pad to the exact horizontal center while placing action controls only in the left and right side lanes.
