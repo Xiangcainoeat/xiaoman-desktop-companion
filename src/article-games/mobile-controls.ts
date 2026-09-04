@@ -102,9 +102,8 @@ export const MOBILE_GAME_CONTROLS: Record<ArticleGameId, MobileControlProfile> =
     ],
   },
   "2048": {
-    kind: "buttons",
-    hint: "点击方向键移动全部数字块",
-    directions: DIRECTIONS,
+    kind: "direct",
+    hint: "在棋盘上滑动移动全部数字块",
   },
   "sliding-puzzle": {
     kind: "direct",

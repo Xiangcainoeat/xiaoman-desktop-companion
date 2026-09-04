@@ -95,6 +95,12 @@ describe("GamesView source contract", () => {
     expect(styles).toContain("overflow-anchor: none;");
   });
 
+  it("restores one outer page scroller for active games on mobile web", () => {
+    expect(styles).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.center-shell\.is-web \.content-scroll\.is-games[\s\S]*?overflow-y:\s*auto !important;/);
+    expect(styles).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.center-shell\.is-web \.games-view\.is-game-active[\s\S]*?overflow:\s*visible !important;/);
+    expect(styles).toMatch(/@media \(max-width: 760px\)[\s\S]*?\.gomoku-game[\s\S]*?overflow:\s*visible !important;/);
+  });
+
   it("keeps the active game's pause and utility controls in their own row", () => {
     expect(styles).toMatch(/\.games-view\.is-game-active \.article-game-header\s*\{[\s\S]*?position:\s*relative;/);
     expect(styles).toMatch(/\.games-view\.is-game-active \.article-game-toolbar\s*\{[\s\S]*?margin-left:\s*auto;/);

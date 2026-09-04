@@ -24,4 +24,9 @@ describe("mobile article-game controls", () => {
     expect(resolveGameInputMode("desktop", 390, true)).toBe("desktop");
     expect(resolveGameInputMode("mobile", 1440, false)).toBe("mobile");
   });
+
+  it("uses the upstream swipe surface for 2048 instead of duplicating a direction pad", () => {
+    expect(MOBILE_GAME_CONTROLS["2048"].kind).toBe("direct");
+    expect(MOBILE_GAME_CONTROLS["2048"].directions).toBeUndefined();
+  });
 });

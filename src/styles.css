@@ -8574,7 +8574,7 @@ select:focus-visible {
   display: grid;
   gap: 8px;
   padding: 9px 11px max(9px, env(safe-area-inset-bottom));
-  touch-action: none;
+  touch-action: pan-y;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -8597,14 +8597,15 @@ select:focus-visible {
 }
 
 .mobile-game-control-groups {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center;
-  justify-content: space-between;
   gap: 18px;
 }
 
 .mobile-game-direction-pad {
   display: grid;
+  grid-column: 2;
   width: 164px;
   min-width: 164px;
   height: 104px;
@@ -8620,9 +8621,11 @@ select:focus-visible {
 
 .mobile-game-action-pad {
   display: grid;
-  flex: 1 1 auto;
+  width: min(220px, 100%);
+  grid-column: 3;
   grid-template-columns: repeat(2, minmax(58px, 1fr));
   gap: 8px;
+  justify-self: center;
 }
 
 .mobile-game-control-button {
@@ -8704,18 +8707,14 @@ select:focus-visible {
     justify-content: flex-end;
   }
 
-  .center-shell.is-web .article-game-view[data-input-mode="mobile"] .mobile-game-controls,
-  .center-shell.is-web .article-game-view[data-input-mode="mobile"] .mobile-game-direct-hint {
-    position: sticky;
-    z-index: 35;
-    bottom: 0;
-  }
-
   .mobile-game-control-groups {
+    grid-template-columns: 1fr;
     gap: 10px;
+    justify-items: center;
   }
 
   .mobile-game-direction-pad {
+    grid-column: 1;
     width: 148px;
     min-width: 148px;
     height: 94px;
@@ -8728,6 +8727,11 @@ select:focus-visible {
     height: 43px;
     min-width: 47px;
     padding-inline: 6px;
+  }
+
+  .mobile-game-action-pad {
+    width: min(100%, 236px);
+    grid-column: 1;
   }
 }
 
@@ -10771,4 +10775,81 @@ select:focus-visible {
   .social-room-share-strip { align-items: stretch; flex-direction: column; }
   .social-room-share-actions { justify-content: flex-start; }
   .online-games-room-callout .secondary-button { align-self: flex-start; }
+}
+
+/* Mobile game pages use one document scroller. Desktop keeps the fitted,
+   non-scrolling game workspace, while narrow web views must be able to reveal
+   the complete board, toolbar, and any controls below it. */
+@media (max-width: 760px) {
+  .center-shell.is-web .content-scroll.is-games {
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior-y: auto;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .center-shell.is-web .center-page-games.is-active,
+  .center-shell.is-web .center-page-games.is-active:has(.games-view.is-game-active),
+  .center-shell.is-web .center-page-games.is-active:has(.games-view.is-game-active) .games-view,
+  .center-shell.is-web .center-page-games.is-active:has(.games-view.is-game-active) .article-game-tab-panels,
+  .center-shell.is-web .center-page-games.is-active:has(.games-view.is-game-active) .article-game-tab-panel.is-active,
+  .center-shell.is-web .center-page-games.is-active:has(.games-view.is-game-active) .article-game-view {
+    height: auto !important;
+    min-height: 0;
+    overflow: visible !important;
+    overscroll-behavior: auto;
+  }
+
+  .center-shell.is-web .games-view.is-game-active {
+    display: block;
+    height: auto !important;
+    min-height: calc(100vh - 104px);
+    overflow: visible !important;
+    overscroll-behavior: auto;
+    padding-bottom: max(30px, env(safe-area-inset-bottom));
+  }
+
+  .center-shell.is-web .games-view.is-game-active .article-game-tab-panels {
+    display: block;
+    min-height: 0;
+    flex: none;
+  }
+
+  .center-shell.is-web .games-view.is-game-active .article-game-tab-panel.is-active,
+  .center-shell.is-web .games-view.is-game-active .article-game-view {
+    height: auto !important;
+    min-height: 0;
+    overflow: visible !important;
+  }
+
+  .center-shell.is-web .article-game-view[data-input-mode="mobile"] .article-game-stage,
+  .center-shell.is-web .article-game-view[data-input-mode="mobile"] .article-game-stage.has-side-help {
+    width: 100%;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .center-shell.is-web .article-game-view[data-input-mode="mobile"] .article-game-frame-wrap {
+    margin-inline: auto;
+  }
+
+  .center-shell.is-web .article-game-view[data-input-mode="mobile"] .mobile-game-controls {
+    position: static;
+    margin-top: 12px;
+  }
+
+  .center-shell.is-web .games-view.is-game-active .article-game-tab-panel.is-active:has(.gomoku-game),
+  .center-shell.is-web .gomoku-game,
+  .center-shell.is-web .gomoku-game-content,
+  .center-shell.is-web .gomoku-board-panel,
+  .center-shell.is-web .gomoku-side-panel {
+    height: auto !important;
+    max-height: none;
+    overflow: visible !important;
+  }
+
+  .center-shell.is-web .gomoku-game {
+    display: flex;
+  }
 }

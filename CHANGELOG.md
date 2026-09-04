@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.10.1 - 2026-09-04
+
+- Restored one outer vertical scroller for active mobile game pages so tall boards and settings remain reachable without nested iframe/page scrolling conflicts.
+- Removed redundant mobile control panels from direct-touch games, including Chinese Xiangqi and 2048; their original board gestures remain the only input surface.
+- Centered mobile direction and action controls, centered the Battle City stage, and made the native Gomoku workspace participate in the same outer-page scrolling model.
+- Stopped mobile iframe focus changes from resetting ancestor scroll positions while retaining the fitted, non-scrolling desktop workspace.
+
 ## 1.10.0 - 2026-09-04
 
 - Added responsive mobile game workspaces with automatic detection, an explicit automatic/desktop/mobile switch, and outside-the-frame touch controls for every keyboard-driven single-player game.

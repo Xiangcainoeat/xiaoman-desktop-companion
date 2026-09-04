@@ -14,7 +14,6 @@ import {
   Keyboard,
   Laptop,
   LoaderCircle,
-  MousePointer2,
   Pause,
   Play,
   Puzzle,
@@ -208,14 +207,7 @@ function MobileGameControls({
   onRelease: (action: MobileControlAction) => void;
 }) {
   if (profile.kind === "external") return null;
-  if (profile.kind === "direct") {
-    return (
-      <div className="mobile-game-direct-hint" role="note">
-        <MousePointer2 size={18} aria-hidden="true" />
-        <span>{profile.hint}</span>
-      </div>
-    );
-  }
+  if (profile.kind === "direct") return null;
 
   const controlButton = (action: MobileControlAction) => {
     const press = (event: ReactPointerEvent<HTMLButtonElement>) => {
@@ -537,6 +529,7 @@ export function ArticleGameView({
     // a transient window blur. Reactivate before the next visibility message.
     setWindowActive(true);
     iframeRef.current?.focus({ preventScroll: true });
+    if (resolvedInputMode === "mobile") return;
     // Some Electron/WebKit builds still scroll an iframe ancestor after focus.
     // Keyboard events are forwarded by the host, so restore only that outer row.
     window.requestAnimationFrame(() => {
@@ -610,6 +603,7 @@ export function ArticleGameView({
     <section
       className={`article-game-view ${active ? "is-active" : "is-inactive"}`}
       data-input-mode={resolvedInputMode}
+      data-mobile-control-kind={mobileProfile.kind}
       aria-labelledby={`article-game-title-${definition.id}`}
       aria-hidden={!active}
       onPointerDown={stopEvent}
