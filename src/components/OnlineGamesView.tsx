@@ -68,13 +68,19 @@ function asSocialGameId(gameId: OnlineGameId): SocialGameId {
 export interface OnlineGamesViewProps {
   client: SocialClient;
   snapshot: SocialClientSnapshot;
+  onOpenRoom?: (roomId: string) => void;
   onOpenRooms?: () => void;
 }
 
 const GAME_FILTERS = ["全部", "棋类", "桌游"] as const;
 type GameFilter = (typeof GAME_FILTERS)[number];
 
-export function OnlineGamesView({ client, snapshot, onOpenRooms = () => undefined }: OnlineGamesViewProps) {
+export function OnlineGamesView({
+  client,
+  snapshot,
+  onOpenRoom = () => undefined,
+  onOpenRooms = () => undefined,
+}: OnlineGamesViewProps) {
   const [selectedGame, setSelectedGame] = useState<OnlineGameId>("gomoku");
   const [roomCode, setRoomCode] = useState("");
   const [notice, setNotice] = useState("");
@@ -100,7 +106,7 @@ export function OnlineGamesView({ client, snapshot, onOpenRooms = () => undefine
   const createRoom = (gameId: OnlineGameId) => run(async () => {
     const room = await client.createRoom({ gameId: asSocialGameId(gameId) });
     setNotice(`${onlineGameLabel(room.gameId)}房间已创建：${room.code}`);
-    onOpenRooms();
+    onOpenRoom(room.id);
   }, gameId);
 
   const joinRoom = async (event: FormEvent) => {
@@ -111,7 +117,7 @@ export function OnlineGamesView({ client, snapshot, onOpenRooms = () => undefine
       const room = await client.joinRoom({ code });
       setRoomCode("");
       setNotice(`已加入${onlineGameLabel(room.gameId)}房间：${room.code}`);
-      onOpenRooms();
+      onOpenRoom(room.id);
     });
   };
 

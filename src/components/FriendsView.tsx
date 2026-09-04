@@ -249,19 +249,22 @@ function RoomList({
   client,
   snapshot,
   initialRoomCode,
+  selectedRoomId,
+  onSelectRoom,
 }: {
   client: SocialClient;
   snapshot: SocialClientSnapshot;
   initialRoomCode: string | null;
+  selectedRoomId: string | null;
+  onSelectRoom: (roomId: string | null) => void;
 }) {
   const [code, setCode] = useState("");
   const [selectedGame, setSelectedGame] = useState<OnlineGameId>("gomoku");
   const [notice, setNotice] = useState("");
   const [copied, setCopied] = useState<"code" | "link" | null>(null);
-  const [showActive, setShowActive] = useState(Boolean(snapshot.activeRoomId || initialRoomCode));
   const [now, setNow] = useState(() => Date.now());
   const attemptedLink = useRef("");
-  const rawActiveRoom = client.getRoom(snapshot.activeRoomId);
+  const rawActiveRoom = client.getRoom(selectedRoomId);
   const activeRoom = rawActiveRoom && roomExpiresAt(rawActiveRoom) > now ? rawActiveRoom : null;
   const roomRows = snapshot.rooms.filter((room) => roomExpiresAt(room) > now);
   const ownId = snapshot.session.user?.id ?? null;
@@ -279,16 +282,16 @@ function RoomList({
 
   useEffect(() => {
     if (!activeRoom && rawActiveRoom && roomExpiresAt(rawActiveRoom) <= now) {
-      setShowActive(false);
+      onSelectRoom(null);
       setNotice("这个房间已因长时间无活动失效，请重新创建或输入其他房间号");
     }
-  }, [activeRoom, now, rawActiveRoom]);
+  }, [activeRoom, now, onSelectRoom, rawActiveRoom]);
 
   useEffect(() => {
     if (snapshot.session.authState !== "authenticated" || !initialRoomCode || attemptedLink.current === initialRoomCode) return;
     attemptedLink.current = initialRoomCode;
     void client.joinRoom({ code: initialRoomCode }).then((room) => {
-      setShowActive(true);
+      onSelectRoom(room.id);
       setNotice("已通过邀请链接进入" + gameLabel(room.gameId) + "房间 " + room.code);
       try {
         const params = new URLSearchParams(window.location.search);
@@ -299,7 +302,7 @@ function RoomList({
         // History is optional in embedded webviews.
       }
     }).catch((error) => setNotice(socialErrorMessage(error)));
-  }, [client, initialRoomCode, snapshot.session.authState]);
+  }, [client, initialRoomCode, onSelectRoom, snapshot.session.authState]);
 
   useEffect(() => {
     if (snapshot.session.authState !== "authenticated") return undefined;
@@ -329,7 +332,7 @@ function RoomList({
   const create = async () => {
     try {
       const room = await client.createRoom({ gameId: asSocialGameId(selectedGame) });
-      setShowActive(true);
+      onSelectRoom(room.id);
       setNotice(gameLabel(room.gameId) + "房间已创建：" + room.code + "，可以复制邀请链接或邀请码");
     } catch (error) {
       setNotice(socialErrorMessage(error));
@@ -343,7 +346,7 @@ function RoomList({
     try {
       const room = await client.joinRoom({ code: normalized });
       setCode("");
-      setShowActive(true);
+      onSelectRoom(room.id);
       setNotice("已加入" + gameLabel(room.gameId) + "房间：" + room.code);
     } catch (error) {
       setNotice(socialErrorMessage(error));
@@ -352,8 +355,8 @@ function RoomList({
 
   const enterRoom = async (room: GameRoom) => {
     try {
-      await client.joinRoom({ roomId: room.id });
-      setShowActive(true);
+      const joinedRoom = await client.joinRoom({ roomId: room.id });
+      onSelectRoom(joinedRoom.id);
       setNotice("已进入" + gameLabel(room.gameId) + "房间：" + room.code);
     } catch (error) {
       setNotice(socialErrorMessage(error));
@@ -411,7 +414,7 @@ function RoomList({
     if (!activeRoom) return;
     try {
       await client.leaveRoom(activeRoom.id);
-      setShowActive(false);
+      onSelectRoom(null);
       setNotice("已离开房间");
     } catch (error) {
       setNotice(socialErrorMessage(error));
@@ -467,7 +470,7 @@ function RoomList({
       : <OnlineBoardGame room={activeRoom} seat={ownSeat} client={client} />
     : null;
 
-  if (showActive && activeRoom && activeBoard) {
+  if (activeRoom && activeBoard) {
     const remaining = formatRemaining(roomExpiresAt(activeRoom) - now);
     return (
       <section className="social-my-rooms-panel is-active-room">
@@ -477,7 +480,7 @@ function RoomList({
             <h3>{gameLabel(activeRoom.gameId)} <small>{activeRoom.code}</small></h3>
             <p><Timer size={14} />剩余 {remaining} · 闲置 1 小时自动销毁</p>
           </div>
-          <button className="secondary-button compact" type="button" onClick={() => setShowActive(false)}>
+          <button className="secondary-button compact" type="button" onClick={() => onSelectRoom(null)}>
             <ArrowLeft size={15} />返回我的房间
           </button>
         </div>
@@ -502,7 +505,7 @@ function RoomList({
           onRematch={rematch}
           onRequestUndo={requestUndo}
           onRespondUndo={respondUndo}
-          onBack={() => setShowActive(false)}
+          onBack={() => onSelectRoom(null)}
         />
       </section>
     );
@@ -578,6 +581,7 @@ function AuthenticatedSocialWorkspace({
   onOpenSingleGames?: () => void;
 }) {
   const [activeTab, setActiveTab] = useState<RoomTab>(() => initialRoomCode ? "mine" : initialSection === "online-games" ? "online" : "online");
+  const [selectedRoomId, setSelectedRoomId] = useState<string | null>(null);
   const notifySection = () => onSectionChange?.("online-games");
 
   useEffect(() => {
@@ -586,6 +590,12 @@ function AuthenticatedSocialWorkspace({
 
   const selectTab = (nextTab: RoomTab) => {
     setActiveTab(nextTab);
+    notifySection();
+  };
+
+  const openRoom = (roomId: string) => {
+    setSelectedRoomId(roomId);
+    setActiveTab("mine");
     notifySection();
   };
 
@@ -601,8 +611,23 @@ function AuthenticatedSocialWorkspace({
             <button type="button" role="tab" aria-selected={activeTab === "mine"} className={activeTab === "mine" ? "is-active" : ""} onClick={() => selectTab("mine")}>我的房间{snapshot.rooms.length > 0 && <em>{snapshot.rooms.length}</em>}</button>
           </nav>
           {activeTab === "single" && <SinglePlayerPanel onOpenSingleGames={onOpenSingleGames} />}
-          {activeTab === "online" && <OnlineGamesView client={client} snapshot={snapshot} onOpenRooms={() => setActiveTab("mine")} />}
-          {activeTab === "mine" && <RoomList client={client} snapshot={snapshot} initialRoomCode={initialRoomCode} />}
+          {activeTab === "online" && (
+            <OnlineGamesView
+              client={client}
+              snapshot={snapshot}
+              onOpenRoom={openRoom}
+              onOpenRooms={() => selectTab("mine")}
+            />
+          )}
+          {activeTab === "mine" && (
+            <RoomList
+              client={client}
+              snapshot={snapshot}
+              initialRoomCode={initialRoomCode}
+              selectedRoomId={selectedRoomId}
+              onSelectRoom={setSelectedRoomId}
+            />
+          )}
         </>
       )}
     </>

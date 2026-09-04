@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.3 - 2026-09-04
+
+- Made the displayed online room an explicit workspace selection instead of deriving it from a possibly stale global active-room snapshot.
+- Creating or joining a room from the online lobby now opens that exact room immediately, even when another game remains active in the account.
+- Added a regression test for creating a new room while an older room is already open and playing.
+
 ## 1.10.2 - 2026-09-04
 
 - Replaced the online-room mode/room tabs with one compact vertical control column and made the ready action the first, most prominent control after both players enter.
